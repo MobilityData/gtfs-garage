@@ -69,3 +69,21 @@ class TestMain:
 
         assert main([str(feed_dir), "--port", "8998"]) == 0
         assert opened == ["http://127.0.0.1:8998"]
+
+
+class TestBasemapOption:
+    def test_defaults_to_none_so_the_app_decides(self):
+        assert build_parser().parse_args(["feed.zip"]).basemap is None
+
+    def test_accepts_a_preset(self):
+        assert build_parser().parse_args(["feed.zip", "--basemap", "esri"]).basemap == "esri"
+
+    def test_accepts_a_url(self):
+        url = "https://example.org/styles/mine.json"
+        assert build_parser().parse_args(["feed.zip", "--basemap", url]).basemap == url
+
+    def test_is_passed_to_the_app(self, feed_dir: Path, monkeypatch):
+        built = {}
+        monkeypatch.setattr("gtfs_garage.cli.uvicorn.run", lambda app, host, port: built.update(app=app))
+        assert main([str(feed_dir), "--no-browser", "--basemap", "osm"]) == 0
+        assert built["app"].state.basemap == "osm"

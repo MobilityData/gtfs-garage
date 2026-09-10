@@ -1,6 +1,7 @@
 /** `GtfsSource` backed by the local Python server. */
 
 import type {
+  AppConfig,
   FeatureCollection,
   Filter,
   GeoJsonKind,
@@ -33,6 +34,10 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 export class RestSource implements GtfsSource {
   constructor(private readonly baseUrl = "") {}
+
+  config(): Promise<AppConfig> {
+    return fetchJson<AppConfig>(`${this.baseUrl}/api/config`);
+  }
 
   tables(): Promise<TablesResponse> {
     return fetchJson<TablesResponse>(`${this.baseUrl}/api/tables`);

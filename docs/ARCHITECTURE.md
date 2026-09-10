@@ -8,6 +8,7 @@
 | API | [FastAPI](https://fastapi.tiangolo.com) + uvicorn | Generates the OpenAPI document that defines the contract the frontend implements. |
 | Frontend | TypeScript, built with [Vite](https://vite.dev), no framework | The UI is a table and a map; a framework would add a dependency the tool does not need, and plain modules keep the door open to shipping it as a custom element. |
 | Map | [MapLibre GL JS](https://maplibre.org) | Same renderer as mobilitydatabase.org, so the two look alike. |
+| Basemap | [OpenFreeMap](https://openfreemap.org) Positron, configurable | Keyless and unmetered, and self-hostable if the map ever has to work offline. |
 | Packaging | hatchling | Ships the schema document and the built frontend as package data. |
 
 ## Layers
@@ -80,8 +81,16 @@ ever proves too large to draw this way, generating real tiles is the upgrade pat
 **The map is self-contained.** Route geometry comes from the feed's own
 `shapes.txt`, joined through `trips` to pick a representative shape per route and
 coloured with the feed's `route_color`. Only two things cross the network: the
-MapLibre library (a CDN script) and the CARTO basemap tiles. Neither involves
+MapLibre library (a CDN script) and the basemap tiles. Neither involves
 mobilitydatabase; what was borrowed is the styling recipe, not the data.
+
+**The basemap is a setting, and every preset is keyless.** Providers change
+their terms - a watermark demanding an API key can appear on a service that was
+previously open - so the tile source is configuration rather than a constant, and
+`none` is a supported value. Attribution is declared alongside each preset
+because it is a licence obligation under ODbL and CC BY, and an upstream style
+may not carry any. A vector basemap is fetched and merged into the style rather
+than referenced by URL, so the feed's layers still exist from the first frame.
 
 **Links are resolved against the feed.** Most GTFS files are optional, so the
 relationships in `data/gtfs-schema.json` are filtered against what the loaded

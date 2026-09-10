@@ -66,6 +66,12 @@ export interface Filter {
   value?: string;
 }
 
+export interface AppConfig {
+  /** Preset name, raster tile template, or vector style URL. */
+  basemap: string;
+  version: string;
+}
+
 export type GeoJsonKind = "stops" | "shapes" | "routes";
 
 export interface FeatureCollection {

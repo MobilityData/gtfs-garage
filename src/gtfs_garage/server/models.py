@@ -60,3 +60,12 @@ class ValueCount(BaseModel):
 
 class DistinctResponse(BaseModel):
     values: list[ValueCount]
+
+
+class ConfigResponse(BaseModel):
+    """Settings the interface reads at startup."""
+
+    # A preset name ("openfreemap", "esri", "osm", "carto", "none"), a raster
+    # tile template, or a vector style URL. The frontend resolves it.
+    basemap: str
+    version: str
