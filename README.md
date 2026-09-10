@@ -28,8 +28,9 @@ import step and only the rows on screen are ever materialised.
 
 ## Requirements
 
-Python 3.11 or newer. Node is only needed to change the frontend; the built
-assets are committed, so installing the package does not require it.
+Python 3.11 or newer. Released packages ship with the interface already built,
+so installing does not require Node. Node 22 or newer is needed only to work
+from a source checkout, where the frontend has to be built once.
 
 ## Installation & Usage
 
@@ -62,20 +63,23 @@ page = query_table(feed, "trips", [{"column": "route_id", "op": "eq", "value": "
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+
+cd web && yarn install && yarn build && cd ..   # build the interface once
 gtfs-garage path/to/feed.zip
 ```
 
-To work on the frontend:
+The frontend build is required from a checkout because its output is not in
+version control. Skip it and the API still runs, but the page explains what to
+do instead of failing obscurely.
+
+Frontend commands, all from `web/`:
 
 ```bash
-cd web
-npm install
-npm run dev     # Vite dev server against a running gtfs-garage
-npm run build   # writes into src/gtfs_garage/web/ - commit the result
+yarn dev        # Vite dev server against a running gtfs-garage
+yarn build      # writes into src/gtfs_garage/web/
+yarn typecheck
+yarn test
 ```
-
-The build output in `src/gtfs_garage/web/` is committed on purpose so that
-`pip install` never requires Node. CI fails if it is stale.
 
 ## Linter
 

@@ -51,9 +51,14 @@ path = "src/gtfs_garage/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/gtfs_garage"]
+# The built frontend is gitignored, and hatchling excludes ignored files by
+# default. `artifacts` is what puts generated files back in, so a wheel built
+# after `yarn build` actually carries an interface.
+artifacts = ["src/gtfs_garage/web/**"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/gtfs_garage", "tests", "README.md", "LICENSE", "pyproject.toml"]
+artifacts = ["src/gtfs_garage/web/**"]
 
 [tool.black]
 line-length = 120

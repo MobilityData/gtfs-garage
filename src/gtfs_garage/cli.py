@@ -26,7 +26,7 @@ import uvicorn
 
 from gtfs_garage import __version__
 from gtfs_garage.core.feed import GtfsLoadError
-from gtfs_garage.server.app import create_app
+from gtfs_garage.server.app import BUILD_COMMAND, create_app, frontend_is_built
 
 DEFAULT_PORT = 8811
 DEFAULT_HOST = "127.0.0.1"
@@ -57,6 +57,13 @@ def main(argv: list[str] | None = None) -> int:
     except GtfsLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+    if not frontend_is_built():
+        print(
+            f"warning: the frontend has not been built, so only the API will respond.\n"
+            f"         build it with: {BUILD_COMMAND}",
+            file=sys.stderr,
+        )
 
     url = f"http://{args.host}:{args.port}"
     print(f"GTFS Garage running at {url}")

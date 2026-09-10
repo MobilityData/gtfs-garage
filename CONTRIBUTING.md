@@ -15,14 +15,15 @@ scripts/lint-tests.sh   # flake8 + black, line length 120
 scripts/tests.sh        # pytest, branch coverage must stay >= 80%
 ```
 
-If you changed anything under `web/`, rebuild and commit the output:
+If you changed anything under `web/`:
 
 ```bash
-cd web && npm install && npm run typecheck && npm run build
+cd web && yarn install && yarn typecheck && yarn test && yarn build
 ```
 
-The built bundle in `src/gtfs_garage/web/` is committed so that `pip install`
-never requires Node. CI fails if it is stale.
+The build output in `src/gtfs_garage/web/` is deliberately not in version
+control. CI builds it for pull requests and releases, so a wheel always ships a
+current interface; from a checkout you build it yourself.
 
 ## Conventions
 
@@ -37,6 +38,6 @@ never requires Node. CI fails if it is stale.
 
 ## Releasing
 
-Bump `__version__` in `src/gtfs_garage/__init__.py`, update `CHANGELOG.md`, then
-tag `vX.Y.Z`. The release workflow checks the tag matches the version and
+Bump `__version__` in `src/gtfs_garage/__init__.py`, then tag `vX.Y.Z`. The
+release workflow checks the tag matches the version, builds the frontend, and
 publishes to PyPI.

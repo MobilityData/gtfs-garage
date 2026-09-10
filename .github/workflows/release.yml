@@ -19,6 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -34,9 +40,26 @@ jobs:
             exit 1
           fi
 
+      # The frontend is not in version control, so the published wheel only has
+      # an interface if it is built here first.
+      - name: Build the frontend
+        working-directory: web
+        run: yarn install --frozen-lockfile && yarn build
+
       - name: Build
         run: |
           pip install build
           python -m build
+
+      - name: The wheel must contain the built frontend
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          wheel = sorted(glob.glob("dist/*.whl"))[-1]
+          names = zipfile.ZipFile(wheel).namelist()
+          assert "gtfs_garage/web/index.html" in names, f"frontend missing from {wheel}"
+          assert any(n.endswith(".json") and "data/" in n for n in names), "schema missing"
+          print(f"{wheel} contains the frontend and schema")
+          PY
 
       - uses: pypa/gh-action-pypi-publish@release/v1

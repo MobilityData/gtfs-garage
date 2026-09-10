@@ -11,3 +11,6 @@ build/
 dist/
 *.egg-info/
 node_modules/
+
+# Frontend build output: produced by `npm run build` in web/, and by CI for releases.
+src/gtfs_garage/web/
