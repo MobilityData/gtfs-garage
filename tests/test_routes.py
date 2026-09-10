@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from gtfs_garage.server import app as app_module
 from gtfs_garage.server.app import create_app
 
 
@@ -107,8 +108,18 @@ class TestGeoJson:
 
 
 class TestServingTheUi:
-    def test_index_is_served(self, client: TestClient):
-        response = client.get("/")
+    def test_index_is_served_when_the_frontend_has_been_built(self, feed_dir: Path, tmp_path: Path, monkeypatch):
+        # A stand-in for the built frontend, so this does not depend on whether
+        # the checkout running the tests happens to have one. The opposite case
+        # lives in test_frontend_assets.py.
+        built = tmp_path / "web"
+        built.mkdir()
+        (built / "index.html").write_text("<h1>GTFS Garage</h1>", encoding="utf-8")
+        monkeypatch.setattr(app_module, "web_root", lambda: built)
+
+        with TestClient(create_app(str(feed_dir))) as client:
+            response = client.get("/")
+
         assert response.status_code == 200
         assert "GTFS Garage" in response.text
 
