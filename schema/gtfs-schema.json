@@ -1,0 +1,68 @@
+{
+  "$comment": "Single source of truth for GTFS relational semantics, shared by the Python backend (app/schema.py) and any JavaScript/TypeScript consumer. Hand-maintained from the GTFS spec rather than derived from a feed: a given feed rarely populates every optional column, but the relationships are fixed by the spec. Keys are camelCase so this reads naturally from TypeScript.",
+
+  "foreignKeys": {
+    "stops": {
+      "parent_station": { "table": "stops", "column": "stop_id" }
+    },
+    "routes": {
+      "agency_id": { "table": "agency", "column": "agency_id" }
+    },
+    "trips": {
+      "route_id": { "table": "routes", "column": "route_id" },
+      "service_id": { "table": "calendar", "column": "service_id" },
+      "shape_id": { "table": "shapes", "column": "shape_id" }
+    },
+    "stop_times": {
+      "trip_id": { "table": "trips", "column": "trip_id" },
+      "stop_id": { "table": "stops", "column": "stop_id" }
+    },
+    "calendar_dates": {
+      "service_id": { "table": "calendar", "column": "service_id" }
+    },
+    "fare_rules": {
+      "fare_id": { "table": "fare_attributes", "column": "fare_id" },
+      "route_id": { "table": "routes", "column": "route_id" }
+    },
+    "frequencies": {
+      "trip_id": { "table": "trips", "column": "trip_id" }
+    },
+    "transfers": {
+      "from_stop_id": { "table": "stops", "column": "stop_id" },
+      "to_stop_id": { "table": "stops", "column": "stop_id" }
+    },
+    "pathways": {
+      "from_stop_id": { "table": "stops", "column": "stop_id" },
+      "to_stop_id": { "table": "stops", "column": "stop_id" }
+    }
+  },
+
+  "primaryIdColumns": {
+    "agency": "agency_id",
+    "stops": "stop_id",
+    "routes": "route_id",
+    "trips": "trip_id",
+    "shapes": "shape_id",
+    "calendar": "service_id",
+    "fare_attributes": "fare_id"
+  },
+
+  "enumLikeColumns": [
+    "bikes_allowed",
+    "continuous_drop_off",
+    "continuous_pickup",
+    "direction_id",
+    "drop_off_type",
+    "exception_type",
+    "is_bidirectional",
+    "location_type",
+    "pathway_mode",
+    "payment_method",
+    "pickup_type",
+    "route_type",
+    "timepoint",
+    "transfer_type",
+    "wheelchair_accessible",
+    "wheelchair_boarding"
+  ]
+}
