@@ -26,7 +26,12 @@ import uvicorn
 
 from gtfs_garage import __version__
 from gtfs_garage.core.feed import GtfsLoadError
-from gtfs_garage.server.app import BUILD_COMMAND, create_app, frontend_is_built
+from gtfs_garage.server.app import (
+    BASEMAP_ENV_VAR,
+    BUILD_COMMAND,
+    create_app,
+    frontend_is_built,
+)
 
 DEFAULT_PORT = 8811
 DEFAULT_HOST = "127.0.0.1"
@@ -45,6 +50,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default=DEFAULT_HOST, help=f"default: {DEFAULT_HOST}")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"default: {DEFAULT_PORT}")
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser tab on start")
+    parser.add_argument(
+        "--basemap",
+        default=None,
+        metavar="NAME|URL",
+        help=(
+            "map backdrop: openfreemap (default), esri, osm, carto, none, "
+            "or a tile template or style URL. Also read from $" + BASEMAP_ENV_VAR
+        ),
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
@@ -53,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
-        app = create_app(args.feed)
+        app = create_app(args.feed, args.basemap)
     except GtfsLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

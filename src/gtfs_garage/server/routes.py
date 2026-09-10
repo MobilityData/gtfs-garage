@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 
+from gtfs_garage import __version__
 from gtfs_garage.core import geojson as geojson_builders
 from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
 from gtfs_garage.core.queries import (
@@ -18,7 +19,12 @@ from gtfs_garage.core.queries import (
     query_table,
     table_summaries,
 )
-from gtfs_garage.server.models import DistinctResponse, PageResponse, TablesResponse
+from gtfs_garage.server.models import (
+    ConfigResponse,
+    DistinctResponse,
+    PageResponse,
+    TablesResponse,
+)
 from gtfs_garage.server.state import FeedRegistry, NoFeedLoadedError
 
 router = APIRouter(prefix="/api")
@@ -37,6 +43,12 @@ def _feed(request: Request) -> GtfsFeed:
 
 def _tables_payload(registry: FeedRegistry) -> dict[str, Any]:
     return {"source": registry.source, "tables": table_summaries(registry.current())}
+
+
+@router.get("/config", response_model=ConfigResponse)
+def get_config(request: Request) -> dict[str, Any]:
+    """Settings the interface reads before it builds the map."""
+    return {"basemap": request.app.state.basemap, "version": __version__}
 
 
 @router.post("/load", response_model=TablesResponse)

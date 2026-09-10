@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib import resources
@@ -40,13 +41,26 @@ def frontend_is_built() -> bool:
     return (web_root() / "index.html").is_file()
 
 
-def create_app(feed_path: str | None = None) -> FastAPI:
+DEFAULT_BASEMAP = "openfreemap"
+BASEMAP_ENV_VAR = "GTFS_GARAGE_BASEMAP"
+FEED_ENV_VAR = "GTFS_GARAGE_FEED"
+
+
+def create_app(feed_path: str | None = None, basemap: str | None = None) -> FastAPI:
     """Build an app, optionally with a feed already loaded.
 
     A factory rather than a module-level instance so tests can create isolated
     apps, each with their own feed.
+
+    `basemap` names a preset the interface knows ("openfreemap", "esri", "osm",
+    "carto", "none"), or gives a raster tile template or vector style URL. It
+    falls back to the GTFS_GARAGE_BASEMAP environment variable.
+
+    Both arguments fall back to environment variables so this works as a uvicorn
+    factory, which is what `--reload` needs and so what the dev loop uses.
     """
     registry = FeedRegistry()
+    feed_path = feed_path or os.environ.get(FEED_ENV_VAR) or None
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -55,6 +69,7 @@ def create_app(feed_path: str | None = None) -> FastAPI:
 
     app = FastAPI(title="GTFS Garage", version=__version__, lifespan=lifespan)
     app.state.feeds = registry
+    app.state.basemap = basemap or os.environ.get(BASEMAP_ENV_VAR) or DEFAULT_BASEMAP
 
     if feed_path:
         registry.load(feed_path)

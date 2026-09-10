@@ -3,10 +3,14 @@
 ## Setup
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-pre-commit install
+scripts/run-app.sh --dev            # installs everything, starts with hot reload
+source .venv/bin/activate && pre-commit install
 ```
+
+`run-app.sh` creates the virtual environment, installs the Python and frontend
+dependencies and starts the tool. `--dev` serves the interface with hot reload
+and restarts the API on Python changes, so neither side needs rebuilding while
+you work.
 
 ## Before opening a pull request
 

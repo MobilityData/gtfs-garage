@@ -45,8 +45,14 @@ work too. Omit it to pick a feed in the browser instead — drag a zip in, or
 paste a local path.
 
 ```
-gtfs-garage [--host HOST] [--port PORT] [--no-browser] [--version] [feed]
+gtfs-garage [--host HOST] [--port PORT] [--basemap NAME|URL] [--no-browser]
+            [--version] [feed]
 ```
+
+The map backdrop is configurable with `--basemap` or `$GTFS_GARAGE_BASEMAP`:
+`openfreemap` (default), `esri`, `osm`, `carto`, `none`, or any raster tile
+template or vector style URL. All presets except `carto` work without an API
+key.
 
 The Python API is usable on its own, without the server:
 
@@ -59,27 +65,29 @@ page = query_table(feed, "trips", [{"column": "route_id", "op": "eq", "value": "
 
 ## Local development
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-cd web && yarn install && yarn build && cd ..   # build the interface once
-gtfs-garage path/to/feed.zip
-```
-
-The frontend build is required from a checkout because its output is not in
-version control. Skip it and the API still runs, but the page explains what to
-do instead of failing obscurely.
-
-Frontend commands, all from `web/`:
+One script sets up the Python environment, installs both sets of
+dependencies, builds the interface and starts the tool. It is safe to re-run and
+works from a fresh clone:
 
 ```bash
-yarn dev        # Vite dev server against a running gtfs-garage
-yarn build      # writes into src/gtfs_garage/web/
-yarn typecheck
-yarn test
+scripts/run-app.sh path/to/feed.zip
 ```
+
+While working on the code, use hot-reload mode instead. Frontend edits appear
+immediately and Python edits restart the API, so nothing is rebuilt to see a
+change:
+
+```bash
+scripts/run-app.sh path/to/feed.zip --dev
+```
+
+`--help` lists the options (`--port`, `--basemap`, `--skip-install`,
+`--no-browser`).
+
+The frontend build output is not in version control, so a checkout has none
+until it is built. Without it the API still runs and the page explains what to
+do, rather than failing obscurely. The individual frontend commands live in
+`web/`: `yarn dev`, `yarn build`, `yarn typecheck`, `yarn test`.
 
 ## Linter
 

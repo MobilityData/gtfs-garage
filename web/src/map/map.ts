@@ -1,6 +1,7 @@
 import { el } from "../dom";
 import type { FeatureCollection, GtfsSource } from "../sources/types";
 import type { AppState } from "../state";
+import { resolveBasemap } from "./basemap";
 import { bboxOf } from "./geo";
 import { buildStyle, EMPTY_FEATURE_COLLECTION, SOURCE_IDS, type SourceId } from "./layers";
 
@@ -13,16 +14,26 @@ export class MapController {
   private readonly map: any;
   private readonly ready: Promise<void>;
 
-  constructor(
+  /** A vector basemap has to be fetched before the map is constructed. */
+  static async create(
+    state: AppState,
+    source: GtfsSource,
+    basemap?: string | null,
+  ): Promise<MapController> {
+    return new MapController(state, source, await buildStyle(resolveBasemap(basemap)));
+  }
+
+  private constructor(
     private readonly state: AppState,
     private readonly source: GtfsSource,
+    style: Record<string, unknown>,
   ) {
     this.map = new maplibregl.Map({
       container: "map",
       center: [0, 20],
       zoom: 1,
       attributionControl: { compact: true },
-      style: buildStyle(),
+      style,
     });
     this.map.addControl(new maplibregl.NavigationControl(), "top-right");
     this.map.addControl(new maplibregl.ScaleControl());
