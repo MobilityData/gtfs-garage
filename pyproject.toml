@@ -1,0 +1,76 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gtfs-garage"
+description = "Browse a GTFS feed locally: cross-referenced tables, filters and a map."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "MobilityData" }]
+keywords = ["gtfs", "transit", "duckdb", "viewer"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+dynamic = ["version"]
+
+dependencies = [
+    "duckdb~=1.5",
+    "fastapi~=0.141",
+    "python-multipart~=0.0.32",
+    "uvicorn~=0.52",
+]
+
+[project.optional-dependencies]
+# Only needed to query a feed from Python; the server extra adds the web UI.
+dev = [
+    "black==26.3.1",
+    "coverage~=7.6",
+    "flake8==6.0.0",
+    "httpx~=0.28",
+    "pre-commit==3.4.0",
+    "pytest~=7.4.3",
+]
+
+[project.scripts]
+gtfs-garage = "gtfs_garage.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/MobilityData/gtfs-garage"
+Repository = "https://github.com/MobilityData/gtfs-garage"
+Issues = "https://github.com/MobilityData/gtfs-garage/issues"
+
+[tool.hatch.version]
+path = "src/gtfs_garage/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gtfs_garage"]
+# The built frontend is gitignored, and hatchling excludes ignored files by
+# default. `artifacts` is what puts generated files back in, so a wheel built
+# after `yarn build` actually carries an interface.
+artifacts = ["src/gtfs_garage/web/**"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/gtfs_garage", "tests", "README.md", "LICENSE", "pyproject.toml"]
+artifacts = ["src/gtfs_garage/web/**"]
+
+[tool.black]
+line-length = 120
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+skip_gitignore = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["--import-mode=importlib"]

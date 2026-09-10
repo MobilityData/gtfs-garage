@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>GTFS Garage</title>
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.7.0/dist/maplibre-gl.css" />
-  <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <header>
@@ -66,7 +65,8 @@
     </div>
   </div>
 
+  <!-- MapLibre stays a CDN script for now; bundling it is a separate change. -->
   <script src="https://unpkg.com/maplibre-gl@5.7.0/dist/maplibre-gl.js"></script>
-  <script src="/static/app.js"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

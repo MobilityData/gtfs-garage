@@ -1,0 +1,114 @@
+name: Build and Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  python_version: "3.11"
+  node_version: "22"
+
+jobs:
+  python:
+    name: Lint and test (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+          cache: pip
+          cache-dependency-path: requirements_dev.txt
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: scripts/lint-tests.sh
+
+      - name: Test with coverage
+        run: scripts/tests.sh
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_reports/
+
+  frontend:
+    name: Typecheck and build (frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.node_version }}
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - name: Install
+        working-directory: web
+        run: yarn install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: web
+        run: yarn typecheck
+
+      - name: Test
+        working-directory: web
+        run: yarn test
+
+      - name: Build
+        working-directory: web
+        run: yarn build
+
+  package:
+    name: Build the wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.node_version }}
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+
+      # The frontend is not in version control, so it has to be built before
+      # packaging or the wheel would ship without an interface.
+      - name: Build the frontend
+        working-directory: web
+        run: yarn install --frozen-lockfile && yarn build
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      # Installing into a clean environment from a different directory is what
+      # catches packaging mistakes: missing package data, or code that only
+      # works when the current directory happens to be the repo root.
+      - name: Install the wheel and run it from elsewhere
+        run: |
+          python -m venv /tmp/check
+          /tmp/check/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/check/bin/gtfs-garage --version
+          /tmp/check/bin/python -c "
+          import gtfs_garage.core
+          from gtfs_garage.server.app import web_root
+          assert web_root().joinpath('index.html').is_file(), 'frontend missing from the wheel'
+          from gtfs_garage.core.schema import FOREIGN_KEYS
+          assert FOREIGN_KEYS, 'schema missing from the wheel'
+          "

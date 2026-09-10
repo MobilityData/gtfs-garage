@@ -1,4 +1,16 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
 .DS_Store
+.pytest_cache/
+.coverage
+htmlcov/
+coverage_reports/
+build/
+dist/
+*.egg-info/
+node_modules/
+
+# Frontend build output: produced by `npm run build` in web/, and by CI for releases.
+src/gtfs_garage/web/

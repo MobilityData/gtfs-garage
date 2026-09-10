@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,wheelchair_boarding
+ST1,First Stop,45.5017,-73.5673,0,,1
+ST2,Second Stop,45.5088,-73.5540,0,,
+ST3,Third Stop,45.5200,-73.5400,0,,0

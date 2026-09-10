@@ -1,0 +1,19 @@
+{
+  "name": "@mobilitydata/gtfs-garage-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend for GTFS Garage. Built output is committed to src/gtfs_garage/web so pip install needs no Node.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vitest": "^2.1.9"
+  }
+}
