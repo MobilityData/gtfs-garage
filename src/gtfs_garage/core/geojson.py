@@ -95,16 +95,14 @@ def routes_geojson(con) -> dict:
     trips), colored with the feed's own route_color when present.
     """
     try:
-        rows = con.execute(
-            """
+        rows = con.execute("""
             SELECT DISTINCT ON (r.route_id)
                    r.route_id, r.route_short_name, r.route_long_name,
                    COALESCE(r.route_color, ''), t.shape_id
             FROM routes r
             JOIN trips t ON t.route_id = r.route_id
             WHERE t.shape_id IS NOT NULL AND t.shape_id != ''
-            """
-        ).fetchall()
+            """).fetchall()
     except Exception:
         return {"type": "FeatureCollection", "features": []}
 

@@ -59,8 +59,7 @@ class GtfsFeed:
             table_name = txt_file.stem
             escaped_path = str(txt_file).replace("'", "''")
             try:
-                self.con.execute(
-                    f"""
+                self.con.execute(f"""
                     CREATE VIEW "{table_name}" AS
                     SELECT * FROM read_csv(
                         '{escaped_path}',
@@ -68,8 +67,7 @@ class GtfsFeed:
                         IGNORE_ERRORS = TRUE,
                         NULLSTR = ''
                     )
-                    """
-                )
+                    """)
             except Exception:
                 # Skip files DuckDB can't parse (e.g. empty files) rather than
                 # failing the whole feed load over one optional file.
