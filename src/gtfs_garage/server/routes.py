@@ -41,8 +41,43 @@ def _feed(request: Request) -> GtfsFeed:
         raise HTTPException(status_code=409, detail="No GTFS feed loaded yet.")
 
 
+def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
+    """Sizes and timings for the load that produced the feed being served.
+
+    Read after `table_summaries`, not before: the per-file counting times are
+    filled in by that pass, which is the only point a CSV is really read.
+    """
+    record = registry.last_load
+    stats = record.feed_stats
+    acquire = record.acquire
+    return {
+        "kind": record.kind,
+        "acquire_ms": acquire.ms if acquire else None,
+        "acquire_bytes": acquire.bytes if acquire else None,
+        "extract_ms": stats.extract_ms,
+        "register_ms": stats.register_ms,
+        "count_ms": stats.count_ms,
+        "total_ms": (acquire.ms if acquire else 0.0) + stats.total_ms,
+        "total_bytes": stats.source_bytes,
+        "files": [
+            {
+                "name": f.name,
+                "table": f.table,
+                "bytes": f.bytes,
+                "compressed_bytes": f.compressed_bytes,
+                "register_ms": f.register_ms,
+                "count_ms": f.count_ms,
+                "row_count": f.row_count,
+                "columns": f.columns,
+            }
+            for f in stats.files
+        ],
+    }
+
+
 def _tables_payload(registry: FeedRegistry) -> dict[str, Any]:
-    return {"source": registry.source, "tables": table_summaries(registry.current())}
+    summaries = table_summaries(registry.current())
+    return {"source": registry.source, "tables": summaries, "metrics": _load_metrics(registry)}
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -55,19 +90,33 @@ def get_config(request: Request) -> dict[str, Any]:
 async def load_feed(
     request: Request,
     file: Optional[UploadFile] = File(None),
+    files: list[UploadFile] = File([]),
     path: Optional[str] = None,
+    url: Optional[str] = None,
+    name: Optional[str] = None,
 ) -> dict[str, Any]:
+    """Open a feed from an upload, a chosen folder, a local path, or a URL.
+
+    `files` carries a folder the browser has split into its individual files;
+    `name` is the folder's own name, for display.
+    """
     registry = _registry(request)
 
-    if file is not None:
-        source = str(registry.store_upload(file.filename or "feed.zip", file.file))
-    elif path:
-        source = path
-    else:
-        raise HTTPException(status_code=400, detail="Provide a file upload or a local path.")
-
     try:
-        registry.load(source)
+        if files:
+            source = str(registry.store_upload_folder((f.filename or "", f.file) for f in files))
+            label = name or "chosen folder"
+        elif file is not None:
+            filename = file.filename or "feed.zip"
+            source, label = str(registry.store_upload(filename, file.file)), filename
+        elif url:
+            source, label = str(registry.store_download(url)), url
+        elif path:
+            source = label = path
+        else:
+            raise HTTPException(status_code=400, detail="Provide a file upload, a local path, or a URL.")
+
+        registry.load(source, label)
     except GtfsLoadError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

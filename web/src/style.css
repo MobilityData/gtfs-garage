@@ -275,6 +275,41 @@ a.fk-link:hover { text-decoration: underline; }
   margin-bottom: 10px;
 }
 
+#load-panel input[type="text"]:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.field-label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+#pick-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+#pick-row button {
+  flex: 1;
+}
+
+#load-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#load-status {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 8px;
+}
+
 #load-error {
   color: #b91c1c;
   font-size: 12.5px;
@@ -285,4 +320,83 @@ a.fk-link:hover { text-decoration: underline; }
   padding: 40px;
   color: var(--muted);
   text-align: center;
+}
+
+/* The load report: a summary in the header that expands into a panel. */
+#metrics-btn {
+  color: var(--muted);
+  font-size: 12.5px;
+  padding: 4px 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#metrics-panel {
+  position: absolute;
+  top: 46px;
+  right: 16px;
+  z-index: 5;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  max-width: 90vw;
+  max-height: 70vh;
+  overflow: auto;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+}
+
+#metrics-panel.hidden { display: none; }
+
+#metrics-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+#metrics-header strong { flex: 1; }
+
+#metrics-header button {
+  padding: 0 6px;
+  line-height: 1.4;
+}
+
+#metrics-phases {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 14px;
+  margin: 0 0 12px;
+}
+
+#metrics-phases dt { color: var(--muted); }
+
+#metrics-phases dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#metrics-body table {
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+#metrics-body th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+}
+
+#metrics-body th,
+#metrics-body td {
+  padding: 3px 10px 3px 0;
+}
+
+/* Every column but the file name is a number, and numbers line up right. */
+#metrics-body td:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

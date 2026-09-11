@@ -7,30 +7,72 @@
  */
 
 import { el } from "../dom";
-import type { Filter } from "../sources/types";
+import type { Filter, TableInfo } from "../sources/types";
 import { tableInfo, type AppState, type View } from "../state";
 
 export type ViewListener = (view: View) => void;
 
+/**
+ * Where to land when a feed opens: what the feed says about itself, then who
+ * runs it, then what it runs.
+ */
+export const PREFERRED_TABLES = ["feed_info", "agency", "routes"];
+
+/**
+ * Choose the first view of a feed.
+ *
+ * `restoreFrom` is only passed on page load, so a reloaded or shared URL comes
+ * back to the same place. Opening a different feed deliberately ignores it: its
+ * filters describe the previous feed's data and would either match nothing or,
+ * worse, silently hide rows in a table that happens to share a name.
+ */
+export function initialView(tables: TableInfo[], restoreFrom?: View | null): View | null {
+  if (restoreFrom && tables.some((t) => t.name === restoreFrom.table)) {
+    return restoreFrom;
+  }
+
+  const landing =
+    PREFERRED_TABLES.map((name) => tables.find((t) => t.name === name)).find(Boolean) ?? tables[0];
+
+  return landing ? { table: landing.name, filters: [], page: 1 } : null;
+}
+
 interface HistoryEntry {
   gtfsView: View & { depth: number };
+  /** Which feed the view describes. */
+  feed: string;
 }
 
 export class Navigator {
   private depth = 0;
+  private feed = "";
 
   constructor(
     private readonly state: AppState,
     private readonly onChange: ViewListener,
   ) {
     window.addEventListener("popstate", (event) => {
-      const entry = (event.state as HistoryEntry | null)?.gtfsView;
-      if (!entry) return;
-      this.depth = entry.depth ?? 0;
-      this.apply(entry, false);
+      const entry = event.state as HistoryEntry | null;
+      if (!entry?.gtfsView) return;
+
+      // Entries from a previously opened feed cannot be honoured: only one feed
+      // is loaded at a time, and their filters describe data that is no longer
+      // here. Stay put and put the URL back rather than showing something that
+      // does not match what is on screen.
+      if (entry.feed !== this.feed) {
+        history.replaceState(this.entryFor(this.state.view), "", Navigator.urlFor(this.state.view));
+        return;
+      }
+
+      this.depth = entry.gtfsView.depth ?? 0;
+      this.apply(entry.gtfsView, false);
     });
 
     el<HTMLButtonElement>("back-btn").addEventListener("click", () => history.back());
+  }
+
+  private entryFor(view: View): HistoryEntry {
+    return { gtfsView: { ...view, depth: this.depth }, feed: this.feed };
   }
 
   static urlFor(view: View): string {
@@ -63,10 +105,16 @@ export class Navigator {
     return this.state.view;
   }
 
-  /** Start a fresh history for a newly loaded feed. */
-  reset(view: View): void {
+  /**
+   * Start a fresh history for a newly opened feed.
+   *
+   * `feed` identifies it, so entries left in the browser's history by an
+   * earlier feed can be recognised and ignored.
+   */
+  reset(view: View, feed: string): void {
     this.depth = 0;
-    history.replaceState({ gtfsView: { ...view, depth: 0 } } satisfies HistoryEntry, "", Navigator.urlFor(view));
+    this.feed = feed;
+    history.replaceState(this.entryFor(view), "", Navigator.urlFor(view));
     this.apply(view, false);
   }
 
@@ -91,11 +139,7 @@ export class Navigator {
 
     if (push) {
       this.depth += 1;
-      history.pushState(
-        { gtfsView: { ...this.state.view, depth: this.depth } } satisfies HistoryEntry,
-        "",
-        Navigator.urlFor(this.state.view),
-      );
+      history.pushState(this.entryFor(this.state.view), "", Navigator.urlFor(this.state.view));
     }
 
     el<HTMLButtonElement>("back-btn").disabled = this.depth <= 0;

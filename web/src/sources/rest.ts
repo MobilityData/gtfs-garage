@@ -77,8 +77,27 @@ export class RestSource implements GtfsSource {
     );
   }
 
-  /** Load a feed by local path or uploaded file; returns the new table list. */
-  load(input: { path?: string; file?: File }): Promise<TablesResponse> {
+  /**
+   * Load a feed: an uploaded zip, a chosen folder's files, a local path, or a
+   * URL for the server to download.
+   */
+  load(input: {
+    path?: string;
+    url?: string;
+    file?: File;
+    files?: File[];
+    name?: string;
+  }): Promise<TablesResponse> {
+    if (input.files?.length) {
+      const form = new FormData();
+      for (const file of input.files) form.append("files", file);
+      const query = input.name ? `?name=${encodeURIComponent(input.name)}` : "";
+      return fetchJson<TablesResponse>(`${this.baseUrl}/api/load${query}`, {
+        method: "POST",
+        body: form,
+      });
+    }
+
     if (input.file) {
       const form = new FormData();
       form.append("file", input.file);
@@ -87,9 +106,11 @@ export class RestSource implements GtfsSource {
         body: form,
       });
     }
-    return fetchJson<TablesResponse>(
-      `${this.baseUrl}/api/load?path=${encodeURIComponent(input.path ?? "")}`,
-      { method: "POST" },
-    );
+
+    const params = new URLSearchParams();
+    if (input.url) params.set("url", input.url);
+    else params.set("path", input.path ?? "");
+
+    return fetchJson<TablesResponse>(`${this.baseUrl}/api/load?${params}`, { method: "POST" });
   }
 }
