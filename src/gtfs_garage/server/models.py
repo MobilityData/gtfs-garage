@@ -46,10 +46,11 @@ class FileMetrics(BaseModel):
     bytes: int
     # Only for zip sources; a chosen folder has no compressed form.
     compressed_bytes: int | None = None
-    # Declaring the DuckDB view. Views are lazy, so this is near zero by
-    # design - it is not where a slow feed spends its time.
+    # Declaring the DuckDB view, which resolves the column list off the start
+    # of the file and reads no further - so this barely varies with size. The
+    # interface labels it "read headers", which is what it amounts to.
     register_ms: float
-    # The COUNT(*) that actually scans the file. This is the real read cost.
+    # The COUNT(*) that reads the file end to end. The cost that scales.
     count_ms: float | None = None
     row_count: int | None = None
     columns: int

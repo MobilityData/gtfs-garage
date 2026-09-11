@@ -31,8 +31,9 @@ class FileStats:
     bytes: int
     # Only known for zip sources; a folder has no compressed form.
     compressed_bytes: int | None
-    # Declaring the view, which is all opening a feed does. DuckDB views are
-    # lazy, so this is near zero by design - it is not where a slow feed goes.
+    # Declaring the view, which is all opening a feed does: DuckDB resolves the
+    # column list off the start of the file and reads no further, so this
+    # barely varies with size. Reported to the user as "read headers".
     register_ms: float
     columns: int
     # Filled in later, by the pass that actually scans the file.

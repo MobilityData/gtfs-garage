@@ -83,7 +83,7 @@ describe("summaryLine", () => {
 
 describe("phaseRows", () => {
   it("omits acquire and unzip for a local folder", () => {
-    expect(phaseRows(metrics()).map(([label]) => label)).toEqual(["Register views", "Count rows"]);
+    expect(phaseRows(metrics()).map(([label]) => label)).toEqual(["Read headers", "Count rows"]);
   });
 
   it("names the acquire phase after how the feed arrived, with its size", () => {
@@ -93,7 +93,7 @@ describe("phaseRows", () => {
     expect(rows).toEqual([
       ["Download", "1.5 s · 2.0 KB"],
       ["Unzip", "90 ms · 2.9 KB archive"],
-      ["Register views", "12 ms"],
+      ["Read headers", "12 ms"],
       ["Count rows", "30 ms"],
     ]);
   });

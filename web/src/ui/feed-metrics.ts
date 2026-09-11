@@ -70,7 +70,7 @@ export function phaseRows(metrics: LoadMetrics): Array<[string, string]> {
   if (metrics.extract_ms !== null) {
     rows.push(["Unzip", `${formatMs(metrics.extract_ms)} · ${formatBytes(metrics.total_bytes)} archive`]);
   }
-  rows.push(["Register views", formatMs(metrics.register_ms)]);
+  rows.push(["Read headers", formatMs(metrics.register_ms)]);
   rows.push(["Count rows", formatMs(metrics.count_ms)]);
   return rows;
 }
@@ -107,14 +107,29 @@ export function fileRows(metrics: LoadMetrics): FileRow[] {
     }));
 }
 
-const FILE_COLUMNS: Array<[string, (row: FileRow) => string]> = [
-  ["File", (row) => row.name],
-  ["Size", (row) => `${row.bytes} (${row.share}%)`],
-  ["Zipped", (row) => row.compressed],
-  ["Rows", (row) => row.rows],
-  ["Cols", (row) => String(row.columns)],
-  ["Register", (row) => row.registerMs],
-  ["Count", (row) => row.countMs],
+interface Column {
+  label: string;
+  /** Shown on hover: these are timings whose meaning is not self-evident. */
+  title?: string;
+  value: (row: FileRow) => string;
+}
+
+const FILE_COLUMNS: Column[] = [
+  { label: "File", value: (row) => row.name },
+  { label: "Size", title: "Uncompressed, and its share of the feed", value: (row) => `${row.bytes} (${row.share}%)` },
+  { label: "Zipped", title: "Size inside the archive", value: (row) => row.compressed },
+  { label: "Rows", value: (row) => row.rows },
+  { label: "Cols", value: (row) => String(row.columns) },
+  {
+    label: "Header",
+    title: "Reading the column names. Only the start of the file is read, so this barely varies with size.",
+    value: (row) => row.registerMs,
+  },
+  {
+    label: "Count",
+    title: "Reading the file end to end to count its rows. This is the cost that scales with size.",
+    value: (row) => row.countMs,
+  },
 ];
 
 function phaseList(metrics: LoadMetrics): HTMLElement {
@@ -133,18 +148,19 @@ function phaseList(metrics: LoadMetrics): HTMLElement {
 function fileTable(metrics: LoadMetrics): HTMLElement {
   const table = document.createElement("table");
   const head = document.createElement("tr");
-  for (const [label] of FILE_COLUMNS) {
+  for (const column of FILE_COLUMNS) {
     const cell = document.createElement("th");
-    cell.textContent = label;
+    cell.textContent = column.label;
+    if (column.title) cell.title = column.title;
     head.appendChild(cell);
   }
   table.appendChild(head);
 
   for (const row of fileRows(metrics)) {
     const tr = document.createElement("tr");
-    for (const [, value] of FILE_COLUMNS) {
+    for (const column of FILE_COLUMNS) {
       const cell = document.createElement("td");
-      cell.textContent = value(row);
+      cell.textContent = column.value(row);
       tr.appendChild(cell);
     }
     table.appendChild(tr);

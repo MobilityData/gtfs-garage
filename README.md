@@ -24,8 +24,8 @@ import step and only the rows on screen are ever materialised.
   particular stop, shape or route. The map can be turned off, and while it is
   off none of its data is fetched.
 - **See what it cost.** Every load reports its own timings and sizes: the
-  download or upload, the unzip, and per file the bytes on disk, the rows and
-  the time spent reading them. The header carries a one-line summary that opens
+  download or upload, the unzip, and per file the bytes on disk, the rows, and
+  the time spent reading the header versus counting the rows. The header carries a one-line summary that opens
   into the full breakdown, largest file first.
 - **Go back.** Every table switch, filter change and page turn is a history
   entry, so Back — in the app or the browser — returns to the previous view with
