@@ -137,7 +137,7 @@ export class TableView {
       const shapeId = values.shape_id;
       add("🧭", "Show this shape on the map", () => this.callbacks.onHighlightShape(shapeId));
     }
-    if (values.route_id && this.state.routesGeojson) {
+    if (values.route_id && this.state.routeShapes.size) {
       const routeId = values.route_id;
       add("🚌", "Show this route on the map", () => this.callbacks.onHighlightRoute(routeId));
     }

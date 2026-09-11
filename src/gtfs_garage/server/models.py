@@ -50,6 +50,10 @@ class FileMetrics(BaseModel):
     # of the file and reads no further - so this barely varies with size. The
     # interface labels it "read headers", which is what it amounts to.
     register_ms: float
+    # Rewriting this table as Parquet; null when opened with --no-parquet.
+    convert_ms: float | None = None
+    # What the table occupies once converted, typically far below `bytes`.
+    parquet_bytes: int | None = None
     # The COUNT(*) that reads the file end to end. The cost that scales.
     count_ms: float | None = None
     row_count: int | None = None
@@ -67,12 +71,29 @@ class LoadMetrics(BaseModel):
     # Unzipping; absent when the source was already-extracted files.
     extract_ms: float | None = None
     register_ms: float
+    # Converting to Parquet; null when opened with --no-parquet.
+    convert_ms: float | None = None
     count_ms: float
     # The phases above added together.
     total_ms: float
     # The zip's size, or the sum of the .txt files in a folder.
     total_bytes: int
+    # What the feed occupies to query once converted; null when it was not.
+    stored_bytes: int | None = None
     files: list[FileMetrics]
+
+
+class LoadProgressResponse(BaseModel):
+    """Where a running load has got to, polled while the load is in flight."""
+
+    # start | download | upload | extract | convert | summarise | done
+    phase: str
+    done: int
+    # 0 when the total is not knowable, e.g. a download with no Content-Length.
+    total: int
+    # The file or table currently being worked on, when there is one.
+    detail: str
+    running: bool
 
 
 class TablesResponse(BaseModel):

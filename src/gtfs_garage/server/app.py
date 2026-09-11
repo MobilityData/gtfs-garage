@@ -9,6 +9,7 @@ from importlib import resources
 from pathlib import Path
 
 from fastapi import FastAPI, Response
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -44,9 +45,14 @@ def frontend_is_built() -> bool:
 DEFAULT_BASEMAP = "openfreemap"
 BASEMAP_ENV_VAR = "GTFS_GARAGE_BASEMAP"
 FEED_ENV_VAR = "GTFS_GARAGE_FEED"
+NO_PARQUET_ENV_VAR = "GTFS_GARAGE_NO_PARQUET"
 
 
-def create_app(feed_path: str | None = None, basemap: str | None = None) -> FastAPI:
+def create_app(
+    feed_path: str | None = None,
+    basemap: str | None = None,
+    optimise: bool | None = None,
+) -> FastAPI:
     """Build an app, optionally with a feed already loaded.
 
     A factory rather than a module-level instance so tests can create isolated
@@ -56,10 +62,15 @@ def create_app(feed_path: str | None = None, basemap: str | None = None) -> Fast
     "carto", "none"), or gives a raster tile template or vector style URL. It
     falls back to the GTFS_GARAGE_BASEMAP environment variable.
 
+    `optimise` rewrites the feed as Parquet at load; see `GtfsFeed`. Falls back
+    to GTFS_GARAGE_NO_PARQUET being unset.
+
     Both arguments fall back to environment variables so this works as a uvicorn
     factory, which is what `--reload` needs and so what the dev loop uses.
     """
-    registry = FeedRegistry()
+    if optimise is None:
+        optimise = not os.environ.get(NO_PARQUET_ENV_VAR)
+    registry = FeedRegistry(optimise=optimise)
     feed_path = feed_path or os.environ.get(FEED_ENV_VAR) or None
 
     @asynccontextmanager
@@ -68,11 +79,17 @@ def create_app(feed_path: str | None = None, basemap: str | None = None) -> Fast
         registry.close()  # release the DuckDB connection and any uploaded files
 
     app = FastAPI(title="GTFS Garage", version=__version__, lifespan=lifespan)
+    # GeoJSON is repetitive text and compresses roughly sevenfold, which is the
+    # difference between a large feed's map arriving and the tab dying.
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.state.feeds = registry
     app.state.basemap = basemap or os.environ.get(BASEMAP_ENV_VAR) or DEFAULT_BASEMAP
 
     if feed_path:
         registry.load(feed_path)
+        # A feed named on the command line finishes before the server accepts a
+        # request, so nothing is in progress by the time anyone can ask.
+        registry.finish_load()
 
     app.include_router(router)
 

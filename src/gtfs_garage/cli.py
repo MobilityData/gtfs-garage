@@ -59,6 +59,15 @@ def build_parser() -> argparse.ArgumentParser:
             "or a tile template or style URL. Also read from $" + BASEMAP_ENV_VAR
         ),
     )
+    parser.add_argument(
+        "--no-parquet",
+        action="store_true",
+        help=(
+            "read the CSVs in place instead of rewriting the feed as Parquet at load. "
+            "Opening is a little quicker; every query afterwards is much slower and the "
+            "extracted feed stays on disk in full"
+        ),
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
@@ -67,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     try:
-        app = create_app(args.feed, args.basemap)
+        app = create_app(args.feed, args.basemap, optimise=not args.no_parquet)
     except GtfsLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

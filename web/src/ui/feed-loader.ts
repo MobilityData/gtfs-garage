@@ -3,8 +3,12 @@
 import { el } from "../dom";
 import type { RestSource } from "../sources/rest";
 import type { TablesResponse } from "../sources/types";
+import { progressLine } from "./load-progress";
 
 const URL_PATTERN = /^https?:\/\//i;
+
+/** How often the server is asked where the load has got to. */
+const PROGRESS_POLL_MS = 400;
 
 export class FeedLoader {
   private busy = false;
@@ -113,11 +117,38 @@ export class FeedLoader {
     el<HTMLButtonElement>("load-cancel-btn").hidden = !this.canCancel();
   }
 
+  /**
+   * Poll the server for the load's phase until it is told to stop.
+   *
+   * Only answerable at all because the load runs in a worker thread; while it
+   * sat on the event loop no other request could be served, which is why a big
+   * feed looked like a hung page.
+   */
+  private pollProgress(description: string): () => void {
+    let stopped = false;
+    const tick = async (): Promise<void> => {
+      while (!stopped) {
+        try {
+          const progress = await this.source.loadProgress();
+          if (!stopped) el("load-status").textContent = progressLine(progress, description);
+        } catch {
+          /* a missed poll just leaves the previous line up */
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, PROGRESS_POLL_MS));
+      }
+    };
+    void tick();
+    return () => {
+      stopped = true;
+    };
+  }
+
   private async load(request: () => Promise<TablesResponse>, description: string): Promise<void> {
     this.busy = true;
     this.syncSubmitState();
     el("load-error").textContent = "";
-    el("load-status").textContent = `Loading ${description}...`;
+    el("load-status").textContent = `Loading ${description}…`;
+    const stopPolling = this.pollProgress(description);
 
     try {
       // The only number the server cannot report: what the user actually
@@ -129,6 +160,7 @@ export class FeedLoader {
     } catch (error) {
       el("load-error").textContent = (error as Error).message;
     } finally {
+      stopPolling();
       this.busy = false;
       el("load-status").textContent = "";
       this.syncSubmitState();

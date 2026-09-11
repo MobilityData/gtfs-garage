@@ -41,6 +41,15 @@ jobs:
           name: coverage-report
           path: coverage_reports/
 
+      # Reports, never fails. The assertions live in
+      # tests/test_performance_guards.py, which checks structure rather than
+      # duration - a shared runner's speed varies too much to assert on. This
+      # goes to the job summary so a reviewer sees the numbers on the pull
+      # request itself and can compare them against the same table on main.
+      - name: Benchmark
+        continue-on-error: true
+        run: python scripts/benchmark.py >> "$GITHUB_STEP_SUMMARY"
+
   frontend:
     name: Typecheck and build (frontend)
     runs-on: ubuntu-latest
@@ -112,3 +121,35 @@ jobs:
           from gtfs_garage.core.schema import FOREIGN_KEYS
           assert FOREIGN_KEYS, 'schema missing from the wheel'
           "
+
+  performance:
+    name: Map memory (browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.node_version }}
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.python_version }}
+
+      # The guard drives the real interface, so the frontend has to exist.
+      - name: Build the frontend
+        working-directory: web
+        run: yarn install --frozen-lockfile && yarn build
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,perf]"
+          playwright install --with-deps chromium
+
+      # Peak JS heap is the one thing no server-side test can see: it is what
+      # killed a tab after a large feed had drawn and a table was opened.
+      - name: Measure map memory
+        run: python -m pytest -m browser -v

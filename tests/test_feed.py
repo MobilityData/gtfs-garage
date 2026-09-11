@@ -96,7 +96,7 @@ class TestLoadStats:
         assert feed.stats.source_bytes == sum(f.bytes for f in feed.stats.files)
 
     def test_counts_are_only_known_once_something_counts(self, feed: GtfsFeed):
-        # Views are lazy, so nothing has been read yet.
+        # Nothing has counted rows yet, whatever the views are reading.
         assert all(f.row_count is None and f.count_ms is None for f in feed.stats.files)
 
         feed.stats.record_count("stops", feed.row_count("stops"), 1.5)
@@ -111,7 +111,8 @@ class TestLoadStats:
         feed.stats.record_count("stops", 3, 2.0)
         feed.stats.record_count("trips", 3, 3.0)
         assert feed.stats.count_ms == 5.0
-        assert feed.stats.total_ms == feed.stats.register_ms + 5.0
+        expected = feed.stats.register_ms + (feed.stats.convert_ms or 0.0) + 5.0
+        assert feed.stats.total_ms == expected
 
     def test_a_zip_reports_its_own_size_and_the_unzip_it_did(self, feed_zip: Path):
         loaded = GtfsFeed(str(feed_zip))
@@ -130,3 +131,62 @@ class TestLoadStats:
             assert all(f.compressed_bytes is not None for f in loaded.stats.files)
         finally:
             loaded.close()
+
+
+class TestParquetConversion:
+    """The feed is rewritten columnar at load unless asked not to."""
+
+    def test_converts_every_table_by_default(self, feed: GtfsFeed):
+        assert feed.stats.convert_ms is not None
+        assert all(f.parquet_bytes is not None for f in feed.stats.files)
+
+    def test_leaves_the_data_identical(self, feed_dir: Path):
+        plain = GtfsFeed(str(feed_dir), optimise=False)
+        converted = GtfsFeed(str(feed_dir))
+        try:
+            assert converted.tables == plain.tables
+            for table in plain.tables:
+                assert converted.row_count(table) == plain.row_count(table)
+            # ALL_VARCHAR is the contract the filter layer is written against.
+            types = converted.con.execute("SELECT typeof(stop_lat) FROM stops LIMIT 1").fetchone()
+            assert types == ("VARCHAR",)
+        finally:
+            plain.close()
+            converted.close()
+
+    def test_a_folder_source_keeps_the_users_own_files(self, feed_dir: Path):
+        before = sorted(p.name for p in feed_dir.glob("*.txt"))
+        loaded = GtfsFeed(str(feed_dir))
+        loaded.close()
+        # The CSVs here belong to whoever ran the tool; only files we extracted
+        # ourselves are ever deleted.
+        assert sorted(p.name for p in feed_dir.glob("*.txt")) == before
+
+    def test_a_zip_releases_its_extracted_csvs(self, feed_zip: Path):
+        loaded = GtfsFeed(str(feed_zip))
+        try:
+            assert not loaded._extract_dir.exists()
+            assert loaded.row_count("stops") == 3
+        finally:
+            loaded.close()
+
+    def test_no_parquet_keeps_reading_the_csvs(self, feed_zip: Path):
+        loaded = GtfsFeed(str(feed_zip), optimise=False)
+        try:
+            assert loaded.stats.convert_ms is None
+            assert all(f.parquet_bytes is None for f in loaded.stats.files)
+            assert loaded._extract_dir.exists()
+        finally:
+            loaded.close()
+
+    def test_close_removes_everything_it_made(self, feed_zip: Path):
+        loaded = GtfsFeed(str(feed_zip))
+        made = list(loaded._owned_dirs)
+        loaded.close()
+        assert made and not any(d.exists() for d in made)
+
+    def test_reports_progress_through_its_phases(self, feed_zip: Path):
+        seen: list[str] = []
+        loaded = GtfsFeed(str(feed_zip), on_progress=lambda phase, *_: seen.append(phase))
+        loaded.close()
+        assert "extract" in seen and "convert" in seen

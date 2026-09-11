@@ -21,7 +21,15 @@ def client():
 
 
 class FakeResponse(io.BytesIO):
-    """Stands in for the object urlopen returns."""
+    """Stands in for the object urlopen returns.
+
+    Carries `headers` because the download reads Content-Length from it to
+    report progress; a real urlopen response always has them.
+    """
+
+    def __init__(self, payload: bytes, headers: dict | None = None):
+        super().__init__(payload)
+        self.headers = {"Content-Length": str(len(payload))} if headers is None else headers
 
     def __enter__(self):
         return self
@@ -239,8 +247,14 @@ class TestLoadMetrics:
 
     def test_total_ms_is_the_phases_added_up(self, client: TestClient, feed_zip: Path):
         metrics = client.post("/api/load", params={"path": str(feed_zip)}).json()["metrics"]
-        phases = metrics["extract_ms"] + metrics["register_ms"] + metrics["count_ms"]
+        phases = metrics["extract_ms"] + metrics["register_ms"] + metrics["convert_ms"] + metrics["count_ms"]
         assert metrics["total_ms"] == pytest.approx(phases)
+
+    def test_reports_what_the_conversion_cost_and_saved(self, client: TestClient, feed_zip: Path):
+        metrics = client.post("/api/load", params={"path": str(feed_zip)}).json()["metrics"]
+        assert metrics["convert_ms"] >= 0
+        assert metrics["stored_bytes"] > 0
+        assert all(f["parquet_bytes"] > 0 for f in metrics["files"])
 
     def test_lists_every_file_with_its_size_and_shape(self, client: TestClient, feed_dir: Path):
         metrics = client.post("/api/load", params={"path": str(feed_dir)}).json()["metrics"]

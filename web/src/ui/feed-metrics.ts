@@ -71,6 +71,11 @@ export function phaseRows(metrics: LoadMetrics): Array<[string, string]> {
     rows.push(["Unzip", `${formatMs(metrics.extract_ms)} · ${formatBytes(metrics.total_bytes)} archive`]);
   }
   rows.push(["Read headers", formatMs(metrics.register_ms)]);
+  if (metrics.convert_ms !== null) {
+    // Worth showing what the conversion bought, not just what it cost.
+    const stored = metrics.stored_bytes === null ? "" : ` · ${formatBytes(metrics.stored_bytes)} stored`;
+    rows.push(["Convert to Parquet", `${formatMs(metrics.convert_ms)}${stored}`]);
+  }
   rows.push(["Count rows", formatMs(metrics.count_ms)]);
   return rows;
 }
@@ -81,6 +86,8 @@ export interface FileRow {
   /** Share of the feed's uncompressed size, as a whole percentage. */
   share: number;
   compressed: string;
+  /** Size as Parquet; an em dash when the feed was not converted. */
+  stored: string;
   registerMs: string;
   countMs: string;
   rows: string;
@@ -100,6 +107,7 @@ export function fileRows(metrics: LoadMetrics): FileRow[] {
       bytes: formatBytes(file.bytes),
       share: total === 0 ? 0 : Math.round((file.bytes / total) * 100),
       compressed: file.compressed_bytes === null ? "—" : formatBytes(file.compressed_bytes),
+      stored: file.parquet_bytes === null ? "—" : formatBytes(file.parquet_bytes),
       registerMs: formatMs(file.register_ms),
       countMs: file.count_ms === null ? "—" : formatMs(file.count_ms),
       rows: file.row_count === null ? "—" : file.row_count.toLocaleString(),
@@ -118,6 +126,7 @@ const FILE_COLUMNS: Column[] = [
   { label: "File", value: (row) => row.name },
   { label: "Size", title: "Uncompressed, and its share of the feed", value: (row) => `${row.bytes} (${row.share}%)` },
   { label: "Zipped", title: "Size inside the archive", value: (row) => row.compressed },
+  { label: "Stored", title: "Size as Parquet, which is what queries read", value: (row) => row.stored },
   { label: "Rows", value: (row) => row.rows },
   { label: "Cols", value: (row) => String(row.columns) },
   {
