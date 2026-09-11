@@ -12,6 +12,8 @@ import step and only the rows on screen are ever materialised.
   `shape_id`, `stop_id`, `service_id`, …) is a link to the referenced row, and a
   table's own id column offers the reverse direction — from a route straight to
   the trips that use it. Links to files a feed does not contain are not shown.
+- **Open a feed from anywhere.** A `.zip` or an extracted folder, chosen from
+  the page or dropped onto it, a local path, or a URL the tool downloads.
 - **Filter without SQL.** Pick a column, an operator (`is`, `is not`,
   `contains`, `is one of`, `is empty`, `is not empty`) and a value. Columns GTFS
   defines as enumerations (`continuous_pickup`, `route_type`,
@@ -21,6 +23,10 @@ import step and only the rows on screen are ever materialised.
   `shapes.txt`, coloured by its `route_color`. Per-row buttons highlight a
   particular stop, shape or route. The map can be turned off, and while it is
   off none of its data is fetched.
+- **See what it cost.** Every load reports its own timings and sizes: the
+  download or upload, the unzip, and per file the bytes on disk, the rows, and
+  the time spent reading the header versus counting the rows. The header carries a one-line summary that opens
+  into the full breakdown, largest file first.
 - **Go back.** Every table switch, filter change and page turn is a history
   entry, so Back — in the app or the browser — returns to the previous view with
   its filters intact. The URL describes the view, so it can be reloaded or
@@ -41,8 +47,8 @@ gtfs-garage path/to/feed.zip
 
 That opens <http://127.0.0.1:8811>. The argument accepts a `.zip` or an
 already-extracted folder, and zips that wrap their `.txt` files in a subfolder
-work too. Omit it to pick a feed in the browser instead — drag a zip in, or
-paste a local path.
+work too. Omit it to pick a feed in the browser instead — drag a zip in, or give
+a local path or a URL for the tool to download.
 
 ```
 gtfs-garage [--host HOST] [--port PORT] [--basemap NAME|URL] [--no-browser]

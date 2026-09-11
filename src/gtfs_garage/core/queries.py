@@ -7,6 +7,7 @@ plain dictionaries back, so it never holds a database cursor of its own.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from gtfs_garage.core.feed import GtfsFeed
@@ -70,7 +71,13 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
                 }
             )
 
-        summaries.append({"name": table, "row_count": feed.row_count(table), "columns": column_infos})
+        # The COUNT(*) is where a CSV is genuinely read - the views themselves
+        # are lazy - so this is the timing worth recording per file.
+        started = time.perf_counter()
+        row_count = feed.row_count(table)
+        feed.stats.record_count(table, row_count, (time.perf_counter() - started) * 1000)
+
+        summaries.append({"name": table, "row_count": row_count, "columns": column_infos})
     return summaries
 
 

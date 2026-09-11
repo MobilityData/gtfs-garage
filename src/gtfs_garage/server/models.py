@@ -37,9 +37,48 @@ class TableInfo(BaseModel):
     columns: list[ColumnInfo]
 
 
+class FileMetrics(BaseModel):
+    """What one .txt file cost to open."""
+
+    name: str
+    table: str
+    # Uncompressed size on disk.
+    bytes: int
+    # Only for zip sources; a chosen folder has no compressed form.
+    compressed_bytes: int | None = None
+    # Declaring the DuckDB view, which resolves the column list off the start
+    # of the file and reads no further - so this barely varies with size. The
+    # interface labels it "read headers", which is what it amounts to.
+    register_ms: float
+    # The COUNT(*) that reads the file end to end. The cost that scales.
+    count_ms: float | None = None
+    row_count: int | None = None
+    columns: int
+
+
+class LoadMetrics(BaseModel):
+    """Server-side sizes and timings for the feed currently loaded."""
+
+    # path | upload | folder | download - how the feed reached the server.
+    kind: str
+    # Downloading or receiving the upload; absent for a local path.
+    acquire_ms: float | None = None
+    acquire_bytes: int | None = None
+    # Unzipping; absent when the source was already-extracted files.
+    extract_ms: float | None = None
+    register_ms: float
+    count_ms: float
+    # The phases above added together.
+    total_ms: float
+    # The zip's size, or the sum of the .txt files in a folder.
+    total_bytes: int
+    files: list[FileMetrics]
+
+
 class TablesResponse(BaseModel):
     source: str
     tables: list[TableInfo]
+    metrics: LoadMetrics
 
 
 class PageResponse(BaseModel):

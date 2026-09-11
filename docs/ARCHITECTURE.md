@@ -102,6 +102,25 @@ to it.
 where `requestAnimationFrame` never runs — layers added that way never exist and
 the feed silently never reaches the map.
 
+**Load metrics measure the work a load already does**, and never add any. The
+report distinguishes two per-file timings because they mean different things.
+Reading a file's header is the `CREATE VIEW` over `read_csv`: DuckDB resolves
+the column list off the start of the file and stops there, so the cost barely
+varies with how large the file is. Counting rows is the `COUNT(*)` in
+`table_summaries`, and is the first and only time the CSV is read end to end -
+the timing that actually scales. A single "load time" per file would hide that,
+and the honest answer to "why was this feed slow" is nearly always one file's
+count, not its header. The response field is still `register_ms`, which names
+the mechanism; the interface labels it "Read headers", which names the effect.
+Forcing an extra scan per file would give a cleaner throughput number at the
+price of making every load slower, which is the wrong trade for a tool whose
+point is opening a feed now.
+
+**The metrics are collected in `core/` but published from `server/`.** `core`
+stays framework-free, so `feed.py` accumulates plain dataclasses
+(`FeedStats`, `FileStats`) and `server/models.py` turns them into the pydantic
+shapes the OpenAPI document declares - the same split as everything else here.
+
 **The feed lives on the app instance**, not in a module global, so tests can
 build isolated apps and two servers in one process do not share state. A load
 that fails leaves the previous feed working: the new feed is opened before the

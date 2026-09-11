@@ -30,9 +30,44 @@ export interface TableInfo {
   columns: ColumnInfo[];
 }
 
+/** What one .txt file cost to open. */
+export interface FileMetrics {
+  name: string;
+  table: string;
+  /** Uncompressed size on disk. */
+  bytes: number;
+  /** Only for zip sources; a chosen folder has no compressed form. */
+  compressed_bytes: number | null;
+  /** Declaring the DuckDB view. Views are lazy, so this is near zero. */
+  register_ms: number;
+  /** The COUNT(*) that actually scans the file - the real read cost. */
+  count_ms: number | null;
+  row_count: number | null;
+  columns: number;
+}
+
+/** Server-side sizes and timings for the feed currently loaded. */
+export interface LoadMetrics {
+  /** How the feed reached the server. */
+  kind: "path" | "upload" | "folder" | "download";
+  /** Downloading or receiving the upload; null for a local path. */
+  acquire_ms: number | null;
+  acquire_bytes: number | null;
+  /** Unzipping; null when the source was already-extracted files. */
+  extract_ms: number | null;
+  register_ms: number;
+  count_ms: number;
+  /** The phases above added together. */
+  total_ms: number;
+  /** The zip's size, or the sum of the .txt files in a folder. */
+  total_bytes: number;
+  files: FileMetrics[];
+}
+
 export interface TablesResponse {
   source: string;
   tables: TableInfo[];
+  metrics: LoadMetrics;
 }
 
 /** Row values are strings or null: every column is read as text. */

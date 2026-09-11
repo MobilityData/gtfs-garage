@@ -9,9 +9,19 @@
   <header>
     <h1>GTFS Garage</h1>
     <div id="source-label">No feed loaded</div>
+    <!-- Filled in once a feed is loaded; expands into #metrics-panel. -->
+    <button id="metrics-btn" title="What this feed cost to open" hidden></button>
     <button id="toggle-map-btn">Hide map</button>
     <button id="open-load-btn">Load feed</button>
   </header>
+
+  <div id="metrics-panel" class="hidden">
+    <div id="metrics-header">
+      <strong>Load report</strong>
+      <button id="metrics-close-btn" title="Close">&times;</button>
+    </div>
+    <div id="metrics-body"></div>
+  </div>
 
   <div id="layout">
     <div id="sidebar"></div>
@@ -56,11 +66,28 @@
   <div id="load-overlay" class="hidden">
     <div id="load-panel">
       <h2>Load a GTFS feed</h2>
-      <div id="dropzone">Drop a GTFS .zip here, or click to choose a file</div>
+      <div id="dropzone">Drop a GTFS .zip here, or click to choose one</div>
       <input id="file-input" type="file" accept=".zip" style="display:none" />
+      <!-- webkitdirectory turns this into a folder chooser. -->
+      <input id="folder-input" type="file" webkitdirectory directory multiple style="display:none" />
+      <div id="pick-row">
+        <button id="pick-file-btn">Choose a .zip…</button>
+        <button id="pick-folder-btn">Choose a folder…</button>
+      </div>
       <div class="or">or</div>
-      <input id="path-input" type="text" placeholder="/local/path/to/feed.zip or extracted folder" />
-      <button id="load-path-btn" class="primary">Load path</button>
+      <label for="path-input" class="field-label">Local path or URL</label>
+      <input
+        id="path-input"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="/path/to/feed.zip, /path/to/extracted/folder, or https://example.org/gtfs.zip"
+      />
+      <div id="load-actions">
+        <button id="load-path-btn" class="primary" disabled>Load</button>
+        <button id="load-cancel-btn">Cancel</button>
+      </div>
+      <div id="load-status"></div>
       <div id="load-error"></div>
     </div>
   </div>

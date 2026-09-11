@@ -5,7 +5,7 @@ tool, so another project can depend on it without inheriting FastAPI. See
 tests/test_layering.py, which enforces that.
 """
 
-from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
+from gtfs_garage.core.feed import FeedStats, FileStats, GtfsFeed, GtfsLoadError
 from gtfs_garage.core.queries import (
     UnknownColumnError,
     UnknownTableError,
@@ -15,6 +15,8 @@ from gtfs_garage.core.queries import (
 )
 
 __all__ = [
+    "FeedStats",
+    "FileStats",
     "GtfsFeed",
     "GtfsLoadError",
     "UnknownColumnError",
