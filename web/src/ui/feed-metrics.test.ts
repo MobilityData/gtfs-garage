@@ -115,11 +115,42 @@ describe("fileRows", () => {
   it("shows a dash where the server had no number", () => {
     const row = fileRows(metrics({ files: [file("stops.txt", 1, { count_ms: null, row_count: null })] }))[0];
     expect(row.compressed).toBe("—");
-    expect(row.countMs).toBe("—");
+    expect(row.costMs).toBe("—");
     expect(row.rows).toBe("—");
   });
 
   it("does not divide by zero on a feed of empty files", () => {
     expect(fileRows(metrics({ files: [file("stops.txt", 0)] }))[0].share).toBe(0);
+  });
+
+  /**
+   * The two numbers this replaced were measured against different storage - the
+   * header read on the CSV before conversion, the row count on the Parquet
+   * after it - so the single cost has to follow whichever actually happened.
+   */
+  it("reports the conversion when the feed was converted", () => {
+    const converted = metrics({
+      convert_ms: 40,
+      files: [file("stops.txt", 1, { convert_ms: 12, count_ms: 0.2 })],
+    });
+    expect(fileRows(converted)[0].costMs).toBe("12 ms");
+  });
+
+  it("reports the row count when the feed was left as CSV", () => {
+    const plain = metrics({
+      convert_ms: null,
+      files: [file("stops.txt", 1, { convert_ms: null, count_ms: 30 })],
+    });
+    expect(fileRows(plain)[0].costMs).toBe("30 ms");
+  });
+
+  it("dashes a file that would not convert inside a converted feed", () => {
+    const partial = metrics({
+      convert_ms: 40,
+      files: [file("broken.txt", 1, { convert_ms: null, count_ms: 5 })],
+    });
+    // Its CSV view survives, so there is no conversion time to report - and
+    // the count belongs to the other mode, so it is not substituted in.
+    expect(fileRows(partial)[0].costMs).toBe("—");
   });
 });

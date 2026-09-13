@@ -251,19 +251,28 @@ to it.
 where `requestAnimationFrame` never runs — layers added that way never exist and
 the feed silently never reaches the map.
 
-**Load metrics measure the work a load already does**, and never add any. The
-report distinguishes two per-file timings because they mean different things.
-Reading a file's header is the `CREATE VIEW` over `read_csv`: DuckDB resolves
-the column list off the start of the file and stops there, so the cost barely
-varies with how large the file is. Counting rows is the `COUNT(*)` in
-`table_summaries`, and is the first and only time the CSV is read end to end -
-the timing that actually scales. A single "load time" per file would hide that,
-and the honest answer to "why was this feed slow" is nearly always one file's
-count, not its header. The response field is still `register_ms`, which names
-the mechanism; the interface labels it "Read headers", which names the effect.
+**Load metrics measure the work a load already does**, and never add any.
 Forcing an extra scan per file would give a cleaner throughput number at the
 price of making every load slower, which is the wrong trade for a tool whose
 point is opening a feed now.
+
+The phase list reports each phase against the storage it actually ran on, in
+order: unzip, read headers (`CREATE VIEW` over `read_csv`, which resolves the
+column list off the start of each CSV), convert, then count rows.
+
+**The per-file table shows one timing, not two.** It used to show the header
+read beside the row count, which stopped making sense once conversion became the
+default. Counting rows no longer reads anything: Parquet keeps the row count in
+its footer, so `COUNT(*)` is a flat fraction of a millisecond whatever the row
+count - on a 160,000-row file, 0.18 ms converted against 30 ms as CSV. Worse,
+the two were measured against *different* storage, since the header read happens
+on the CSV before conversion and the count on the Parquet after it, so reading
+them side by side told you nothing.
+
+What the column shows now is what the load actually did to that file: its
+conversion time by default, or its row count under `--no-parquet`, with the
+heading changing to match. A file that would not convert keeps its CSV view and
+shows an em dash rather than borrowing the other mode's number.
 
 **The metrics are collected in `core/` but published from `server/`.** `core`
 stays framework-free, so `feed.py` accumulates plain dataclasses
