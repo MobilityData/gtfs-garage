@@ -9,8 +9,34 @@
  */
 
 import { button, el } from "../dom";
-import type { Filter, PageResponse, Row } from "../sources/types";
+import type { Filter, PageResponse, RelatedLink, Row } from "../sources/types";
 import type { AppState } from "../state";
+
+export interface RelatedButton {
+  link: RelatedLink;
+  label: string;
+  title: string;
+}
+
+/**
+ * How to label the reverse links under an id.
+ *
+ * A table can point at the same id from more than one column - `transfers` and
+ * `pathways` each reference a stop as both `from_stop_id` and `to_stop_id` - so
+ * labelling by table name alone renders two buttons that look identical and go
+ * to different places. The column is added only where a table appears more than
+ * once, which keeps the common label short, and the tooltip always names it.
+ */
+export function describeRelated(related: RelatedLink[]): RelatedButton[] {
+  const perTable = new Map<string, number>();
+  for (const link of related) perTable.set(link.table, (perTable.get(link.table) ?? 0) + 1);
+
+  return related.map((link) => ({
+    link,
+    label: (perTable.get(link.table) ?? 0) > 1 ? `▸ ${link.table} ${link.column}` : `▸ ${link.table}`,
+    title: `Rows in ${link.table} whose ${link.column} is this`,
+  }));
+}
 
 export interface TableCallbacks {
   onNavigate: (table: string, filters: Filter[]) => void;
@@ -108,8 +134,8 @@ export class TableView {
     if (info?.related.length && value) {
       const related = document.createElement("div");
       related.className = "related-row";
-      for (const link of info.related) {
-        const btn = button(`▸ ${link.table}`, `Rows in ${link.table} referencing this`, () =>
+      for (const { link, label, title } of describeRelated(info.related)) {
+        const btn = button(label, title, () =>
           this.callbacks.onNavigate(link.table, [{ column: link.column, op: "eq", value }]),
         );
         btn.className = "related-btn";
