@@ -138,9 +138,13 @@ pip install -e ".[dev,perf]" && playwright install chromium
 pytest -m browser
 ```
 
-`python scripts/benchmark.py` prints load, map-layer and paging timings for a
-generated feed. It reports rather than asserts; CI puts the table in the pull
-request summary.
+`python scripts/benchmark.py` measures a generated feed: payload sizes, feature
+and vertex counts, and the time each phase takes. It reports rather than asserts.
+
+On a pull request, CI runs it twice on the same runner - once on the branch, once
+on its merge base - and posts the difference as a comment, so a number is judged
+against `main` rather than read in isolation. Exact metrics like payload bytes are
+flagged when they move; timings are shown but vary with the runner.
 
 ## Documentation
 

@@ -124,11 +124,40 @@ own that asserted something trivially true, and one that injected a "regression"
 which turned out not to cost anything: storing a layer's features in `AppState`
 adds nothing, because `setData` already makes MapLibre retain the same object.
 
-Timing is deliberately not asserted. `scripts/benchmark.py` measures load,
-layer-build and paging times against a generated feed and prints a table into
-the pull request's job summary, where a reviewer can compare it against the same
-table on `main`. It never fails: a shared runner varies enough that any
-threshold either flakes or is too loose to catch anything.
+Timing is deliberately not asserted. `scripts/benchmark.py` measures a generated
+feed and never fails: a shared runner varies enough that any threshold either
+flakes or is too loose to catch anything.
+
+**The benchmark is a comparison, not a number.** An absolute figure on a pull
+request is unreadable - nobody goes and finds `main`'s run to weigh it against.
+So the `benchmark` job measures the branch *and* its merge base **on the same
+runner, seconds apart**, and posts the difference as a comment that updates in
+place. Same-runner is the whole point: a baseline recorded on another machine
+differs by more than most real regressions, which makes cross-run timings worth
+nothing.
+
+Three things make the report honest:
+
+- **Exact metrics are separated from timings.** Payload bytes, feature counts,
+  vertex counts and row totals are deterministic for a fixed input, so any
+  change in one is a real change and is flagged. Timings are shown but labelled
+  as moving with the runner. Mixing the two is what makes benchmark comments get
+  ignored.
+- **The harness is pinned, only `src/` varies.** `benchmark.py`, its comparison
+  script and `tests/conftest.py`'s feed generator are copied to `/tmp` before the
+  base is checked out, and run from there. Otherwise a branch that changes the
+  generated feed would be comparing two different experiments - and a script the
+  branch *adds* does not exist in the base checkout at all.
+- **A base that will not benchmark is reported, not hidden.** When the base
+  predates a metric the branch adds, its run fails; the comment then shows the
+  branch alone and says why.
+
+The comment is best-effort. A pull request from a fork, and every Dependabot one,
+gets a read-only token that `permissions:` cannot elevate, so commenting fails
+there - which is why the report goes to the job summary first and the numbers
+survive either way. `pull_request_target` would fix that and is deliberately not
+used: it runs with a writable token against a branch the repository does not
+control.
 
 ### When the map draws less than the feed contains
 

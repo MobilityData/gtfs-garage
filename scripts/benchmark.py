@@ -1,18 +1,24 @@
 #!/usr/bin/env python
-"""Measures what opening and drawing a feed costs, and prints a markdown table.
+"""Measures what opening and drawing a feed costs.
 
 Reports; never fails. Thresholds belong in tests/test_performance_guards.py,
 which asserts structure rather than duration - a CI runner's speed varies enough
-that a timing assertion either misses real regressions or flakes. What this is
-for is a number on the pull request that a reviewer can compare against the same
-table on main.
+that a timing assertion either misses real regressions or flakes.
 
-Run directly (`python scripts/benchmark.py`) or let CI append it to the job
-summary.
+Two kinds of number come out of this, and the distinction is the point:
+
+  exact   payload bytes, feature counts, vertex counts, row totals. Deterministic
+          for a fixed input, so any change between two runs is a real change.
+  timing  how long each phase took. Moves with whatever else the machine is
+          doing, so only large differences mean anything.
+
+`--json` emits both, keyed by kind, for scripts/compare_benchmarks.py to diff
+against another run. Without it, the same numbers print as a markdown table.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import tempfile
@@ -36,6 +42,8 @@ POINTS_PER_SHAPE = 40
 # routes layer takes one shape per route and the shapes layer takes the rest.
 ROUTES = 2_000
 
+LAYERS = (("routes", gj.iter_routes), ("stops", gj.iter_stops), ("shapes", gj.iter_shapes))
+
 MB = 1024**2
 
 
@@ -45,52 +53,80 @@ def timed(fn):
     return result, time.perf_counter() - started
 
 
-def main() -> int:
+def measure() -> dict:
+    """Open a generated feed, summarise it, page it and build every map layer."""
     with tempfile.TemporaryDirectory() as scratch:
         directory = write_feed(Path(scratch) / "feed", STOPS, SHAPES, POINTS_PER_SHAPE, ROUTES)
-        vertices = SHAPES * POINTS_PER_SHAPE
+        exact: dict[str, int] = {}
+        timing: dict[str, float] = {}
 
-        feed, load_seconds = timed(lambda: GtfsFeed(str(directory)))
+        feed, timing["open the feed"] = timed(lambda: GtfsFeed(str(directory)))
         try:
-            _, summary_seconds = timed(lambda: table_summaries(feed))
+            _, timing["summarise every table"] = timed(lambda: table_summaries(feed))
             stats = feed.stats
+            timing["convert to parquet"] = (stats.convert_ms or 0) / 1000
+            exact["feed on disk (bytes)"] = stats.source_bytes
+            exact["stored as parquet (bytes)"] = stats.stored_bytes or 0
 
-            print("### Performance benchmark\n")
-            print(f"Synthetic feed: {STOPS:,} stops, {SHAPES:,} shapes ({ROUTES:,} on routes), {vertices:,} vertices.\n")
-            print("| Phase | Time | Notes |")
-            print("|---|---|---|")
-            print(f"| Open the feed | {load_seconds:.2f} s | read headers and convert |")
-            print(
-                f"| - convert to Parquet | {(stats.convert_ms or 0) / 1000:.2f} s | "
-                f"{(stats.stored_bytes or 0) / MB:.1f} MB stored vs {stats.source_bytes / MB:.1f} MB of CSV |"
+            page, timing["page into shapes"] = timed(
+                lambda: query_table(feed, "shapes", [], page=50, page_size=100)
             )
-            print(f"| Summarise every table | {summary_seconds:.2f} s | the row counts the sidebar shows |")
+            exact["shapes rows"] = page["total"]
 
-            page, page_seconds = timed(lambda: query_table(feed, "shapes", [], page=50, page_size=100))
-            print(f"| Page into shapes | {page_seconds:.3f} s | row {page['page'] * 100:,} of {page['total']:,} |")
-
-            print("\n| Map layer | Build | Payload | Features | Vertices |")
-            print("|---|---|---|---|---|")
-            for name, builder in (
-                ("routes", gj.iter_routes),
-                ("stops", gj.iter_stops),
-                ("shapes", gj.iter_shapes),
-            ):
+            for name, builder in LAYERS:
                 cursor = feed.cursor()
-                features, seconds = timed(lambda: [f for batch in builder(cursor) for f in batch])
-                payload = len(json.dumps(features, separators=(",", ":")))
-                coords = sum(
-                    1 if f["geometry"]["type"] == "Point" else len(f["geometry"]["coordinates"]) for f in features
+                features, timing[f"build {name}"] = timed(
+                    lambda: [f for batch in builder(cursor) for f in batch]
                 )
-                print(f"| {name} | {seconds:.2f} s | {payload / MB:.1f} MB | {len(features):,} | {coords:,} |")
+                exact[f"{name} payload (bytes)"] = len(json.dumps(features, separators=(",", ":")))
+                exact[f"{name} features"] = len(features)
+                exact[f"{name} vertices"] = sum(
+                    1 if f["geometry"]["type"] == "Point" else len(f["geometry"]["coordinates"])
+                    for f in features
+                )
 
-            step = gj.vertex_step(feed.cursor())
-            print(
-                f"\nVertex step: {step} "
-                f"(`MAX_MAP_VERTICES` = {gj.MAX_MAP_VERTICES:,}; 1 means the feed is drawn exactly)."
-            )
+            exact["vertex step"] = gj.vertex_step(feed.cursor())
         finally:
             feed.close()
+
+    return {
+        "feed": {
+            "stops": STOPS,
+            "shapes": SHAPES,
+            "routes": ROUTES,
+            "points_per_shape": POINTS_PER_SHAPE,
+            "max_map_vertices": gj.MAX_MAP_VERTICES,
+        },
+        "exact": exact,
+        "timing": timing,
+    }
+
+
+def describe_feed(feed: dict) -> str:
+    return (
+        f"Synthetic feed: {feed['stops']:,} stops, {feed['shapes']:,} shapes "
+        f"({feed['routes']:,} on routes), {feed['shapes'] * feed['points_per_shape']:,} vertices."
+    )
+
+
+def as_markdown(result: dict) -> str:
+    lines = ["### Performance benchmark", "", describe_feed(result["feed"]), ""]
+    lines += ["| Exact metric | Value |", "|---|---:|"]
+    for name, value in result["exact"].items():
+        lines.append(f"| {name} | {value:,} |")
+    lines += ["", "| Phase | Time |", "|---|---:|"]
+    for name, seconds in result["timing"].items():
+        lines.append(f"| {name} | {seconds:.2f} s |")
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--json", action="store_true", help="emit the raw numbers for comparison")
+    args = parser.parse_args(argv)
+
+    result = measure()
+    print(json.dumps(result, indent=2) if args.json else as_markdown(result))
     return 0
 
 
