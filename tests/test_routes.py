@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -88,23 +89,70 @@ class TestDistinct:
         assert client.get("/api/table/stops/distinct/nope").status_code == 404
 
 
-class TestGeoJson:
-    def test_stops_are_points(self, client: TestClient):
-        body = client.get("/api/geojson/stops").json()
-        assert len(body["features"]) == 3
-        assert body["features"][0]["geometry"]["type"] == "Point"
+def read_stream(client: TestClient, path: str) -> tuple[int, list[dict]]:
+    """Consume an NDJSON layer into its declared total and its features."""
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/x-ndjson")
 
-    def test_a_single_stop_can_be_requested(self, client: TestClient):
-        body = client.get("/api/geojson/stops", params={"stop_ids": "ST1"}).json()
-        assert len(body["features"]) == 1
+    lines = [json.loads(line) for line in response.text.splitlines() if line]
+    assert lines[0]["type"] == "header"
+    features = [f for message in lines[1:] for f in message["features"]]
+    return lines[0]["total"], features
+
+
+class TestGeoJson:
+    """The whole-feed layers stream; an id-filtered highlight does not."""
+
+    def test_stops_are_points(self, client: TestClient):
+        total, features = read_stream(client, "/api/geojson/stops")
+        assert len(features) == 3
+        assert features[0]["geometry"]["type"] == "Point"
+        # The total drives the on-map progress, so it has to be reachable.
+        assert total == len(features)
+
+    def test_a_single_stop_is_answered_whole(self, client: TestClient):
+        # Small enough not to be worth streaming, and the map highlight wants
+        # it in one piece.
+        response = client.get("/api/geojson/stops", params={"stop_ids": "ST1"})
+        assert len(response.json()["features"]) == 1
 
     def test_shapes_are_line_strings(self, client: TestClient):
-        body = client.get("/api/geojson/shapes").json()
-        assert body["features"][0]["geometry"]["type"] == "LineString"
+        _, features = read_stream(client, "/api/geojson/shapes")
+        assert all(f["geometry"]["type"] == "LineString" for f in features)
 
     def test_routes_carry_their_colour_from_the_feed(self, client: TestClient):
-        features = client.get("/api/geojson/routes").json()["features"]
+        _, features = read_stream(client, "/api/geojson/routes")
         assert features[0]["properties"]["route_color"] == "FF0000"
+
+    def test_routes_carry_the_type_the_map_styles_on(self, client: TestClient):
+        _, features = read_stream(client, "/api/geojson/routes")
+        assert features[0]["properties"]["route_type"] == "1"
+
+    def test_a_shape_a_route_draws_is_not_sent_twice(self, client: TestClient):
+        _, routes = read_stream(client, "/api/geojson/routes")
+        _, shapes = read_stream(client, "/api/geojson/shapes")
+        drawn = {f["properties"]["shape_id"] for f in routes}
+        assert drawn and not drawn & {f["properties"]["shape_id"] for f in shapes}
+
+    def test_a_layer_needs_a_feed(self, empty_client: TestClient):
+        # Refused up front rather than as a truncated body the client cannot
+        # tell apart from a network failure.
+        assert empty_client.get("/api/geojson/stops").status_code == 409
+
+    def test_layers_are_compressed(self, client: TestClient):
+        response = client.get("/api/geojson/stops", headers={"Accept-Encoding": "gzip"})
+        assert response.headers.get("content-encoding") == "gzip"
+
+
+class TestLoadProgress:
+    def test_reports_idle_when_nothing_is_loading(self, client: TestClient):
+        body = client.get("/api/load/progress").json()
+        assert body["running"] is False
+        assert body["phase"] == "done"
+
+    def test_is_answerable_without_a_feed(self, empty_client: TestClient):
+        assert empty_client.get("/api/load/progress").status_code == 200
 
 
 class TestServingTheUi:

@@ -28,6 +28,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Drives a real browser for the memory guard in tests/browser. Kept out of
+# `dev` so the ordinary contributor setup does not pull a browser down.
+perf = ["playwright~=1.49"]
 # Only needed to query a feed from Python; the server extra adds the web UI.
 dev = [
     "black==26.3.1",
@@ -73,4 +76,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = ["--import-mode=importlib"]
+# The browser guard needs a real Chromium and a built frontend, so it is opt-in:
+# `pytest -m browser`. Everything else runs by default.
+addopts = ["--import-mode=importlib", "-m", "not browser"]
+markers = ["browser: drives a real browser; needs the perf extra and a built frontend"]

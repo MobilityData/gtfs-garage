@@ -15,9 +15,9 @@ jobs:
     name: Lint and test (Python)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
           cache: pip
@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage_reports/
@@ -45,9 +45,9 @@ jobs:
     name: Typecheck and build (frontend)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node_version }}
           cache: yarn
@@ -73,15 +73,15 @@ jobs:
     name: Build the wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node_version }}
           cache: yarn
           cache-dependency-path: web/yarn.lock
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
@@ -112,3 +112,132 @@ jobs:
           from gtfs_garage.core.schema import FOREIGN_KEYS
           assert FOREIGN_KEYS, 'schema missing from the wheel'
           "
+
+  performance:
+    name: Map memory (browser)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.node_version }}
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.python_version }}
+
+      # The guard drives the real interface, so the frontend has to exist.
+      - name: Build the frontend
+        working-directory: web
+        run: yarn install --frozen-lockfile && yarn build
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,perf]"
+          playwright install --with-deps chromium
+
+      # Peak JS heap is the one thing no server-side test can see: it is what
+      # killed a tab after a large feed had drawn and a table was opened.
+      - name: Measure map memory
+        run: python -m pytest -m browser -v
+
+  # Benchmarks this branch and its base on the same runner, seconds apart, and
+  # posts the difference. Same-runner matters: a baseline recorded on another
+  # machine varies by more than most real regressions, so cross-run timings are
+  # not worth reading. Reports only - the assertions that gate a merge live in
+  # tests/test_performance_guards.py, which checks structure rather than duration.
+  benchmark:
+    name: Performance comparison
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      # Declaring any permission replaces the whole default set, so `contents`
+      # has to be listed or the token cannot even clone the repository - which
+      # surfaces as checkout failing with "Repository not found", because an
+      # unauthorised read is answered with a 404 rather than a 403.
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The base commit has to be reachable to be checked out below.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.python_version }}
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Benchmark this branch
+        run: python scripts/benchmark.py --json > /tmp/head.json
+
+      # The harness has to be identical on both sides or the two runs are
+      # different experiments: a branch that changes the generated feed or adds
+      # a metric would otherwise be compared against numbers for another feed.
+      # Only the library code under src/ is allowed to differ. The scripts are
+      # kept in /tmp and run from there, because after the checkout below the
+      # working tree is the base commit - where a script this branch adds does
+      # not exist at all.
+      - name: Benchmark the base commit
+        continue-on-error: true
+        run: |
+          # Mirrors the repo layout: benchmark.py finds the feed generator at
+          # ../tests/conftest.py relative to itself.
+          mkdir -p /tmp/harness/scripts /tmp/harness/tests
+          cp scripts/benchmark.py scripts/compare_benchmarks.py /tmp/harness/scripts/
+          cp tests/conftest.py /tmp/harness/tests/
+          git checkout --quiet ${{ github.event.pull_request.base.sha }}
+          # The editable install points at src/, so the checkout above is what
+          # this measures. No reinstall unless dependencies moved, in which case
+          # this step fails and the report falls back to head-only.
+          python /tmp/harness/scripts/benchmark.py --json > /tmp/base.json
+
+      - name: Compare
+        run: |
+          python /tmp/harness/scripts/compare_benchmarks.py /tmp/base.json /tmp/head.json > /tmp/report.md
+          cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
+          # Handed to the comment step as an environment variable rather than
+          # read from disk there, so the script needs no `require` and does not
+          # depend on how github-script loads modules. The delimiter is one the
+          # report cannot contain.
+          {
+            echo 'BENCHMARK_REPORT<<GTFS_GARAGE_REPORT_EOF'
+            cat /tmp/report.md
+            echo 'GTFS_GARAGE_REPORT_EOF'
+          } >> "$GITHUB_ENV"
+
+      # Best-effort: a pull request from a fork, and any Dependabot one, gets a
+      # read-only token that `permissions` cannot elevate, so this step fails
+      # there. The report is already in the job summary by now, so the numbers
+      # survive either way. `pull_request_target` would fix commenting and is
+      # deliberately not used: it runs with a writable token against a branch
+      # the repository does not control.
+      - name: Comment on the pull request
+        continue-on-error: true
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = process.env.BENCHMARK_REPORT;
+            const marker = '<!-- gtfs-garage-benchmark -->';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            // Update in place rather than adding a comment per push.
+            const comments = await github.paginate(github.rest.issues.listComments,
+              { owner, repo, issue_number });
+            const mine = comments.find((c) => c.body.includes(marker));
+
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }

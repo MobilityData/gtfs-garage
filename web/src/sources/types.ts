@@ -40,6 +40,10 @@ export interface FileMetrics {
   compressed_bytes: number | null;
   /** Declaring the DuckDB view. Views are lazy, so this is near zero. */
   register_ms: number;
+  /** Rewriting this table as Parquet; null when opened with --no-parquet. */
+  convert_ms: number | null;
+  /** What the table occupies once converted, usually far below `bytes`. */
+  parquet_bytes: number | null;
   /** The COUNT(*) that actually scans the file - the real read cost. */
   count_ms: number | null;
   row_count: number | null;
@@ -56,12 +60,26 @@ export interface LoadMetrics {
   /** Unzipping; null when the source was already-extracted files. */
   extract_ms: number | null;
   register_ms: number;
+  /** Converting to Parquet; null when opened with --no-parquet. */
+  convert_ms: number | null;
   count_ms: number;
   /** The phases above added together. */
   total_ms: number;
   /** The zip's size, or the sum of the .txt files in a folder. */
   total_bytes: number;
+  /** What the feed occupies to query once converted; null when it was not. */
+  stored_bytes: number | null;
   files: FileMetrics[];
+}
+
+/** Where a running load has got to, polled while the load is in flight. */
+export interface LoadProgress {
+  phase: "start" | "download" | "upload" | "extract" | "convert" | "summarise" | "done";
+  done: number;
+  /** 0 when the total is not knowable, e.g. a download with no Content-Length. */
+  total: number;
+  detail: string;
+  running: boolean;
 }
 
 export interface TablesResponse {

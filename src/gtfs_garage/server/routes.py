@@ -5,9 +5,12 @@ core's errors into status codes. No SQL here.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import StreamingResponse
 
 from gtfs_garage import __version__
 from gtfs_garage.core import geojson as geojson_builders
@@ -22,6 +25,7 @@ from gtfs_garage.core.queries import (
 from gtfs_garage.server.models import (
     ConfigResponse,
     DistinctResponse,
+    LoadProgressResponse,
     PageResponse,
     TablesResponse,
 )
@@ -41,6 +45,16 @@ def _feed(request: Request) -> GtfsFeed:
         raise HTTPException(status_code=409, detail="No GTFS feed loaded yet.")
 
 
+@contextmanager
+def _reading(request: Request) -> Iterator[GtfsFeed]:
+    """Borrow the loaded feed for one request, keeping it alive while in use."""
+    try:
+        with _registry(request).reading() as feed:
+            yield feed
+    except NoFeedLoadedError:
+        raise HTTPException(status_code=409, detail="No GTFS feed loaded yet.")
+
+
 def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
     """Sizes and timings for the load that produced the feed being served.
 
@@ -56,9 +70,11 @@ def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
         "acquire_bytes": acquire.bytes if acquire else None,
         "extract_ms": stats.extract_ms,
         "register_ms": stats.register_ms,
+        "convert_ms": stats.convert_ms,
         "count_ms": stats.count_ms,
         "total_ms": (acquire.ms if acquire else 0.0) + stats.total_ms,
         "total_bytes": stats.source_bytes,
+        "stored_bytes": stats.stored_bytes,
         "files": [
             {
                 "name": f.name,
@@ -66,6 +82,8 @@ def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
                 "bytes": f.bytes,
                 "compressed_bytes": f.compressed_bytes,
                 "register_ms": f.register_ms,
+                "convert_ms": f.convert_ms,
+                "parquet_bytes": f.parquet_bytes,
                 "count_ms": f.count_ms,
                 "row_count": f.row_count,
                 "columns": f.columns,
@@ -87,7 +105,7 @@ def get_config(request: Request) -> dict[str, Any]:
 
 
 @router.post("/load", response_model=TablesResponse)
-async def load_feed(
+def load_feed(
     request: Request,
     file: Optional[UploadFile] = File(None),
     files: list[UploadFile] = File([]),
@@ -101,6 +119,7 @@ async def load_feed(
     `name` is the folder's own name, for display.
     """
     registry = _registry(request)
+    registry.begin_load()
 
     try:
         if files:
@@ -118,9 +137,33 @@ async def load_feed(
 
         registry.load(source, label)
     except GtfsLoadError as exc:
+        registry.finish_load()
         raise HTTPException(status_code=400, detail=str(exc))
+    except HTTPException:
+        registry.finish_load()
+        raise
 
-    return _tables_payload(registry)
+    payload = _tables_payload(registry)
+    registry.finish_load()
+    return payload
+
+
+@router.get("/load/progress", response_model=LoadProgressResponse)
+def load_progress(request: Request) -> dict[str, Any]:
+    """Where a running load has got to.
+
+    Only answerable while a load is in flight because `load_feed` above is a
+    plain `def` and so runs in a worker thread. As an `async def` it held the
+    event loop for the whole load and nothing else could be served at all.
+    """
+    progress = _registry(request).progress
+    return {
+        "phase": progress.phase,
+        "done": progress.done,
+        "total": progress.total,
+        "detail": progress.detail,
+        "running": progress.running,
+    }
 
 
 @router.get("/tables", response_model=TablesResponse)
@@ -146,7 +189,8 @@ def get_table(
         raise HTTPException(status_code=400, detail="filters must be a JSON array")
 
     try:
-        return query_table(_feed(request), table, parsed_filters, page, page_size)
+        with _reading(request) as feed:
+            return query_table(feed, table, parsed_filters, page, page_size)
     except UnknownTableError:
         raise HTTPException(status_code=404, detail=f"Unknown table '{table}'")
 
@@ -156,7 +200,8 @@ def get_distinct_values(
     request: Request, table: str, column: str, limit: int = Query(200, ge=1, le=2000)
 ) -> dict[str, Any]:
     try:
-        return {"values": distinct_values(_feed(request), table, column, limit)}
+        with _reading(request) as feed:
+            return {"values": distinct_values(feed, table, column, limit)}
     except (UnknownTableError, UnknownColumnError):
         raise HTTPException(status_code=404, detail="Unknown table or column")
 
@@ -165,16 +210,70 @@ def _split_ids(ids: Optional[str]) -> Optional[list[str]]:
     return ids.split(",") if ids else None
 
 
+def _ndjson(
+    registry: FeedRegistry, count: Callable, batches: Callable, step: Callable | None = None
+) -> StreamingResponse:
+    """Stream a layer as newline-delimited JSON: a header, then feature batches.
+
+    A whole-feed layer is far too large to build, hold and parse in one piece -
+    a large feed runs to hundreds of MB - so it goes out as it is read. The
+    header carries the total up front so the interface can show real progress,
+    and DuckDB still scans the file only once, which paging with offsets would
+    not have managed.
+
+    The reader guard is held for the life of the generator, not just until this
+    function returns: the cursor is still in use while the body streams, and a
+    load arriving meanwhile would otherwise close the connection under it.
+    """
+
+    def stream() -> Iterator[bytes]:
+        with registry.reading() as feed:
+            cursor = feed.cursor()
+            header = {"type": "header", "total": count(cursor), "step": step(cursor) if step else 1}
+            yield (json.dumps(header) + "\n").encode()
+            for batch in batches(cursor):
+                yield (json.dumps({"type": "batch", "features": batch}, separators=(",", ":")) + "\n").encode()
+
+    try:
+        # Surfaces "no feed loaded" as a status code rather than mid-stream,
+        # where the client would only see a truncated body.
+        registry.current()
+    except NoFeedLoadedError:
+        raise HTTPException(status_code=409, detail="No GTFS feed loaded yet.")
+
+    return StreamingResponse(stream(), media_type="application/x-ndjson")
+
+
 @router.get("/geojson/stops")
-def stops_geojson(request: Request, stop_ids: Optional[str] = None) -> dict[str, Any]:
-    return geojson_builders.stops_geojson(_feed(request).cursor(), _split_ids(stop_ids))
+def stops_geojson(request: Request, stop_ids: Optional[str] = None):
+    registry = _registry(request)
+    if stop_ids:
+        # A highlight asks for a handful of ids; small enough to answer whole.
+        with registry.reading() as feed:
+            return geojson_builders.stops_geojson(feed.cursor(), _split_ids(stop_ids))
+    return _ndjson(registry, geojson_builders.count_stops, geojson_builders.iter_stops)
 
 
 @router.get("/geojson/shapes")
-def shapes_geojson(request: Request, shape_ids: Optional[str] = None) -> dict[str, Any]:
-    return geojson_builders.shapes_geojson(_feed(request).cursor(), _split_ids(shape_ids))
+def shapes_geojson(request: Request, shape_ids: Optional[str] = None):
+    registry = _registry(request)
+    if shape_ids:
+        with registry.reading() as feed:
+            return geojson_builders.shapes_geojson(feed.cursor(), _split_ids(shape_ids))
+    return _ndjson(
+        registry,
+        geojson_builders.count_shapes,
+        geojson_builders.iter_shapes,
+        geojson_builders.shape_step,
+    )
 
 
 @router.get("/geojson/routes")
-def routes_geojson(request: Request) -> dict[str, Any]:
-    return geojson_builders.routes_geojson(_feed(request).cursor())
+def routes_geojson(request: Request):
+    registry = _registry(request)
+    return _ndjson(
+        registry,
+        geojson_builders.count_routes,
+        geojson_builders.iter_routes,
+        geojson_builders.shape_step,
+    )

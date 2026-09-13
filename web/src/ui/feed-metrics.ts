@@ -8,7 +8,7 @@
  */
 
 import { el } from "../dom";
-import type { LoadMetrics } from "../sources/types";
+import type { FileMetrics, LoadMetrics } from "../sources/types";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
@@ -71,6 +71,11 @@ export function phaseRows(metrics: LoadMetrics): Array<[string, string]> {
     rows.push(["Unzip", `${formatMs(metrics.extract_ms)} · ${formatBytes(metrics.total_bytes)} archive`]);
   }
   rows.push(["Read headers", formatMs(metrics.register_ms)]);
+  if (metrics.convert_ms !== null) {
+    // Worth showing what the conversion bought, not just what it cost.
+    const stored = metrics.stored_bytes === null ? "" : ` · ${formatBytes(metrics.stored_bytes)} stored`;
+    rows.push(["Convert to Parquet", `${formatMs(metrics.convert_ms)}${stored}`]);
+  }
   rows.push(["Count rows", formatMs(metrics.count_ms)]);
   return rows;
 }
@@ -81,8 +86,16 @@ export interface FileRow {
   /** Share of the feed's uncompressed size, as a whole percentage. */
   share: number;
   compressed: string;
-  registerMs: string;
-  countMs: string;
+  /** Size as Parquet; an em dash when the feed was not converted. */
+  stored: string;
+  /**
+   * What this file cost: converting it, or counting it when the feed was left
+   * as CSV. One number rather than two, because the two the report used to show
+   * were measured against different storage - the header read happens on the
+   * CSV before conversion and the row count on the Parquet after it - so
+   * reading them side by side told you nothing.
+   */
+  costMs: string;
   rows: string;
   columns: number;
 }
@@ -100,11 +113,23 @@ export function fileRows(metrics: LoadMetrics): FileRow[] {
       bytes: formatBytes(file.bytes),
       share: total === 0 ? 0 : Math.round((file.bytes / total) * 100),
       compressed: file.compressed_bytes === null ? "—" : formatBytes(file.compressed_bytes),
-      registerMs: formatMs(file.register_ms),
-      countMs: file.count_ms === null ? "—" : formatMs(file.count_ms),
+      stored: file.parquet_bytes === null ? "—" : formatBytes(file.parquet_bytes),
+      costMs: formatCost(metrics, file),
       rows: file.row_count === null ? "—" : file.row_count.toLocaleString(),
       columns: file.columns,
     }));
+}
+
+/** True when the feed was rewritten as Parquet rather than read as CSV. */
+function converted(metrics: LoadMetrics): boolean {
+  return metrics.convert_ms !== null;
+}
+
+function formatCost(metrics: LoadMetrics, file: FileMetrics): string {
+  // A file that would not convert inside an otherwise converted feed keeps its
+  // CSV view and so has no conversion time to show.
+  const cost = converted(metrics) ? file.convert_ms : file.count_ms;
+  return cost === null ? "—" : formatMs(cost);
 }
 
 interface Column {
@@ -114,23 +139,33 @@ interface Column {
   value: (row: FileRow) => string;
 }
 
-const FILE_COLUMNS: Column[] = [
-  { label: "File", value: (row) => row.name },
-  { label: "Size", title: "Uncompressed, and its share of the feed", value: (row) => `${row.bytes} (${row.share}%)` },
-  { label: "Zipped", title: "Size inside the archive", value: (row) => row.compressed },
-  { label: "Rows", value: (row) => row.rows },
-  { label: "Cols", value: (row) => String(row.columns) },
-  {
-    label: "Header",
-    title: "Reading the column names. Only the start of the file is read, so this barely varies with size.",
-    value: (row) => row.registerMs,
-  },
-  {
-    label: "Count",
-    title: "Reading the file end to end to count its rows. This is the cost that scales with size.",
-    value: (row) => row.countMs,
-  },
-];
+/**
+ * The last column depends on what the load actually did to each file, so the
+ * set is built per report rather than held as a constant.
+ */
+function fileColumns(metrics: LoadMetrics): Column[] {
+  const cost: Column = converted(metrics)
+    ? {
+        label: "Convert",
+        title: "Time to rewrite this file as Parquet, which is what every query then reads.",
+        value: (row) => row.costMs,
+      }
+    : {
+        label: "Count",
+        title: "Time to read this file end to end to count its rows.",
+        value: (row) => row.costMs,
+      };
+
+  return [
+    { label: "File", value: (row) => row.name },
+    { label: "Size", title: "Uncompressed, and its share of the feed", value: (row) => `${row.bytes} (${row.share}%)` },
+    { label: "Zipped", title: "Size inside the archive", value: (row) => row.compressed },
+    { label: "Stored", title: "Size as Parquet, which is what queries read", value: (row) => row.stored },
+    { label: "Rows", value: (row) => row.rows },
+    { label: "Cols", value: (row) => String(row.columns) },
+    cost,
+  ];
+}
 
 function phaseList(metrics: LoadMetrics): HTMLElement {
   const list = document.createElement("dl");
@@ -146,9 +181,10 @@ function phaseList(metrics: LoadMetrics): HTMLElement {
 }
 
 function fileTable(metrics: LoadMetrics): HTMLElement {
+  const columns = fileColumns(metrics);
   const table = document.createElement("table");
   const head = document.createElement("tr");
-  for (const column of FILE_COLUMNS) {
+  for (const column of columns) {
     const cell = document.createElement("th");
     cell.textContent = column.label;
     if (column.title) cell.title = column.title;
@@ -158,7 +194,7 @@ function fileTable(metrics: LoadMetrics): HTMLElement {
 
   for (const row of fileRows(metrics)) {
     const tr = document.createElement("tr");
-    for (const column of FILE_COLUMNS) {
+    for (const column of columns) {
       const cell = document.createElement("td");
       cell.textContent = column.value(row);
       tr.appendChild(cell);

@@ -1,11 +1,13 @@
 /** `GtfsSource` backed by the local Python server. */
 
+import { readNdjson, type NdjsonMessage } from "./ndjson";
 import type {
   AppConfig,
   FeatureCollection,
   Filter,
   GeoJsonKind,
   GtfsSource,
+  LoadProgress,
   PageResponse,
   TablesResponse,
   ValueCount,
@@ -75,6 +77,33 @@ export class RestSource implements GtfsSource {
     return fetchJson<FeatureCollection>(
       `${this.baseUrl}/api/geojson/${kind}${query ? `?${query}` : ""}`,
     );
+  }
+
+  loadProgress(): Promise<LoadProgress> {
+    return fetchJson<LoadProgress>(`${this.baseUrl}/api/load/progress`);
+  }
+
+  /**
+   * Stream a whole layer, one batch at a time.
+   *
+   * Used instead of `geojson` for the full-feed layers: a large feed runs to
+   * hundreds of MB, which is neither transferable nor parseable in one piece.
+   */
+  async geojsonStream(
+    kind: GeoJsonKind,
+    onMessage: (message: NdjsonMessage) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/geojson/${kind}`, { signal });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}) as { detail?: string });
+      throw new HttpError(
+        body.detail ?? `${response.status} ${response.statusText}`,
+        response.status,
+      );
+    }
+    if (!response.body) throw new Error("This browser cannot stream responses.");
+    await readNdjson(response.body, onMessage);
   }
 
   /**

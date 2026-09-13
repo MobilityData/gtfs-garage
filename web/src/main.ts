@@ -57,9 +57,9 @@ async function start(): Promise<void> {
     onHighlightShape: async (shapeId) => {
       await map.highlight(await source.geojson("shapes", [shapeId]));
     },
-    onHighlightRoute: (routeId) => {
-      const feature = state.routesGeojson?.features.find((f) => f.properties.route_id === routeId);
-      void map.highlight({ type: "FeatureCollection", features: feature ? [feature] : [] });
+    onHighlightRoute: async (routeId) => {
+      const shapeId = state.routeShapes.get(routeId);
+      if (shapeId) await map.highlight(await source.geojson("shapes", [shapeId]));
     },
   });
 
@@ -74,7 +74,7 @@ async function start(): Promise<void> {
     renderMetrics(data.metrics, clientMs);
     state.tables = data.tables;
     state.mapDataLoaded = false;
-    state.routesGeojson = null;
+    state.routeShapes.clear();
 
     renderSidebar(state, (table) => navigator.selectTable(table));
     void map.refresh().catch((error) => console.error("Map layers failed to load:", error));
