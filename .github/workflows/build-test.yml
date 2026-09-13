@@ -15,9 +15,9 @@ jobs:
     name: Lint and test (Python)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
           cache: pip
@@ -36,7 +36,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage_reports/
@@ -45,9 +45,9 @@ jobs:
     name: Typecheck and build (frontend)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node_version }}
           cache: yarn
@@ -73,15 +73,15 @@ jobs:
     name: Build the wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node_version }}
           cache: yarn
           cache-dependency-path: web/yarn.lock
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
@@ -117,15 +117,15 @@ jobs:
     name: Map memory (browser)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.node_version }}
           cache: yarn
           cache-dependency-path: web/yarn.lock
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
 
@@ -155,14 +155,19 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
+      # Declaring any permission replaces the whole default set, so `contents`
+      # has to be listed or the token cannot even clone the repository - which
+      # surfaces as checkout failing with "Repository not found", because an
+      # unauthorised read is answered with a 404 rather than a 403.
+      contents: read
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # The base commit has to be reachable to be checked out below.
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.python_version }}
           cache: pip
@@ -200,6 +205,15 @@ jobs:
         run: |
           python /tmp/harness/scripts/compare_benchmarks.py /tmp/base.json /tmp/head.json > /tmp/report.md
           cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
+          # Handed to the comment step as an environment variable rather than
+          # read from disk there, so the script needs no `require` and does not
+          # depend on how github-script loads modules. The delimiter is one the
+          # report cannot contain.
+          {
+            echo 'BENCHMARK_REPORT<<GTFS_GARAGE_REPORT_EOF'
+            cat /tmp/report.md
+            echo 'GTFS_GARAGE_REPORT_EOF'
+          } >> "$GITHUB_ENV"
 
       # Best-effort: a pull request from a fork, and any Dependabot one, gets a
       # read-only token that `permissions` cannot elevate, so this step fails
@@ -209,11 +223,10 @@ jobs:
       # the repository does not control.
       - name: Comment on the pull request
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
-            const fs = require('fs');
-            const body = fs.readFileSync('/tmp/report.md', 'utf8');
+            const body = process.env.BENCHMARK_REPORT;
             const marker = '<!-- gtfs-garage-benchmark -->';
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
