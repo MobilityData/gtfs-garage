@@ -51,7 +51,9 @@ export class MapController {
     style: Record<string, unknown>,
   ) {
     this.map = new maplibregl.Map({
-      container: "map",
+      // The element itself, not an id: the viewer builds its own markup and
+      // tags elements with data-el, so there is no id for MapLibre to find.
+      container: dom.el("map"),
       center: [0, 20],
       zoom: 1,
       attributionControl: { compact: true },

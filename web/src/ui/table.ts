@@ -64,7 +64,7 @@ export class TableView {
     const container = this.dom.el("table-scroll");
     container.innerHTML = "";
     const message = document.createElement("div");
-    message.id = "empty-state";
+    message.dataset.el = "empty-state";
     message.textContent = text;
     container.appendChild(message);
     this.dom.el("pager").style.display = "none";

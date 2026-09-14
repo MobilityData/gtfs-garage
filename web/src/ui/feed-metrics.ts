@@ -169,7 +169,7 @@ function fileColumns(metrics: LoadMetrics): Column[] {
 
 function phaseList(metrics: LoadMetrics): HTMLElement {
   const list = document.createElement("dl");
-  list.id = "metrics-phases";
+  list.dataset.el = "metrics-phases";
   for (const [label, value] of phaseRows(metrics)) {
     const term = document.createElement("dt");
     term.textContent = label;
