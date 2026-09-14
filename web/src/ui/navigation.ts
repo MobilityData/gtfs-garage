@@ -6,7 +6,7 @@
  * the same mechanism, and the URL always describes the current view.
  */
 
-import { el } from "../dom";
+import type { Dom } from "../dom";
 import type { Filter, TableInfo } from "../sources/types";
 import { tableInfo, type AppState, type View } from "../state";
 
@@ -48,6 +48,7 @@ export class Navigator {
   private feed = "";
 
   constructor(
+    private readonly dom: Dom,
     private readonly state: AppState,
     private readonly onChange: ViewListener,
   ) {
@@ -68,7 +69,7 @@ export class Navigator {
       this.apply(entry.gtfsView, false);
     });
 
-    el<HTMLButtonElement>("back-btn").addEventListener("click", () => history.back());
+    this.dom.el<HTMLButtonElement>("back-btn").addEventListener("click", () => history.back());
   }
 
   private entryFor(view: View): HistoryEntry {
@@ -142,7 +143,7 @@ export class Navigator {
       history.pushState(this.entryFor(this.state.view), "", Navigator.urlFor(this.state.view));
     }
 
-    el<HTMLButtonElement>("back-btn").disabled = this.depth <= 0;
+    this.dom.el<HTMLButtonElement>("back-btn").disabled = this.depth <= 0;
     this.onChange(this.state.view);
   }
 }

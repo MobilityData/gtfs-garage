@@ -1,4 +1,4 @@
-import { el } from "../dom";
+import type { Dom } from "../dom";
 import type { RestSource } from "../sources/rest";
 import type { FeatureCollection, GeoJsonKind } from "../sources/types";
 import type { AppState } from "../state";
@@ -30,11 +30,12 @@ export class MapController {
 
   /** A vector basemap has to be fetched before the map is constructed. */
   static async create(
+    dom: Dom,
     state: AppState,
     source: RestSource,
     basemap?: string | null,
   ): Promise<MapController> {
-    return new MapController(state, source, await buildStyle(resolveBasemap(basemap)));
+    return new MapController(dom, state, source, await buildStyle(resolveBasemap(basemap)));
   }
 
   /** Cancels an in-flight refresh when a new feed arrives mid-draw. */
@@ -44,6 +45,7 @@ export class MapController {
   private readonly simplifiedLayers = new Map<GeoJsonKind, number>();
 
   private constructor(
+    private readonly dom: Dom,
     private readonly state: AppState,
     private readonly source: RestSource,
     style: Record<string, unknown>,
@@ -79,11 +81,11 @@ export class MapController {
       poll();
     });
 
-    el("toggle-map-btn").addEventListener("click", () => this.setVisible(!this.isVisible()));
+    this.dom.el("toggle-map-btn").addEventListener("click", () => this.setVisible(!this.isVisible()));
   }
 
   isVisible(): boolean {
-    return !el("map-pane").hidden;
+    return !this.dom.el("map-pane").hidden;
   }
 
   /** Restore the saved preference; defaults to shown. */
@@ -98,8 +100,8 @@ export class MapController {
   }
 
   setVisible(visible: boolean): void {
-    el("map-pane").hidden = !visible;
-    el("toggle-map-btn").textContent = visible ? "Hide map" : "Show map";
+    this.dom.el("map-pane").hidden = !visible;
+    this.dom.el("toggle-map-btn").textContent = visible ? "Hide map" : "Show map";
     try {
       localStorage.setItem(MAP_VISIBLE_KEY, visible ? "1" : "0");
     } catch {
@@ -131,7 +133,7 @@ export class MapController {
   }
 
   private showProgress(text: string): void {
-    const element = el("map-progress");
+    const element = this.dom.el("map-progress");
     element.textContent = text;
     element.hidden = text === "";
   }

@@ -37,6 +37,33 @@ framework.** That is what lets another project depend on the query layer without
 inheriting FastAPI, and `tests/test_layering.py` enforces it rather than trusting
 it.
 
+### What is built to be used from outside
+
+Three seams exist for reuse, and each is enforced rather than merely intended -
+which is the only reason to trust them.
+
+**`data/gtfs-schema.json`** — the foreign keys, each table's primary id column,
+and the columns GTFS defines as enumerations. Anything that makes an id
+clickable needs exactly this, and a second hand-maintained copy of it will
+drift. Reached from Python through `importlib.resources`, so it works from an
+installed wheel; the frontend reads the same file rather than keeping a copy.
+
+**`gtfs_garage.core`** — feed loading, filters to SQL, table summaries,
+pagination, distinct values, GeoJSON. What reusing it buys over rewriting is the
+parts that are easy to get subtly wrong: the null-versus-empty filter semantics,
+resolving links only against files a feed actually contains, and the
+cursor-per-request rule that a shared DuckDB connection otherwise breaks.
+
+**`GtfsSource`** (`web/src/sources/types.ts`) — the interface the whole UI is
+written against. `RestSource` implements it over this server; any other
+implementation drives the same interface unchanged, which is what makes the
+viewer embeddable somewhere that has no Python server at all.
+
+How a particular project should consume these is that project's decision and is
+documented where that work happens, not here - a description of someone else's
+architecture written from inside this repository goes stale without anyone
+noticing.
+
 ## Request flow
 
 Opening `trips` filtered to one route:

@@ -1,9 +1,13 @@
-import { el } from "../dom";
+import type { Dom } from "../dom";
 import type { AppState } from "../state";
 
 /** The list of the feed's files, with row counts. */
-export function renderSidebar(state: AppState, onSelect: (table: string) => void): void {
-  const sidebar = el("sidebar");
+export function renderSidebar(
+  dom: Dom,
+  state: AppState,
+  onSelect: (table: string) => void,
+): void {
+  const sidebar = dom.el("sidebar");
   sidebar.innerHTML = "";
 
   for (const table of state.tables) {

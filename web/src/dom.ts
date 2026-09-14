@@ -1,9 +1,38 @@
 /** Small DOM helpers shared by the UI modules. */
 
-export function el<T extends HTMLElement = HTMLElement>(id: string): T {
-  const found = document.getElementById(id);
-  if (!found) throw new Error(`Missing element #${id}`);
-  return found as T;
+/**
+ * Element lookup scoped to one viewer.
+ *
+ * Every lookup goes through a root rather than `document`, so two viewers can
+ * exist on one page without reaching into each other's markup. That is what a
+ * host embedding this needs: the UI used to resolve 37 fixed ids against the
+ * whole document, which silently assumed it was the only thing on the page.
+ */
+export interface Dom {
+  el<T extends HTMLElement = HTMLElement>(id: string): T;
+}
+
+export function createDom(root: ParentNode): Dom {
+  return {
+    el<T extends HTMLElement = HTMLElement>(id: string): T {
+      const found = root.querySelector(`#${CSS.escape(id)}`);
+      if (!found) throw new Error(`Missing element #${id}`);
+      return found as T;
+    },
+  };
+}
+
+/**
+ * The whole document, for the application that owns the page.
+ *
+ * Embedded viewers build their own with `createDom(root)`; this is the one case
+ * where taking the document is correct rather than an assumption. A function
+ * rather than a constant so that merely importing this module does not require
+ * a document - the tests run without one, which is what keeps the UI's pure
+ * logic testable.
+ */
+export function documentDom(): Dom {
+  return createDom(document);
 }
 
 export function button(label: string, title: string, onClick: () => void): HTMLButtonElement {
