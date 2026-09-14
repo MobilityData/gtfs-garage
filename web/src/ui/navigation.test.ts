@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { Dom } from "../dom";
+import type { TableInfo } from "../sources/types";
+import { createState, type View } from "../state";
+import { memoryHistory } from "./history";
 import { initialView, Navigator } from "./navigation";
 
 describe("urlFor", () => {
@@ -87,5 +91,55 @@ describe("initialView", () => {
     expect(view?.table).toBe("feed_info");
     expect(view?.filters).toEqual([]);
     expect(stale.filters).toHaveLength(1); // the caller's object is untouched
+  });
+});
+
+/**
+ * The property step 3 exists for: a viewer embedded in someone else's page must
+ * navigate without touching the host's URL. Testable at all only because `Dom`
+ * is an interface and the back stack is a port - neither a document nor a
+ * browser history is needed here.
+ */
+describe("Navigator with a private back stack", () => {
+  const table = (name: string): TableInfo => ({
+    name,
+    row_count: 1,
+    columns: [{ name: "id", fk_table: null, fk_column: null, enum_like: false, related: [] }],
+  });
+
+  function harness() {
+    const backButton = { disabled: false, addEventListener: () => {} };
+    const dom: Dom = { el: <T,>() => backButton as T };
+    const state = createState();
+    state.tables = [table("agency"), table("routes")];
+
+    const seen: View[] = [];
+    const navigator = new Navigator(dom, memoryHistory(), state, (view) => seen.push(view));
+    return { navigator, seen, backButton };
+  }
+
+  it("navigates without any browser history", () => {
+    const { navigator, seen } = harness();
+    navigator.reset({ table: "agency", filters: [], page: 1 }, "feed-1");
+    navigator.selectTable("routes");
+
+    expect(seen.map((v) => v.table)).toEqual(["agency", "routes"]);
+  });
+
+  it("goes back through its own stack", () => {
+    const { navigator, seen, backButton } = harness();
+    navigator.reset({ table: "agency", filters: [], page: 1 }, "feed-1");
+    navigator.selectTable("routes");
+    expect(backButton.disabled).toBe(false);
+
+    navigator.back();
+
+    expect(seen.map((v) => v.table)).toEqual(["agency", "routes", "agency"]);
+    expect(backButton.disabled).toBe(true);
+  });
+
+  it("offers no initial view, leaving the host's URL to the host", () => {
+    const { navigator } = harness();
+    expect(navigator.fromLocation()).toBeNull();
   });
 });

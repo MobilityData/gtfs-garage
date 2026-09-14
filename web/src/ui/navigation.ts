@@ -1,14 +1,17 @@
 /**
- * View navigation and history.
+ * View navigation.
  *
  * Every view change - table switch, filter change, page turn - goes through
- * `setView`, so the in-app Back button and the browser's own back/forward are
- * the same mechanism, and the URL always describes the current view.
+ * `apply`, so the in-app Back button and whatever the host uses for back are
+ * the same mechanism. Where the back stack lives is `HistoryPort`'s business:
+ * the browser's own history for the application, a private stack for a viewer
+ * embedded in someone else's page.
  */
 
 import type { Dom } from "../dom";
 import type { Filter, TableInfo } from "../sources/types";
 import { tableInfo, type AppState, type View } from "../state";
+import { parseUrl, urlFor, type HistoryEntry, type HistoryPort } from "./history";
 
 export type ViewListener = (view: View) => void;
 
@@ -37,69 +40,46 @@ export function initialView(tables: TableInfo[], restoreFrom?: View | null): Vie
   return landing ? { table: landing.name, filters: [], page: 1 } : null;
 }
 
-interface HistoryEntry {
-  gtfsView: View & { depth: number };
-  /** Which feed the view describes. */
-  feed: string;
-}
-
 export class Navigator {
   private depth = 0;
   private feed = "";
 
   constructor(
     private readonly dom: Dom,
+    private readonly history: HistoryPort,
     private readonly state: AppState,
     private readonly onChange: ViewListener,
   ) {
-    window.addEventListener("popstate", (event) => {
-      const entry = event.state as HistoryEntry | null;
-      if (!entry?.gtfsView) return;
+    this.history.onPop((entry) => {
+      if (!entry) return;
 
       // Entries from a previously opened feed cannot be honoured: only one feed
       // is loaded at a time, and their filters describe data that is no longer
-      // here. Stay put and put the URL back rather than showing something that
-      // does not match what is on screen.
+      // here. Stay put and put the entry back rather than showing something
+      // that does not match what is on screen.
       if (entry.feed !== this.feed) {
-        history.replaceState(this.entryFor(this.state.view), "", Navigator.urlFor(this.state.view));
+        this.history.replace(this.entryFor(this.state.view));
         return;
       }
 
-      this.depth = entry.gtfsView.depth ?? 0;
-      this.apply(entry.gtfsView, false);
+      this.depth = entry.depth;
+      this.apply(entry.view, false);
     });
 
-    this.dom.el<HTMLButtonElement>("back-btn").addEventListener("click", () => history.back());
+    this.dom.el<HTMLButtonElement>("back-btn").addEventListener("click", () => this.back());
   }
 
   private entryFor(view: View): HistoryEntry {
-    return { gtfsView: { ...view, depth: this.depth }, feed: this.feed };
+    return { view, depth: this.depth, feed: this.feed };
   }
 
-  static urlFor(view: View): string {
-    const params = new URLSearchParams({ table: view.table, page: String(view.page || 1) });
-    if (view.filters.length) params.set("filters", JSON.stringify(view.filters));
-    return `?${params}`;
-  }
+  /** Re-exported so callers need not know where the URL shape is defined. */
+  static urlFor = urlFor;
+  static parseUrl = parseUrl;
 
-  /** Pure counterpart of `fromUrl`, so it can be tested without a document. */
-  static parseUrl(search: string): View | null {
-    const params = new URLSearchParams(search);
-    const table = params.get("table");
-    if (!table) return null;
-
-    let filters: Filter[] = [];
-    try {
-      const parsed = JSON.parse(params.get("filters") || "[]") as unknown;
-      filters = Array.isArray(parsed) ? (parsed as Filter[]) : [];
-    } catch {
-      filters = [];
-    }
-    return { table, filters, page: Number(params.get("page")) || 1 };
-  }
-
-  static fromUrl(): View | null {
-    return Navigator.parseUrl(location.search);
+  /** The view named by the current location, for an app that owns its page. */
+  fromLocation(): View | null {
+    return this.history.initialView();
   }
 
   current(): View {
@@ -115,12 +95,17 @@ export class Navigator {
   reset(view: View, feed: string): void {
     this.depth = 0;
     this.feed = feed;
-    history.replaceState(this.entryFor(view), "", Navigator.urlFor(view));
+    this.history.replace(this.entryFor(view));
     this.apply(view, false);
   }
 
   go(view: View): void {
     this.apply(view, true);
+  }
+
+  /** Step back one view. Public so an embedding host can offer its own control. */
+  back(): void {
+    this.history.back();
   }
 
   selectTable(table: string, filters: Filter[] = []): void {
@@ -140,7 +125,7 @@ export class Navigator {
 
     if (push) {
       this.depth += 1;
-      history.pushState(this.entryFor(this.state.view), "", Navigator.urlFor(this.state.view));
+      this.history.push(this.entryFor(this.state.view));
     }
 
     this.dom.el<HTMLButtonElement>("back-btn").disabled = this.depth <= 0;
