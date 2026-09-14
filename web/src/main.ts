@@ -2,7 +2,7 @@
 
 import "./style.css";
 
-import { el } from "./dom";
+import { documentDom } from "./dom";
 import { MapController } from "./map/map";
 import { RestSource } from "./sources/rest";
 import type { TablesResponse } from "./sources/types";
@@ -15,14 +15,17 @@ import { renderSidebar } from "./ui/sidebar";
 import { TableView } from "./ui/table";
 
 async function start(): Promise<void> {
+  // The application owns the page, so its lookups are scoped to the document.
+  // An embedded viewer passes the root it was mounted on instead.
+  const dom = documentDom();
   const state = createState();
   const source = new RestSource();
-  initMetricsPanel();
+  initMetricsPanel(dom);
 
   // The basemap is a server setting, and a vector style has to be fetched
   // before the map can be constructed.
   const config = await source.config().catch(() => null);
-  const map = await MapController.create(state, source, config?.basemap);
+  const map = await MapController.create(dom, state, source, config?.basemap);
   map.restoreVisibility();
 
   const loadPage = async (view: View): Promise<void> => {
@@ -38,17 +41,17 @@ async function start(): Promise<void> {
   // view is applied, by which point both exist.
   let filterBar: FilterBar | undefined;
 
-  const navigator = new Navigator(state, (view) => {
-    renderSidebar(state, (table) => navigator.selectTable(table));
+  const navigator = new Navigator(dom, state, (view) => {
+    renderSidebar(dom, state, (table) => navigator.selectTable(table));
     filterBar?.render();
     void loadPage(view);
   });
 
-  filterBar = new FilterBar(state, source, (filters) =>
+  filterBar = new FilterBar(dom, state, source, (filters) =>
     navigator.go({ table: state.view.table, filters, page: 1 }),
   );
 
-  const tableView = new TableView(state, {
+  const tableView = new TableView(dom, state, {
     onNavigate: (table, filters) => navigator.selectTable(table, filters),
     onPage: (page) => navigator.go({ ...navigator.current(), page }),
     onHighlightStop: async (stopId) => {
@@ -70,13 +73,13 @@ async function start(): Promise<void> {
    */
   const onFeedLoaded = (data: TablesResponse, clientMs?: number, restoreFromUrl = false): void => {
     feedLoader.close();
-    el("source-label").textContent = data.source;
-    renderMetrics(data.metrics, clientMs);
+    dom.el("source-label").textContent = data.source;
+    renderMetrics(dom, data.metrics, clientMs);
     state.tables = data.tables;
     state.mapDataLoaded = false;
     state.routeShapes.clear();
 
-    renderSidebar(state, (table) => navigator.selectTable(table));
+    renderSidebar(dom, state, (table) => navigator.selectTable(table));
     void map.refresh().catch((error) => console.error("Map layers failed to load:", error));
 
     const initial = initialView(data.tables, restoreFromUrl ? Navigator.fromUrl() : null);
@@ -84,6 +87,7 @@ async function start(): Promise<void> {
   };
 
   const feedLoader = new FeedLoader(
+    dom,
     source,
     (data, clientMs) => onFeedLoaded(data, clientMs),
     () => state.tables.length > 0,

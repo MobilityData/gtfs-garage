@@ -1,6 +1,6 @@
 /** The overlay for opening a feed: drop a zip, pick a file, or give a path or URL. */
 
-import { el } from "../dom";
+import type { Dom } from "../dom";
 import type { RestSource } from "../sources/rest";
 import type { TablesResponse } from "../sources/types";
 import { progressLine } from "./load-progress";
@@ -14,15 +14,16 @@ export class FeedLoader {
   private busy = false;
 
   constructor(
+    private readonly dom: Dom,
     private readonly source: RestSource,
     private readonly onLoaded: (tables: TablesResponse, clientMs: number) => void,
     /** Whether there is a loaded feed to return to when cancelling. */
     private readonly canCancel: () => boolean,
   ) {
-    el("open-load-btn").addEventListener("click", () => this.open());
-    el("load-cancel-btn").addEventListener("click", () => this.close());
+    this.dom.el("open-load-btn").addEventListener("click", () => this.open());
+    this.dom.el("load-cancel-btn").addEventListener("click", () => this.close());
 
-    const input = el<HTMLInputElement>("path-input");
+    const input = this.dom.el<HTMLInputElement>("path-input");
     // Nothing to submit until something is typed, so the button says so rather
     // than looking available and failing.
     input.addEventListener("input", () => this.syncSubmitState());
@@ -31,15 +32,15 @@ export class FeedLoader {
       if (event.key === "Escape" && this.canCancel()) this.close();
     });
 
-    el("load-path-btn").addEventListener("click", () => this.submitTyped());
+    this.dom.el("load-path-btn").addEventListener("click", () => this.submitTyped());
 
-    const dropzone = el("dropzone");
-    const fileInput = el<HTMLInputElement>("file-input");
-    const folderInput = el<HTMLInputElement>("folder-input");
+    const dropzone = this.dom.el("dropzone");
+    const fileInput = this.dom.el<HTMLInputElement>("file-input");
+    const folderInput = this.dom.el<HTMLInputElement>("folder-input");
 
     dropzone.addEventListener("click", () => fileInput.click());
-    el("pick-file-btn").addEventListener("click", () => fileInput.click());
-    el("pick-folder-btn").addEventListener("click", () => folderInput.click());
+    this.dom.el("pick-file-btn").addEventListener("click", () => fileInput.click());
+    this.dom.el("pick-folder-btn").addEventListener("click", () => folderInput.click());
 
     folderInput.addEventListener("change", (event) => {
       const chosen = Array.from((event.target as HTMLInputElement).files ?? []);
@@ -63,21 +64,21 @@ export class FeedLoader {
       if (file) void this.load(() => this.source.load({ file }), file.name);
     });
 
-    el<HTMLInputElement>("file-input").addEventListener("change", (event) => {
+    this.dom.el<HTMLInputElement>("file-input").addEventListener("change", (event) => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (file) void this.load(() => this.source.load({ file }), file.name);
     });
   }
 
   open(): void {
-    el("load-overlay").classList.remove("hidden");
-    el("load-error").textContent = "";
+    this.dom.el("load-overlay").classList.remove("hidden");
+    this.dom.el("load-error").textContent = "";
     this.syncSubmitState();
-    el<HTMLInputElement>("path-input").focus();
+    this.dom.el<HTMLInputElement>("path-input").focus();
   }
 
   close(): void {
-    el("load-overlay").classList.add("hidden");
+    this.dom.el("load-overlay").classList.add("hidden");
   }
 
   /**
@@ -88,7 +89,7 @@ export class FeedLoader {
   private async loadFolder(chosen: File[]): Promise<void> {
     const files = chosen.filter((file) => /\.(txt|geojson)$/i.test(file.name));
     if (files.length === 0) {
-      el("load-error").textContent = "That folder has no GTFS .txt files in it.";
+      this.dom.el("load-error").textContent = "That folder has no GTFS .txt files in it.";
       return;
     }
 
@@ -101,7 +102,7 @@ export class FeedLoader {
 
   /** A path or URL is sent to a different parameter, so the server knows which. */
   private submitTyped(): void {
-    const value = el<HTMLInputElement>("path-input").value.trim();
+    const value = this.dom.el<HTMLInputElement>("path-input").value.trim();
     if (!value || this.busy) return;
 
     const request = URL_PATTERN.test(value)
@@ -111,10 +112,10 @@ export class FeedLoader {
   }
 
   private syncSubmitState(): void {
-    const empty = el<HTMLInputElement>("path-input").value.trim() === "";
-    el<HTMLButtonElement>("load-path-btn").disabled = empty || this.busy;
+    const empty = this.dom.el<HTMLInputElement>("path-input").value.trim() === "";
+    this.dom.el<HTMLButtonElement>("load-path-btn").disabled = empty || this.busy;
     // Cancelling into an empty app would leave nothing to look at.
-    el<HTMLButtonElement>("load-cancel-btn").hidden = !this.canCancel();
+    this.dom.el<HTMLButtonElement>("load-cancel-btn").hidden = !this.canCancel();
   }
 
   /**
@@ -130,7 +131,7 @@ export class FeedLoader {
       while (!stopped) {
         try {
           const progress = await this.source.loadProgress();
-          if (!stopped) el("load-status").textContent = progressLine(progress, description);
+          if (!stopped) this.dom.el("load-status").textContent = progressLine(progress, description);
         } catch {
           /* a missed poll just leaves the previous line up */
         }
@@ -146,8 +147,8 @@ export class FeedLoader {
   private async load(request: () => Promise<TablesResponse>, description: string): Promise<void> {
     this.busy = true;
     this.syncSubmitState();
-    el("load-error").textContent = "";
-    el("load-status").textContent = `Loading ${description}…`;
+    this.dom.el("load-error").textContent = "";
+    this.dom.el("load-status").textContent = `Loading ${description}…`;
     const stopPolling = this.pollProgress(description);
 
     try {
@@ -158,11 +159,11 @@ export class FeedLoader {
       this.onLoaded(tables, performance.now() - started);
       this.close();
     } catch (error) {
-      el("load-error").textContent = (error as Error).message;
+      this.dom.el("load-error").textContent = (error as Error).message;
     } finally {
       stopPolling();
       this.busy = false;
-      el("load-status").textContent = "";
+      this.dom.el("load-status").textContent = "";
       this.syncSubmitState();
     }
   }

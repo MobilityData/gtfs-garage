@@ -149,9 +149,8 @@ flagged when they move; timings are shown but vary with the runner.
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the stack, the layers and why
-  they are split the way they are.
-- [docs/SHARING.md](docs/SHARING.md) — what other MobilityData projects can
-  reuse from here, and how.
+  they are split the way they are, including which pieces are built to be used
+  from outside this repository.
 
 ## License
 

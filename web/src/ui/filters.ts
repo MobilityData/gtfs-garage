@@ -1,6 +1,6 @@
 /** The filter bar: active filter chips, and the form that adds a new one. */
 
-import { el } from "../dom";
+import type { Dom } from "../dom";
 import type { Filter, FilterOperator, GtfsSource } from "../sources/types";
 import type { AppState } from "../state";
 
@@ -17,24 +17,25 @@ const VALUELESS_OPERATORS: FilterOperator[] = ["is_empty", "is_not_empty"];
 
 export class FilterBar {
   constructor(
+    private readonly dom: Dom,
     private readonly state: AppState,
     private readonly source: GtfsSource,
     private readonly onChange: (filters: Filter[]) => void,
   ) {
-    el("add-filter-btn").addEventListener("click", () => {
-      el("add-filter-form").classList.add("open");
+    this.dom.el("add-filter-btn").addEventListener("click", () => {
+      this.dom.el("add-filter-form").classList.add("open");
       void this.updateValueInput();
     });
-    el("filter-cancel-btn").addEventListener("click", () =>
-      el("add-filter-form").classList.remove("open"),
+    this.dom.el("filter-cancel-btn").addEventListener("click", () =>
+      this.dom.el("add-filter-form").classList.remove("open"),
     );
-    el("filter-column").addEventListener("change", () => void this.updateValueInput());
-    el("filter-op").addEventListener("change", () => void this.updateValueInput());
-    el("filter-apply-btn").addEventListener("click", () => this.apply());
+    this.dom.el("filter-column").addEventListener("change", () => void this.updateValueInput());
+    this.dom.el("filter-op").addEventListener("change", () => void this.updateValueInput());
+    this.dom.el("filter-apply-btn").addEventListener("click", () => this.apply());
   }
 
   render(): void {
-    const bar = el("filter-bar");
+    const bar = this.dom.el("filter-bar");
     bar.querySelectorAll(".chip").forEach((chip) => chip.remove());
 
     this.state.view.filters.forEach((filter, index) => {
@@ -57,7 +58,7 @@ export class FilterBar {
       bar.appendChild(chip);
     });
 
-    el<HTMLSelectElement>("filter-column").innerHTML = Object.keys(this.state.columnInfoByName)
+    this.dom.el<HTMLSelectElement>("filter-column").innerHTML = Object.keys(this.state.columnInfoByName)
       .map((column) => `<option value="${column}">${column}</option>`)
       .join("");
   }
@@ -67,10 +68,10 @@ export class FilterBar {
    * counts, so nobody has to guess what a feed uses.
    */
   private async updateValueInput(): Promise<void> {
-    const column = el<HTMLSelectElement>("filter-column").value;
-    const op = el<HTMLSelectElement>("filter-op").value as FilterOperator;
-    const textInput = el<HTMLInputElement>("filter-value");
-    const picker = el<HTMLSelectElement>("filter-value-picker");
+    const column = this.dom.el<HTMLSelectElement>("filter-column").value;
+    const op = this.dom.el<HTMLSelectElement>("filter-op").value as FilterOperator;
+    const textInput = this.dom.el<HTMLInputElement>("filter-value");
+    const picker = this.dom.el<HTMLSelectElement>("filter-value-picker");
 
     if (VALUELESS_OPERATORS.includes(op)) {
       textInput.style.display = "none";
@@ -101,15 +102,15 @@ export class FilterBar {
   }
 
   private apply(): void {
-    const column = el<HTMLSelectElement>("filter-column").value;
+    const column = this.dom.el<HTMLSelectElement>("filter-column").value;
     if (!column) return;
 
-    const op = el<HTMLSelectElement>("filter-op").value as FilterOperator;
-    const picker = el<HTMLSelectElement>("filter-value-picker");
-    const textInput = el<HTMLInputElement>("filter-value");
+    const op = this.dom.el<HTMLSelectElement>("filter-op").value as FilterOperator;
+    const picker = this.dom.el<HTMLSelectElement>("filter-value-picker");
+    const textInput = this.dom.el<HTMLInputElement>("filter-value");
     const value = picker.style.display !== "none" ? picker.value : textInput.value;
 
-    el("add-filter-form").classList.remove("open");
+    this.dom.el("add-filter-form").classList.remove("open");
     textInput.value = "";
 
     this.onChange([...this.state.view.filters, { column, op, value }]);

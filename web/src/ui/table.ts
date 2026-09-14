@@ -8,7 +8,7 @@
  * leads to a file the feed does not contain.
  */
 
-import { button, el } from "../dom";
+import { button, type Dom } from "../dom";
 import type { Filter, PageResponse, RelatedLink, Row } from "../sources/types";
 import type { AppState } from "../state";
 
@@ -48,25 +48,26 @@ export interface TableCallbacks {
 
 export class TableView {
   constructor(
+    private readonly dom: Dom,
     private readonly state: AppState,
     private readonly callbacks: TableCallbacks,
   ) {
-    el<HTMLButtonElement>("prev-page").addEventListener("click", () => {
+    this.dom.el<HTMLButtonElement>("prev-page").addEventListener("click", () => {
       if (this.state.view.page > 1) this.callbacks.onPage(this.state.view.page - 1);
     });
-    el<HTMLButtonElement>("next-page").addEventListener("click", () =>
+    this.dom.el<HTMLButtonElement>("next-page").addEventListener("click", () =>
       this.callbacks.onPage(this.state.view.page + 1),
     );
   }
 
   showMessage(text: string): void {
-    const container = el("table-scroll");
+    const container = this.dom.el("table-scroll");
     container.innerHTML = "";
     const message = document.createElement("div");
     message.id = "empty-state";
     message.textContent = text;
     container.appendChild(message);
-    el("pager").style.display = "none";
+    this.dom.el("pager").style.display = "none";
   }
 
   render(page: PageResponse): void {
@@ -89,7 +90,7 @@ export class TableView {
     }
     table.appendChild(body);
 
-    const container = el("table-scroll");
+    const container = this.dom.el("table-scroll");
     container.innerHTML = "";
     container.appendChild(table);
 
@@ -171,11 +172,11 @@ export class TableView {
   }
 
   private renderPager(page: PageResponse): void {
-    el("pager").style.display = "flex";
+    this.dom.el("pager").style.display = "flex";
     const totalPages = Math.max(1, Math.ceil(page.total / page.page_size));
-    el("page-info").textContent = `Page ${page.page} / ${totalPages}`;
-    el("row-count").textContent = `${page.total.toLocaleString()} rows`;
-    el<HTMLButtonElement>("prev-page").disabled = page.page <= 1;
-    el<HTMLButtonElement>("next-page").disabled = page.page >= totalPages;
+    this.dom.el("page-info").textContent = `Page ${page.page} / ${totalPages}`;
+    this.dom.el("row-count").textContent = `${page.total.toLocaleString()} rows`;
+    this.dom.el<HTMLButtonElement>("prev-page").disabled = page.page <= 1;
+    this.dom.el<HTMLButtonElement>("next-page").disabled = page.page >= totalPages;
   }
 }

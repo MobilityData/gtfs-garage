@@ -7,7 +7,7 @@
  * same arrangement as `Navigator.parseUrl`.
  */
 
-import { el } from "../dom";
+import type { Dom } from "../dom";
 import type { FileMetrics, LoadMetrics } from "../sources/types";
 
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
@@ -208,20 +208,20 @@ function fileTable(metrics: LoadMetrics): HTMLElement {
  * Fills the header summary and the panel it expands into. The panel starts
  * closed: a load report should be there when wanted, not in the way.
  */
-export function renderMetrics(metrics: LoadMetrics, clientMs?: number): void {
-  const button = el<HTMLButtonElement>("metrics-btn");
+export function renderMetrics(dom: Dom, metrics: LoadMetrics, clientMs?: number): void {
+  const button = dom.el<HTMLButtonElement>("metrics-btn");
   button.textContent = summaryLine(metrics, clientMs);
   button.hidden = false;
 
-  const body = el("metrics-body");
+  const body = dom.el("metrics-body");
   body.innerHTML = "";
   body.append(phaseList(metrics), fileTable(metrics));
-  el("metrics-panel").classList.add("hidden");
+  dom.el("metrics-panel").classList.add("hidden");
 }
 
 /** Wires the summary button to the panel it opens. Called once, at startup. */
-export function initMetricsPanel(): void {
-  const panel = el("metrics-panel");
-  el("metrics-btn").addEventListener("click", () => panel.classList.toggle("hidden"));
-  el("metrics-close-btn").addEventListener("click", () => panel.classList.add("hidden"));
+export function initMetricsPanel(dom: Dom): void {
+  const panel = dom.el("metrics-panel");
+  dom.el("metrics-btn").addEventListener("click", () => panel.classList.toggle("hidden"));
+  dom.el("metrics-close-btn").addEventListener("click", () => panel.classList.add("hidden"));
 }
