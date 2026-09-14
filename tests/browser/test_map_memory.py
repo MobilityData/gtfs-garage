@@ -127,11 +127,11 @@ def heap_mb(page) -> int:
 
 def baseline_then_draw(page) -> int:
     """Weigh the tab without the map, then draw it and return what it added."""
-    page.wait_for_selector("#sidebar .table-tab")
+    page.wait_for_selector('[data-el="sidebar"] .table-tab')
     page.wait_for_timeout(1500)
     before = heap_mb(page)
 
-    page.click("#toggle-map-btn")  # the app only fetches layers once shown
+    page.click('[data-el="toggle-map-btn"]')  # the app only fetches layers once shown
     wait_until_drawn(page)
     return peak_mb(page) - before
 
@@ -139,7 +139,7 @@ def baseline_then_draw(page) -> int:
 def wait_until_drawn(page) -> None:
     """Block until every map layer has finished arriving."""
     page.wait_for_function(
-        """() => { const e = document.getElementById('map-progress');
+        """() => { const e = document.querySelector('[data-el="map-progress"]');
              return e.hidden || e.textContent.includes('simplified'); }""",
         timeout=300_000,
     )
