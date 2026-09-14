@@ -2,7 +2,8 @@
 
 import "./style.css";
 
-import { documentDom } from "./dom";
+import { createDom } from "./dom";
+import { buildViewer } from "./markup";
 import { MapController } from "./map/map";
 import { RestSource } from "./sources/rest";
 import type { TablesResponse } from "./sources/types";
@@ -16,9 +17,13 @@ import { renderSidebar } from "./ui/sidebar";
 import { TableView } from "./ui/table";
 
 async function start(): Promise<void> {
-  // The application owns the page, so its lookups are scoped to the document.
-  // An embedded viewer passes the root it was mounted on instead.
-  const dom = documentDom();
+  // The application mounts the viewer into its own page and takes every part,
+  // including the ones only a local tool needs. An embedded viewer mounts the
+  // same markup into whatever root its host gives it, without those.
+  const root = document.getElementById("gtfs-garage");
+  if (!root) throw new Error("Missing #gtfs-garage to mount into");
+  buildViewer(root);
+  const dom = createDom(root);
   const state = createState();
   const source = new RestSource();
   initMetricsPanel(dom);

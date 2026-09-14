@@ -1,5 +1,9 @@
-:root {
-  color-scheme: light;
+/*
+ * The design tokens live on the viewer rather than on `:root`, so a host can
+ * override them per instance and two viewers can be themed differently. They
+ * are the theming API: everything below is written in terms of them.
+ */
+.gtfs-viewer {
   --bg: #f7f7f8;
   --panel: #ffffff;
   --border: #dcdde0;
@@ -9,18 +13,30 @@
   --accent-bg: #eef2ff;
   --chip-bg: #eef1f5;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  /* The load report is positioned against the viewer, not the page. */
+  position: relative;
 }
 
 * { box-sizing: border-box; }
 
+/* The application gives its viewer the whole window. A host gives it whatever
+   box it likes; the viewer fills it either way. */
 body {
   margin: 0;
-  font-family: var(--font);
-  color: var(--text);
-  background: var(--bg);
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  color-scheme: light;
+}
+
+#gtfs-garage {
+  height: 100%;
 }
 
 header {
@@ -38,7 +54,7 @@ header h1 {
   margin: 0;
 }
 
-#source-label {
+[data-el="source-label"] {
   color: var(--muted);
   font-size: 13px;
   flex: 1;
@@ -69,13 +85,13 @@ button:disabled {
 
 button:hover { filter: brightness(0.97); }
 
-#layout {
+[data-el="layout"] {
   flex: 1;
   display: flex;
   min-height: 0;
 }
 
-#sidebar {
+[data-el="sidebar"] {
   width: 210px;
   flex-shrink: 0;
   background: var(--panel);
@@ -98,14 +114,14 @@ button:hover { filter: brightness(0.97); }
 .table-tab .count { color: var(--muted); font-weight: 400; }
 .table-tab.active .count { color: var(--accent); }
 
-#content {
+[data-el="content"] {
   flex: 1;
   display: flex;
   min-width: 0;
   min-height: 0;
 }
 
-#table-pane {
+[data-el="table-pane"] {
   flex: 1.3;
   display: flex;
   flex-direction: column;
@@ -113,15 +129,15 @@ button:hover { filter: brightness(0.97); }
   border-right: 1px solid var(--border);
 }
 
-#map-pane {
+[data-el="map-pane"] {
   flex: 1;
   min-width: 0;
   position: relative;
 }
 
-#map { position: absolute; inset: 0; }
+[data-el="map"] { position: absolute; inset: 0; }
 
-#filter-bar {
+[data-el="filter-bar"] {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -150,7 +166,7 @@ button:hover { filter: brightness(0.97); }
   line-height: 1;
 }
 
-#add-filter-form {
+[data-el="add-filter-form"] {
   display: none;
   gap: 6px;
   align-items: center;
@@ -160,15 +176,15 @@ button:hover { filter: brightness(0.97); }
   font-size: 13px;
 }
 
-#add-filter-form.open { display: flex; }
-#add-filter-form select, #add-filter-form input {
+[data-el="add-filter-form"].open { display: flex; }
+[data-el="add-filter-form"] select, [data-el="add-filter-form"] input {
   font: inherit;
   padding: 4px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
 }
 
-#table-scroll {
+[data-el="table-scroll"] {
   flex: 1;
   overflow: auto;
 }
@@ -193,7 +209,7 @@ th {
   z-index: 1;
 }
 
-tr:hover td { background: #fafafa; }
+tr:hover td { background: [data-el="fafafa"]; }
 
 a.fk-link {
   color: var(--accent);
@@ -218,7 +234,7 @@ a.fk-link:hover { text-decoration: underline; }
 }
 .related-btn:hover { background: var(--accent-bg); color: var(--accent); }
 
-#pager {
+[data-el="pager"] {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -228,9 +244,9 @@ a.fk-link:hover { text-decoration: underline; }
   font-size: 12.5px;
 }
 
-#pager .spacer { flex: 1; }
+[data-el="pager"] .spacer { flex: 1; }
 
-#load-overlay {
+[data-el="load-overlay"] {
   position: fixed;
   inset: 0;
   background: rgba(20, 20, 25, 0.45);
@@ -240,9 +256,9 @@ a.fk-link:hover { text-decoration: underline; }
   z-index: 50;
 }
 
-#load-overlay.hidden { display: none; }
+[data-el="load-overlay"].hidden { display: none; }
 
-#load-panel {
+[data-el="load-panel"] {
   background: var(--panel);
   border-radius: 10px;
   padding: 24px;
@@ -250,9 +266,9 @@ a.fk-link:hover { text-decoration: underline; }
   max-width: 90vw;
 }
 
-#load-panel h2 { margin-top: 0; font-size: 16px; }
+[data-el="load-panel"] h2 { margin-top: 0; font-size: 16px; }
 
-#dropzone {
+[data-el="dropzone"] {
   border: 2px dashed var(--border);
   border-radius: 8px;
   padding: 24px;
@@ -262,11 +278,11 @@ a.fk-link:hover { text-decoration: underline; }
   margin-bottom: 12px;
 }
 
-#dropzone.drag { border-color: var(--accent); color: var(--accent); }
+[data-el="dropzone"].drag { border-color: var(--accent); color: var(--accent); }
 
-#load-panel .or { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0; }
+[data-el="load-panel"] .or { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0; }
 
-#load-panel input[type="text"] {
+[data-el="load-panel"] input[type="text"] {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -275,7 +291,7 @@ a.fk-link:hover { text-decoration: underline; }
   margin-bottom: 10px;
 }
 
-#load-panel input[type="text"]:focus {
+[data-el="load-panel"] input[type="text"]:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
@@ -288,42 +304,42 @@ a.fk-link:hover { text-decoration: underline; }
   margin-bottom: 4px;
 }
 
-#pick-row {
+[data-el="pick-row"] {
   display: flex;
   gap: 8px;
   margin-bottom: 4px;
 }
 
-#pick-row button {
+[data-el="pick-row"] button {
   flex: 1;
 }
 
-#load-actions {
+[data-el="load-actions"] {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-#load-status {
+[data-el="load-status"] {
   color: var(--muted);
   font-size: 12.5px;
   margin-top: 8px;
 }
 
-#load-error {
-  color: #b91c1c;
+[data-el="load-error"] {
+  color: [data-el="b91c1c"];
   font-size: 12.5px;
   margin-top: 8px;
 }
 
-#empty-state {
+[data-el="empty-state"] {
   padding: 40px;
   color: var(--muted);
   text-align: center;
 }
 
 /* The load report: a summary in the header that expands into a panel. */
-#metrics-btn {
+[data-el="metrics-btn"] {
   color: var(--muted);
   font-size: 12.5px;
   padding: 4px 8px;
@@ -331,7 +347,7 @@ a.fk-link:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
-#metrics-panel {
+[data-el="metrics-panel"] {
   position: absolute;
   top: 46px;
   right: 16px;
@@ -347,62 +363,62 @@ a.fk-link:hover { text-decoration: underline; }
   box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
 }
 
-#metrics-panel.hidden { display: none; }
+[data-el="metrics-panel"].hidden { display: none; }
 
-#metrics-header {
+[data-el="metrics-header"] {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
 }
 
-#metrics-header strong { flex: 1; }
+[data-el="metrics-header"] strong { flex: 1; }
 
-#metrics-header button {
+[data-el="metrics-header"] button {
   padding: 0 6px;
   line-height: 1.4;
 }
 
-#metrics-phases {
+[data-el="metrics-phases"] {
   display: grid;
   grid-template-columns: auto auto;
   gap: 2px 14px;
   margin: 0 0 12px;
 }
 
-#metrics-phases dt { color: var(--muted); }
+[data-el="metrics-phases"] dt { color: var(--muted); }
 
-#metrics-phases dd {
+[data-el="metrics-phases"] dd {
   margin: 0;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#metrics-body table {
+[data-el="metrics-body"] table {
   border-collapse: collapse;
   white-space: nowrap;
 }
 
-#metrics-body th {
+[data-el="metrics-body"] th {
   text-align: left;
   color: var(--muted);
   font-weight: 500;
   border-bottom: 1px solid var(--border);
 }
 
-#metrics-body th,
-#metrics-body td {
+[data-el="metrics-body"] th,
+[data-el="metrics-body"] td {
   padding: 3px 10px 3px 0;
 }
 
 /* Every column but the file name is a number, and numbers line up right. */
-#metrics-body td:not(:first-child) {
+[data-el="metrics-body"] td:not(:first-child) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 /* Shown over the map while a layer is still streaming in. */
-#map-progress {
+[data-el="map-progress"] {
   position: absolute;
   left: 12px;
   bottom: 12px;

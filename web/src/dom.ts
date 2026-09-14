@@ -9,14 +9,16 @@
  * whole document, which silently assumed it was the only thing on the page.
  */
 export interface Dom {
-  el<T extends HTMLElement = HTMLElement>(id: string): T;
+  el<T extends HTMLElement = HTMLElement>(name: string): T;
 }
 
 export function createDom(root: ParentNode): Dom {
   return {
-    el<T extends HTMLElement = HTMLElement>(id: string): T {
-      const found = root.querySelector(`#${CSS.escape(id)}`);
-      if (!found) throw new Error(`Missing element #${id}`);
+    el<T extends HTMLElement = HTMLElement>(name: string): T {
+      // `data-el` rather than `id`: two viewers on one page would otherwise put
+      // duplicate ids into the host's document. See markup.ts.
+      const found = root.querySelector(`[data-el="${CSS.escape(name)}"]`);
+      if (!found) throw new Error(`Missing element ${name}`);
       return found as T;
     },
   };
