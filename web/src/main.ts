@@ -10,6 +10,7 @@ import { createState, type View } from "./state";
 import { FeedLoader } from "./ui/feed-loader";
 import { initMetricsPanel, renderMetrics } from "./ui/feed-metrics";
 import { FilterBar } from "./ui/filters";
+import { browserHistory } from "./ui/history";
 import { initialView, Navigator } from "./ui/navigation";
 import { renderSidebar } from "./ui/sidebar";
 import { TableView } from "./ui/table";
@@ -41,7 +42,10 @@ async function start(): Promise<void> {
   // view is applied, by which point both exist.
   let filterBar: FilterBar | undefined;
 
-  const navigator = new Navigator(dom, state, (view) => {
+  // The application owns the page, so its back stack is the browser's own
+  // history and the URL describes the view. An embedded viewer passes
+  // `memoryHistory()` instead and leaves the host's address bar alone.
+  const navigator = new Navigator(dom, browserHistory(), state, (view) => {
     renderSidebar(dom, state, (table) => navigator.selectTable(table));
     filterBar?.render();
     void loadPage(view);
@@ -82,7 +86,7 @@ async function start(): Promise<void> {
     renderSidebar(dom, state, (table) => navigator.selectTable(table));
     void map.refresh().catch((error) => console.error("Map layers failed to load:", error));
 
-    const initial = initialView(data.tables, restoreFromUrl ? Navigator.fromUrl() : null);
+    const initial = initialView(data.tables, restoreFromUrl ? navigator.fromLocation() : null);
     if (initial) navigator.reset(initial, data.source);
   };
 
