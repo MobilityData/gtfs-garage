@@ -138,7 +138,7 @@ pip install -e ".[dev,perf]" && playwright install chromium
 pytest -m browser
 ```
 
-`python scripts/benchmark.py` measures a generated feed: payload sizes, feature
+`scripts/benchmark.sh` measures a generated feed: payload sizes, feature
 and vertex counts, and the time each phase takes. It reports rather than asserts.
 
 On a pull request, CI runs it twice on the same runner - once on the branch, once

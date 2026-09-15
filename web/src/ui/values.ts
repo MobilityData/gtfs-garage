@@ -130,7 +130,7 @@ function decide(value: string, column: ColumnInfo): Rendered {
       return asNumber(value, "a longitude between -180 and 180", -180, 180);
     case "INTEGER":
     case "FLOAT":
-    case "DECIMAL":
+    case "CURRENCY_AMOUNT":
       return asNumber(value, "a number");
     // TIME is deliberately untouched: GTFS times legitimately exceed 24:00:00
     // for trips running past midnight, and a formatter that "corrected"

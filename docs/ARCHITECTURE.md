@@ -61,7 +61,7 @@ cannot express them. Those six fields carry the condition in words and are
 flagged `conditionEnforced: false`, rather than being written as a rule that
 would look authoritative and check nothing.
 
-`data/gtfs-schema.json` is generated from it by `scripts/build_schema_json.py`
+`data/gtfs-schema.json` is generated from it by `scripts/build-schema-json.sh`
 and committed. Two reasons it is a separate artifact rather than a duplicate:
 
 - **It is what gets published.** LinkML is an authoring format; a flat JSON is
@@ -180,7 +180,7 @@ own that asserted something trivially true, and one that injected a "regression"
 which turned out not to cost anything: storing a layer's features in `AppState`
 adds nothing, because `setData` already makes MapLibre retain the same object.
 
-Timing is deliberately not asserted. `scripts/benchmark.py` measures a generated
+Timing is deliberately not asserted. `scripts/benchmark.sh` measures a generated
 feed and never fails: a shared runner varies enough that any threshold either
 flakes or is too loose to catch anything.
 

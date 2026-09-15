@@ -178,7 +178,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Benchmark this branch
-        run: python scripts/benchmark.py --json > /tmp/head.json
+        run: scripts/benchmark.sh --json > /tmp/head.json
 
       # The harness has to be identical on both sides or the two runs are
       # different experiments: a branch that changes the generated feed or adds
@@ -192,6 +192,11 @@ jobs:
         run: |
           # Mirrors the repo layout: benchmark.py finds the feed generator at
           # ../tests/conftest.py relative to itself.
+          #
+          # This step calls the .py directly rather than scripts/benchmark.sh:
+          # the wrapper resolves the repository from its own location, which
+          # under /tmp/harness would be the wrong tree. Everywhere else the
+          # wrapper is the entry point.
           mkdir -p /tmp/harness/scripts /tmp/harness/tests
           cp scripts/benchmark.py scripts/compare_benchmarks.py /tmp/harness/scripts/
           cp tests/conftest.py /tmp/harness/tests/

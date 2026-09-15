@@ -285,7 +285,7 @@ The fare_attributes.txt file.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `fare_id` | ID | **Required** | primary key |
-| `price` | DECIMAL | **Required** |  |
+| `price` | CURRENCY_AMOUNT | **Required** |  |
 | `currency_type` | CURRENCY_CODE | **Required** |  |
 | `payment_method` | ENUM | **Required** | `0` On Board, `1` Before Boarding |
 | `transfers` | ENUM | **Required** | `0` No Transfer, `1` One Transfer, `2` Two Transfers |
@@ -336,7 +336,7 @@ The fare_products.txt file.
 |---|---|---|---|
 | `fare_product_id` | ID | **Required** | primary key |
 | `fare_product_name` | TEXT | Optional |  |
-| `amount` | DECIMAL | **Required** |  |
+| `amount` | CURRENCY_AMOUNT | **Required** |  |
 | `currency` | CURRENCY_CODE | **Required** |  |
 | `fare_media_id` | ID | Optional | primary key; → `fare_media.fare_media_id` |
 | `rider_category_id` | ID | Optional | primary key; → `rider_categories.rider_category_id` |

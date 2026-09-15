@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
+#
 # Check schema/gtfs.yaml as LinkML, and that the committed document matches it.
 #
-# Needs the `schema` extra:  pip install -e '.[schema]'
-set -euo pipefail
-cd "$(dirname "$0")/.."
+source "$(dirname -- "$0")/_common.sh"
+ensure_python schema
 
 echo "==> validating schema/gtfs.yaml as LinkML"
 python - <<'PY'
@@ -26,7 +26,7 @@ python scripts/build_schema_json.py --out "$fresh" >/dev/null
 
 if ! diff -q "$fresh" src/gtfs_garage/data/gtfs-schema.json >/dev/null; then
     echo "ERROR: src/gtfs_garage/data/gtfs-schema.json does not match schema/gtfs.yaml." >&2
-    echo "Run: python scripts/build_schema_json.py, and commit the result." >&2
+    echo "Run: scripts/build-schema-json.sh, and commit the result." >&2
     diff -u src/gtfs_garage/data/gtfs-schema.json "$fresh" | head -40 >&2
     exit 1
 fi

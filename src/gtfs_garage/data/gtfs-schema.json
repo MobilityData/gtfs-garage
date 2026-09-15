@@ -291,7 +291,7 @@
           "primaryKey": true
         },
         "price": {
-          "type": "DECIMAL",
+          "type": "CURRENCY_AMOUNT",
           "required": "always"
         },
         "currency_type": {
@@ -449,7 +449,7 @@
           "type": "TEXT"
         },
         "amount": {
-          "type": "DECIMAL",
+          "type": "CURRENCY_AMOUNT",
           "required": "always"
         },
         "currency": {

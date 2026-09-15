@@ -31,12 +31,9 @@
 #   Run without a basemap on a different port:
 #     ./run-app.sh ~/feeds/stm.zip --basemap none --port 9000
 
-# absolute path
-ABS_SCRIPTPATH="$(
-  cd -- "$(dirname "$0")" >/dev/null 2>&1
-  pwd -P
-)"
-REPO_ROOT="$(dirname "$ABS_SCRIPTPATH")"
+# REPO_ROOT, VENV, die, step and ensure_python all come from here, so this
+# script and every other one bootstrap the environment the same way.
+source "$(dirname -- "$0")/_common.sh"
 
 FEED=""
 PORT=8811
@@ -44,32 +41,18 @@ BASEMAP=""
 DEV=false
 SKIP_INSTALL=false
 NO_BROWSER=false
-VENV="$REPO_ROOT/.venv"
 
-# color codes for easier reading
-RED='\033[0;31m'
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
 
 display_usage() {
   sed -n '3,32p' "$0" | sed 's/^#//; s/^ //'
 }
 
-die() {
-  printf "${RED}error:${NC} %s\n" "$1" >&2
-  exit 1
-}
-
-step() {
-  printf "${YELLOW}==>${NC} %s\n" "$1"
-}
-
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --dev) DEV=true; shift ;;
-  --port) PORT="$2"; shift 2 ;;
-  --basemap) BASEMAP="$2"; shift 2 ;;
+  --port) [ $# -ge 2 ] || die "--port needs a value"; PORT="$2"; shift 2 ;;
+  --basemap) [ $# -ge 2 ] || die "--basemap needs a value"; BASEMAP="$2"; shift 2 ;;
   --skip-install) SKIP_INSTALL=true; shift ;;
   --no-browser) NO_BROWSER=true; shift ;;
   --help) display_usage; exit 0 ;;
@@ -80,41 +63,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-cd "$REPO_ROOT" || die "cannot enter $REPO_ROOT"
-
+# The feed is checked after parsing so that --help works without one.
 if [ -n "$FEED" ] && [ ! -e "$FEED" ]; then
   die "no such feed: $FEED"
 fi
 
 # ---------------------------------------------------------------- dependencies
 
-command -v python3 >/dev/null 2>&1 || die "python3 is required but not installed"
-
 if [ "$SKIP_INSTALL" = false ]; then
-  if [ ! -d "$VENV" ]; then
-    step "Creating the Python environment"
-    python3 -m venv "$VENV" || die "could not create $VENV"
-  fi
-
-  # Reinstall only when the declared dependencies are newer than the last install.
-  STAMP="$VENV/.install-stamp"
-  if [ ! -f "$STAMP" ] || [ pyproject.toml -nt "$STAMP" ]; then
-    step "Installing the package and its dependencies"
-    "$VENV/bin/pip" install --quiet --upgrade pip || die "could not upgrade pip"
-    "$VENV/bin/pip" install --quiet -e ".[dev]" || die "could not install dependencies"
-    touch "$STAMP"
-  fi
+  ensure_python dev
 
   command -v yarn >/dev/null 2>&1 || die "yarn is required but not installed (https://yarnpkg.com)"
   if [ ! -d web/node_modules ] || [ web/package.json -nt web/node_modules ]; then
     step "Installing the frontend dependencies"
     (cd web && yarn install --silent) || die "yarn install failed"
   fi
+else
+  # Nothing is installed or checked, so the environment has to already be there.
+  [ -x "$VENV/bin/python" ] || die "no Python environment at $VENV (drop --skip-install to create one)"
+  export PATH="$VENV/bin:$PATH"
 fi
-
-[ -x "$VENV/bin/python" ] || die "no Python environment at $VENV (drop --skip-install to create one)"
-
-export PATH="$VENV/bin:$PATH"
 [ -n "$BASEMAP" ] && export GTFS_GARAGE_BASEMAP="$BASEMAP"
 
 # ----------------------------------------------------------------------- start

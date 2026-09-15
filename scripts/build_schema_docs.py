@@ -11,7 +11,7 @@ type, a key or a foreign key.
 
 Run after editing the LinkML:
 
-    python scripts/build_schema_docs.py
+    scripts/build-schema-docs.sh
 """
 
 from __future__ import annotations

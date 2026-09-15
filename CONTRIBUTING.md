@@ -4,8 +4,12 @@
 
 ```bash
 scripts/run-app.sh --dev            # installs everything, starts with hot reload
-source .venv/bin/activate && pre-commit install
+source .venv/bin/activate && pre-commit install   # only needed for pre-commit
 ```
+
+Every script under `scripts/` creates and installs the environment it needs, so
+none of them requires activating anything first, and all of them can be run from
+any directory.
 
 `run-app.sh` creates the virtual environment, installs the Python and frontend
 dependencies and starts the tool. `--dev` serves the interface with hot reload
@@ -39,7 +43,7 @@ current interface; from a checkout you build it yourself.
   returns wrong or empty results when requests overlap.
 - New GTFS facts belong in `schema/gtfs.yaml`, not in Python, so the frontend
   sees them too. `src/gtfs_garage/data/gtfs-schema.json` is generated from it —
-  edit the YAML, run `python scripts/build_schema_json.py`, and commit both.
+  edit the YAML, run `scripts/build-schema-json.sh`, and commit both.
   `scripts/check-schema.sh` validates the schema and checks the two agree; it
   needs `pip install -e '.[schema]'`.
 

@@ -8,7 +8,10 @@ on:
       - "docs/SCHEMA.md"
       - "scripts/build_schema_docs.py"
       - "scripts/build_schema_json.py"
+      - "scripts/build-schema-docs.sh"
+      - "scripts/build-schema-json.sh"
       - "scripts/build-schema-site.sh"
+      - "scripts/_common.sh"
       - ".github/workflows/schema-docs.yml"
   pull_request:
     paths:
@@ -16,6 +19,9 @@ on:
       - "docs/SCHEMA.md"
       - "scripts/build_schema_docs.py"
       - "scripts/build_schema_json.py"
+      - "scripts/build-schema-docs.sh"
+      - "scripts/build-schema-json.sh"
+      - "scripts/_common.sh"
   workflow_dispatch:
 
 env:
@@ -41,9 +47,9 @@ jobs:
       # means it can go stale. Regenerating and comparing is what stops that.
       - name: Regenerate and compare
         run: |
-          python scripts/build_schema_docs.py --out /tmp/SCHEMA.md
+          scripts/build-schema-docs.sh --out /tmp/SCHEMA.md
           if ! diff -q /tmp/SCHEMA.md docs/SCHEMA.md >/dev/null; then
-            echo "::error::docs/SCHEMA.md is out of date. Run: python scripts/build_schema_docs.py"
+            echo "::error::docs/SCHEMA.md is out of date. Run: scripts/build-schema-docs.sh"
             diff -u docs/SCHEMA.md /tmp/SCHEMA.md | head -40
             exit 1
           fi

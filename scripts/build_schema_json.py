@@ -15,7 +15,7 @@ carries three different kinds of fact:
 
 Run after editing the LinkML:
 
-    python scripts/build_schema_json.py
+    scripts/build-schema-json.sh
 """
 
 from __future__ import annotations

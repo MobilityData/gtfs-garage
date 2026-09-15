@@ -12,11 +12,7 @@
 #   required fields  -> `required`
 #   conditional      -> `rules`, whose description states the condition
 #
-# Native constructs rather than annotations because annotations are opaque to
-# LinkML: a schema written in them cannot be validated, and this one is, by
-# scripts/check-schema.sh.
-#
-# `annotations` are left for the two kinds of fact LinkML cannot express:
+# `annotations` carry the two kinds of fact LinkML cannot express:
 #
 #   gtfs_references  - 10 references whose target is not a single-slot key, so
 #                      `range` cannot reach them: the three fare_rules zone
@@ -47,94 +43,93 @@ imports:
 types:
   Id:
     typeof: string
-    description: An identifier, unique within its file. GTFS IDs are opaque strings.
+    description: 'An internal ID, not intended to be shown to riders, and is a sequence of any UTF-8 characters. Using only printable ASCII characters is recommended.'
     exact_mappings:
     - gtfs:ID
   Text:
     typeof: string
-    description: Human-readable text intended to be displayed to a rider.
+    description: 'A string of UTF-8 characters, which is aimed to be displayed and which must therefore be human readable.'
     exact_mappings:
     - gtfs:TEXT
   Color:
     typeof: string
     pattern: ^[0-9A-Fa-f]{6}$
-    description: A colour as six hexadecimal digits. GTFS forbids a leading '#'.
+    description: 'A color encoded as a six-digit hexadecimal number. The leading "#" is not included.'
     exact_mappings:
     - gtfs:COLOR
   Date:
     typeof: string
     pattern: ^\d{8}$
-    description: A service date as YYYYMMDD, not ISO-8601.
+    description: 'Service day in the YYYYMMDD format. Since time within a service day may be above 24:00:00, a service day may contain information for the subsequent day(s).'
     exact_mappings:
     - gtfs:DATE
   Time:
     typeof: string
     pattern: ^\d{1,2}:\d{2}:\d{2}$
-    description: A time as H:MM:SS. May exceed 24:00:00 for a trip running past midnight.
+    description: 'Time in the HH:MM:SS format (H:MM:SS is also accepted). For times occurring after midnight on the service day, enter the time as a value greater than 24:00:00.'
     exact_mappings:
     - gtfs:TIME
   Url:
     typeof: string
     pattern: ^https?://
-    description: A fully qualified http or https URL.
+    description: 'A fully qualified URL that includes http:// or https://, and any special characters in the URL must be correctly escaped.'
     exact_mappings:
     - gtfs:URL
   Email:
     typeof: string
-    pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
-    description: An email address.
+    description: 'An email address.'
     exact_mappings:
     - gtfs:EMAIL
   PhoneNumber:
     typeof: string
-    description: 'A phone number. No pattern: GTFS places no format on it.'
+    description: 'A phone number.'
     exact_mappings:
     - gtfs:PHONE_NUMBER
   LanguageCode:
     typeof: string
-    description: 'An IETF BCP 47 language code. No pattern: the grammar is wider than a regex worth writing.'
+    description: 'An IETF BCP 47 language code.'
     exact_mappings:
     - gtfs:LANGUAGE_CODE
   CurrencyCode:
     typeof: string
     pattern: ^[A-Z]{3}$
-    description: An ISO 4217 alphabetic currency code.
+    description: 'An ISO 4217 alphabetical currency code.'
     exact_mappings:
     - gtfs:CURRENCY_CODE
   Timezone:
     typeof: string
-    description: 'A TZ database timezone name. No pattern: entries such as ''UTC'' have no region part.'
+    description: 'TZ timezone from the IANA time-zones. Timezone names never contain the space character but may contain an underscore.'
     exact_mappings:
     - gtfs:TIMEZONE
   Latitude:
     typeof: float
     minimum_value: -90
     maximum_value: 90
-    description: WGS84 latitude in decimal degrees.
+    description: 'WGS84 latitude in decimal degrees. The value must be greater than or equal to -90.0 and less than or equal to 90.0.'
     exact_mappings:
     - gtfs:LATITUDE
   Longitude:
     typeof: float
     minimum_value: -180
     maximum_value: 180
-    description: WGS84 longitude in decimal degrees.
+    description: 'WGS84 longitude in decimal degrees. The value must be greater than or equal to -180.0 and less than or equal to 180.0.'
     exact_mappings:
     - gtfs:LONGITUDE
   Integer:
     typeof: integer
-    description: A whole number.
+    description: 'An integer.'
     exact_mappings:
     - gtfs:INTEGER
   Float:
     typeof: float
-    description: A floating point number.
+    description: 'A floating point number.'
     exact_mappings:
     - gtfs:FLOAT
-  Decimal:
+  CurrencyAmount:
     typeof: decimal
-    description: A decimal number.
+    description: 'A decimal value indicating a currency amount.'
     exact_mappings:
-    - gtfs:DECIMAL
+    - gtfs:CURRENCY_AMOUNT
 enums:
   AttributionRole:
     permissible_values:
@@ -580,7 +575,7 @@ classes:
         required: true
         identifier: true
       price:
-        range: Decimal
+        range: CurrencyAmount
         required: true
       currency_type:
         range: CurrencyCode
@@ -694,7 +689,7 @@ classes:
       fare_product_name:
         range: Text
       amount:
-        range: Decimal
+        range: CurrencyAmount
         required: true
       currency:
         range: CurrencyCode

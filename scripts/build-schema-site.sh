@@ -6,26 +6,16 @@
 # build/, which is not in version control - the published copy is whatever CI
 # last built.
 #
-# Needs the `schema` extra:  pip install -e '.[schema]'
-#
 # Usage:
 #   build-schema-site.sh [--serve]
-set -euo pipefail
-cd "$(dirname "$0")/.."
+#
+source "$(dirname -- "$0")/_common.sh"
+ensure_python schema
 
 OUT="build/schema-site"
 PAGES="$OUT/docs"
 SERVE=false
 [ "${1:-}" = "--serve" ] && SERVE=true
-
-command -v gen-doc >/dev/null 2>&1 || {
-    echo "gen-doc not found. Install the schema extra: pip install -e '.[schema]'" >&2
-    exit 1
-}
-python -c "import mkdocs" 2>/dev/null || {
-    echo "mkdocs not found. Install it: pip install mkdocs mkdocs-material" >&2
-    exit 1
-}
 
 rm -rf "$OUT"
 mkdir -p "$PAGES"
