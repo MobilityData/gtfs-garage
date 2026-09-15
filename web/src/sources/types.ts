@@ -22,6 +22,21 @@ export interface ColumnInfo {
   enum_like: boolean;
   /** Always present; empty unless this column is its table's primary id. */
   related: RelatedLink[];
+  /**
+   * What GTFS says the field holds - ID, ENUM, COLOR, LATITUDE, DATE and so on.
+   * Null for a column the schema does not describe, such as a producer's own
+   * extension column, which renders as text.
+   */
+  type: string | null;
+  /** For an enumeration, its codes and their labels; null otherwise. */
+  values: Record<string, string> | null;
+  /** "always", "conditional", or null where GTFS makes the field optional. */
+  required: string | null;
+  /**
+   * For a conditionally required field, the condition in words - "Required if
+   * route_long_name is empty." Null otherwise.
+   */
+  condition: string | null;
 }
 
 export interface TableInfo {

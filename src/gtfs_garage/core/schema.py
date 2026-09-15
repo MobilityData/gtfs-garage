@@ -26,17 +26,46 @@ def load_schema() -> dict[str, Any]:
 
 _schema = load_schema()
 
+# The document is keyed by table, then by field, so that per-field facts - a
+# type, whether it is required - have somewhere to live as they are added. The
+# lookups below flatten it into the shapes the query layer wants; adding a fact
+# to a field changes nothing here.
+TABLES: dict[str, dict[str, dict[str, Any]]] = {
+    table: entry.get("fields", {}) for table, entry in _schema["tables"].items()
+}
+
+
+def _fields_where(predicate) -> dict[str, dict[str, Any]]:
+    return {
+        table: {column: field for column, field in fields.items() if predicate(field)}
+        for table, fields in TABLES.items()
+    }
+
+
 # table -> { column: (referenced_table, referenced_column) }
 FOREIGN_KEYS: dict[str, dict[str, tuple[str, str]]] = {
-    table: {column: (ref["table"], ref["column"]) for column, ref in columns.items()}
-    for table, columns in _schema["foreignKeys"].items()
+    table: {column: (field["references"]["table"], field["references"]["field"]) for column, field in fields.items()}
+    for table, fields in _fields_where(lambda f: "references" in f).items()
+    if fields
 }
 
 # table -> the column holding that entity's own id, used to find every other
 # table that points back at a given row.
-PRIMARY_ID_COLUMNS: dict[str, str] = dict(_schema["primaryIdColumns"])
+PRIMARY_ID_COLUMNS: dict[str, str] = {
+    table: next(iter(fields)) for table, fields in _fields_where(lambda f: f.get("primaryKey")).items() if fields
+}
 
 ENUM_LIKE_COLUMNS: set[str] = set(_schema["enumLikeColumns"])
+
+
+def field_info(table: str, column: str) -> dict[str, Any]:
+    """What the schema says about one column, or an empty record.
+
+    Empty for anything the schema does not describe - a producer's extension
+    column, a file added to GTFS since this was last imported - so a caller can
+    read it without checking first, and such a column simply renders untyped.
+    """
+    return TABLES.get(table, {}).get(column, {})
 
 
 def related_tables(table: str) -> list[tuple[str, str]]:

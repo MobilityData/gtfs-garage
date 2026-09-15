@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { columnInfo } from "../sources/fixtures";
 
 import type { Dom } from "../dom";
 import type { TableInfo } from "../sources/types";
@@ -104,7 +105,9 @@ describe("Navigator with a private back stack", () => {
   const table = (name: string): TableInfo => ({
     name,
     row_count: 1,
-    columns: [{ name: "id", fk_table: null, fk_column: null, enum_like: false, related: [] }],
+    columns: [
+      columnInfo({ name: "id" }),
+    ],
   });
 
   function harness() {

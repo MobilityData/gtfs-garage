@@ -75,6 +75,14 @@ async function start(): Promise<void> {
     },
   });
 
+  // A display preference, so it redraws the page in place rather than going
+  // through the navigator: toggling it is not a new view to go Back from.
+  const rawValues = dom.el<HTMLInputElement>("raw-values-input");
+  rawValues.addEventListener("change", () => {
+    state.rawValues = rawValues.checked;
+    tableView.redraw();
+  });
+
   /**
    * `restoreFromUrl` is only true on page load, so a reloaded or shared link
    * returns to its view. Opening a different feed starts clean: the previous

@@ -42,11 +42,40 @@ it.
 Three seams exist for reuse, and each is enforced rather than merely intended -
 which is the only reason to trust them.
 
-**`data/gtfs-schema.json`** — the foreign keys, each table's primary id column,
-and the columns GTFS defines as enumerations. Anything that makes an id
-clickable needs exactly this, and a second hand-maintained copy of it will
-drift. Reached from Python through `importlib.resources`, so it works from an
-installed wheel; the frontend reads the same file rather than keeping a copy.
+**The GTFS description.** `schema/gtfs.yaml` is the source — LinkML, one class
+per file. It describes all 31 CSV files and 218 fields, and its field names and presence
+agree exactly with `google/transit`'s published reference.
+
+GTFS's facts are carried by LinkML's own constructs, not by annotations: field
+types are `types` with a `range` (and `exact_mappings` naming the GTFS field
+type), enumerations are `enums`, foreign keys are a `range` pointing at the
+referenced class, primary keys are `identifier` or — for the 12 files GTFS keys
+on more than one column — `unique_keys`, and conditional requirement is 24
+`rules`. Using the native constructs is what lets `scripts/check-schema.sh`
+validate the schema at all; annotations are opaque to LinkML, so a schema made
+of them cannot be checked.
+
+Two conditions in GTFS are not a property of a single row — "required when the
+feed has more than one agency" quantifies over `agency.txt` — and a per-row rule
+cannot express them. Those six fields carry the condition in words and are
+flagged `conditionEnforced: false`, rather than being written as a rule that
+would look authoritative and check nothing.
+
+`data/gtfs-schema.json` is generated from it by `scripts/build_schema_json.py`
+and committed. Two reasons it is a separate artifact rather than a duplicate:
+
+- **It is what gets published.** LinkML is an authoring format; a flat JSON is
+  what another project consumes, the way `gbfs-json-schema` publishes JSON
+  Schema and generates bindings rather than shipping its models. A consumer
+  wanting GTFS's foreign keys should not need a YAML parser, let alone LinkML.
+- **It ships in the wheel.** `schema/` is not package data, and reading YAML at
+  runtime would add a dependency to a package that other projects embed - it
+  has four.
+
+Generated-and-committed can drift, so
+`test_the_packaged_json_matches_the_linkml_source` regenerates and compares.
+Nothing in `web/` reads either file today: the frontend receives schema facts
+through `ColumnInfo` on `/api/tables`, so the server is the only reader.
 
 **`gtfs_garage.core`** — feed loading, filters to SQL, table summaries,
 pagination, distinct values, GeoJSON. What reusing it buys over rewriting is the

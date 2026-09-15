@@ -16,6 +16,7 @@ from gtfs_garage.core.schema import (
     ENUM_LIKE_COLUMNS,
     FOREIGN_KEYS,
     PRIMARY_ID_COLUMNS,
+    field_info,
     related_tables,
 )
 
@@ -61,6 +62,11 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
             if column == primary_column:
                 related = [{"table": t, "column": c} for t, c in related_tables(table) if resolves(t, c)]
 
+            # The schema is already loaded; this is the same lookup as the
+            # foreign key above, returning what the interface needs to render a
+            # value rather than only to link it.
+            described = field_info(table, column)
+
             column_infos.append(
                 {
                     "name": column,
@@ -68,6 +74,10 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
                     "fk_column": fk_column,
                     "enum_like": column in ENUM_LIKE_COLUMNS,
                     "related": related,
+                    "type": described.get("type"),
+                    "values": described.get("values"),
+                    "required": described.get("required"),
+                    "condition": described.get("condition"),
                 }
             )
 

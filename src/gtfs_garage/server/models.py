@@ -29,6 +29,17 @@ class ColumnInfo(BaseModel):
     enum_like: bool = False
     # Always present; empty for columns that are not a table's primary id.
     related: list[RelatedLink] = []
+    # What GTFS says this field holds - ID, ENUM, COLOR, LATITUDE, DATE and so
+    # on - used to format the value. Null for a column the schema does not
+    # describe, such as a producer's own extension, which renders as text.
+    type: str | None = None
+    # For an enumeration, its codes and their labels; null otherwise.
+    values: dict[str, str] | None = None
+    # "always", "conditional", or null where GTFS makes the field optional.
+    required: str | None = None
+    # For a conditionally required field, the condition in words, so the UI can
+    # explain it. Null otherwise.
+    condition: str | None = None
 
 
 class TableInfo(BaseModel):

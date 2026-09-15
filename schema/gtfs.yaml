@@ -1,0 +1,1431 @@
+# GTFS described in LinkML.
+#
+# One class per CSV file: 31 files, 218 fields. GTFS's facts are carried by
+# LinkML's own constructs wherever LinkML has one:
+#
+#   field type       -> `types` + `range`, with `exact_mappings` naming the
+#                       GTFS field type this corresponds to
+#   enumerations     -> `enums` + `permissible_values`
+#   primary keys     -> `identifier`, or `unique_keys` where GTFS keys a file
+#                       on more than one column (12 of the 31 files)
+#   foreign keys     -> `range` pointing at the referenced class
+#   required fields  -> `required`
+#   conditional      -> `rules`, whose description states the condition
+#
+# Native constructs rather than annotations because annotations are opaque to
+# LinkML: a schema written in them cannot be validated, and this one is, by
+# scripts/check-schema.sh.
+#
+# `annotations` are left for the two kinds of fact LinkML cannot express:
+#
+#   gtfs_references  - 10 references whose target is not a single-slot key, so
+#                      `range` cannot reach them: the three fare_rules zone
+#                      columns point at stops.zone_id, which is not a key, and
+#                      the rest point at files with composite keys.
+#   gtfs_required    - 6 fields whose requiredness is not a property of a
+#                      single row, and so cannot be a rule. Each states its
+#                      condition in words and is marked
+#                      `gtfs_condition_enforced: false`.
+#
+# Not described here:
+#   - locations.geojson, which is not a CSV.
+#   - extended route types (100-1700). GTFS defines them and real feeds use
+#     them, but they are not enumerated, so a reader must render an unknown
+#     code rather than treat it as an error.
+id: https://github.com/MobilityData/gtfs-garage/schema/gtfs
+name: gtfs
+title: General Transit Feed Specification
+license: Apache-2.0
+default_range: Text
+prefixes:
+  linkml: https://w3id.org/linkml/
+  gtfs: https://gtfs.org/documentation/schedule/reference/#field-types-
+default_prefix: gtfs
+imports:
+  - linkml:types
+
+types:
+  Id:
+    typeof: string
+    description: An identifier, unique within its file. GTFS IDs are opaque strings.
+    exact_mappings:
+    - gtfs:ID
+  Text:
+    typeof: string
+    description: Human-readable text intended to be displayed to a rider.
+    exact_mappings:
+    - gtfs:TEXT
+  Color:
+    typeof: string
+    pattern: ^[0-9A-Fa-f]{6}$
+    description: A colour as six hexadecimal digits. GTFS forbids a leading '#'.
+    exact_mappings:
+    - gtfs:COLOR
+  Date:
+    typeof: string
+    pattern: ^\d{8}$
+    description: A service date as YYYYMMDD, not ISO-8601.
+    exact_mappings:
+    - gtfs:DATE
+  Time:
+    typeof: string
+    pattern: ^\d{1,2}:\d{2}:\d{2}$
+    description: A time as H:MM:SS. May exceed 24:00:00 for a trip running past midnight.
+    exact_mappings:
+    - gtfs:TIME
+  Url:
+    typeof: string
+    pattern: ^https?://
+    description: A fully qualified http or https URL.
+    exact_mappings:
+    - gtfs:URL
+  Email:
+    typeof: string
+    pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+    description: An email address.
+    exact_mappings:
+    - gtfs:EMAIL
+  PhoneNumber:
+    typeof: string
+    description: 'A phone number. No pattern: GTFS places no format on it.'
+    exact_mappings:
+    - gtfs:PHONE_NUMBER
+  LanguageCode:
+    typeof: string
+    description: 'An IETF BCP 47 language code. No pattern: the grammar is wider than a regex worth writing.'
+    exact_mappings:
+    - gtfs:LANGUAGE_CODE
+  CurrencyCode:
+    typeof: string
+    pattern: ^[A-Z]{3}$
+    description: An ISO 4217 alphabetic currency code.
+    exact_mappings:
+    - gtfs:CURRENCY_CODE
+  Timezone:
+    typeof: string
+    description: 'A TZ database timezone name. No pattern: entries such as ''UTC'' have no region part.'
+    exact_mappings:
+    - gtfs:TIMEZONE
+  Latitude:
+    typeof: float
+    minimum_value: -90
+    maximum_value: 90
+    description: WGS84 latitude in decimal degrees.
+    exact_mappings:
+    - gtfs:LATITUDE
+  Longitude:
+    typeof: float
+    minimum_value: -180
+    maximum_value: 180
+    description: WGS84 longitude in decimal degrees.
+    exact_mappings:
+    - gtfs:LONGITUDE
+  Integer:
+    typeof: integer
+    description: A whole number.
+    exact_mappings:
+    - gtfs:INTEGER
+  Float:
+    typeof: float
+    description: A floating point number.
+    exact_mappings:
+    - gtfs:FLOAT
+  Decimal:
+    typeof: decimal
+    description: A decimal number.
+    exact_mappings:
+    - gtfs:DECIMAL
+enums:
+  AttributionRole:
+    permissible_values:
+      '0':
+        title: Not Assigned
+      '1':
+        title: Assigned
+  BikesAllowed:
+    permissible_values:
+      '0':
+        title: Unknown
+      '1':
+        title: Allowed
+      '2':
+        title: Not Allowed
+  BookingType:
+    permissible_values:
+      '0':
+        title: Realtime
+      '1':
+        title: Sameday
+      '2':
+        title: Priorday
+  CarsAllowed:
+    permissible_values:
+      '0':
+        title: No Information
+      '1':
+        title: Allowed
+      '2':
+        title: Not Allowed
+  CemvSupport:
+    permissible_values:
+      '0':
+        title: No Information
+      '1':
+        title: Supported
+      '2':
+        title: Not Supported
+  ContinuousPickupDropOff:
+    permissible_values:
+      '0':
+        title: Allowed
+      '1':
+        title: Not Available
+      '2':
+        title: Must Phone
+      '3':
+        title: On Request To Driver
+  DirectionId:
+    permissible_values:
+      '0':
+        title: Outbound
+      '1':
+        title: Inbound
+  DurationLimitType:
+    permissible_values:
+      '0':
+        title: Departure To Arrival
+      '1':
+        title: Departure To Departure
+      '2':
+        title: Arrival To Departure
+      '3':
+        title: Arrival To Arrival
+  ExactTimes:
+    permissible_values:
+      '0':
+        title: Frequency Based
+      '1':
+        title: Schedule Based
+  ExceptionType:
+    permissible_values:
+      '1':
+        title: Service Added
+      '2':
+        title: Service Removed
+  FareMediaType:
+    permissible_values:
+      '0':
+        title: None
+      '1':
+        title: Paper Ticket
+      '2':
+        title: Transit Card
+      '3':
+        title: Contactless Emv
+      '4':
+        title: Mobile App
+  FareTransferCount:
+    permissible_values:
+      '0':
+        title: No Transfer
+      '1':
+        title: One Transfer
+      '2':
+        title: Two Transfers
+  FareTransferType:
+    permissible_values:
+      '0':
+        title: A Plus Ab
+      '1':
+        title: A Plus Ab Plus B
+      '2':
+        title: Ab
+  IsBidirectional:
+    permissible_values:
+      '0':
+        title: Unidirectional
+      '1':
+        title: Bidirectional
+  IsDefaultFareCategory:
+    permissible_values:
+      '0':
+        title: Not Default
+      '1':
+        title: Is Default
+  LocationType:
+    permissible_values:
+      '0':
+        title: Stop
+      '1':
+        title: Station
+      '2':
+        title: Entrance
+      '3':
+        title: Generic Node
+      '4':
+        title: Boarding Area
+  PathwayMode:
+    permissible_values:
+      '1':
+        title: Walkway
+      '2':
+        title: Stairs
+      '3':
+        title: Moving Sidewalk
+      '4':
+        title: Escalator
+      '5':
+        title: Elevator
+      '6':
+        title: Fare Gate
+      '7':
+        title: Exit Gate
+  PaymentMethod:
+    permissible_values:
+      '0':
+        title: On Board
+      '1':
+        title: Before Boarding
+  PickupDropOffType:
+    permissible_values:
+      '0':
+        title: Regular
+      '1':
+        title: Not Available
+      '2':
+        title: Must Phone
+      '3':
+        title: On Request To Driver
+  RouteType:
+    permissible_values:
+      '0':
+        title: Light Rail
+      '1':
+        title: Subway
+      '2':
+        title: Rail
+      '3':
+        title: Bus
+      '4':
+        title: Ferry
+      '5':
+        title: Cable Tram
+      '6':
+        title: Aerial Lift
+      '7':
+        title: Funicular
+      '11':
+        title: Trolleybus
+      '12':
+        title: Monorail
+  ServiceAvailability:
+    permissible_values:
+      '0':
+        title: Not Available
+      '1':
+        title: Available
+  StopAccess:
+    permissible_values:
+      '0':
+        title: Accessible Via Pathways
+      '1':
+        title: Not Accessible Via Pathways
+  Timepoint:
+    permissible_values:
+      '0':
+        title: Approximate
+      '1':
+        title: Exact
+  TransferType:
+    permissible_values:
+      '0':
+        title: Recommended
+      '1':
+        title: Timed
+      '2':
+        title: Minimum Time
+      '3':
+        title: Impossible
+      '4':
+        title: In Seat Transfer Allowed
+      '5':
+        title: In Seat Transfer Not Allowed
+  WheelchairAccessibility:
+    permissible_values:
+      '0':
+        title: Unknown
+      '1':
+        title: Accessible
+      '2':
+        title: Inaccessible
+classes:
+  agency:
+    description: The agency.txt file.
+    attributes:
+      agency_id:
+        range: Id
+        identifier: true
+        annotations:
+          gtfs_required: conditional
+          gtfs_condition: Required when the feed contains more than one agency.
+          gtfs_condition_enforced: false
+      agency_name:
+        range: Text
+        required: true
+      agency_url:
+        range: Url
+        required: true
+      agency_timezone:
+        range: Timezone
+        required: true
+      agency_lang:
+        range: LanguageCode
+      agency_phone:
+        range: PhoneNumber
+      agency_fare_url:
+        range: Url
+      agency_email:
+        range: Email
+      cemv_support:
+        range: CemvSupport
+  areas:
+    description: The areas.txt file.
+    attributes:
+      area_id:
+        range: Id
+        required: true
+        identifier: true
+      area_name:
+        range: Text
+  attributions:
+    description: The attributions.txt file.
+    attributes:
+      attribution_id:
+        range: Id
+        identifier: true
+      agency_id:
+        range: agency
+      route_id:
+        range: routes
+      trip_id:
+        range: trips
+      organization_name:
+        range: Text
+        required: true
+      is_producer:
+        range: AttributionRole
+      is_operator:
+        range: AttributionRole
+      is_authority:
+        range: AttributionRole
+      attribution_url:
+        range: Url
+      attribution_email:
+        range: Email
+      attribution_phone:
+        range: PhoneNumber
+  booking_rules:
+    description: The booking_rules.txt file.
+    attributes:
+      booking_rule_id:
+        range: Id
+        required: true
+        identifier: true
+      booking_type:
+        range: BookingType
+        required: true
+      prior_notice_duration_min:
+        range: Integer
+      prior_notice_duration_max:
+        range: Integer
+      prior_notice_start_day:
+        range: Integer
+      prior_notice_start_time:
+        range: Time
+      prior_notice_last_day:
+        range: Integer
+      prior_notice_last_time:
+        range: Time
+      prior_notice_service_id:
+        range: Text
+      message:
+        range: Text
+      pickup_message:
+        range: Text
+      drop_off_message:
+        range: Text
+      phone_number:
+        range: PhoneNumber
+      info_url:
+        range: Url
+      booking_url:
+        range: Url
+    rules:
+    - title: duration_min_required_for_same_day_booking
+      description: Required for booking_type=1 (same-day booking). Forbidden otherwise.
+      preconditions:
+        slot_conditions:
+          booking_type:
+            equals_string: '1'
+      postconditions:
+        slot_conditions:
+          prior_notice_duration_min:
+            value_presence: PRESENT
+      elseconditions:
+        slot_conditions:
+          prior_notice_duration_min:
+            value_presence: ABSENT
+    - title: last_day_required_for_prior_day_booking
+      description: Required for booking_type=2 (prior-day booking). Forbidden otherwise.
+      preconditions:
+        slot_conditions:
+          booking_type:
+            equals_string: '2'
+      postconditions:
+        slot_conditions:
+          prior_notice_last_day:
+            value_presence: PRESENT
+      elseconditions:
+        slot_conditions:
+          prior_notice_last_day:
+            value_presence: ABSENT
+    - title: last_time_required_with_last_day
+      description: Required if prior_notice_last_day is defined. Forbidden otherwise.
+      preconditions:
+        slot_conditions:
+          prior_notice_last_day:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          prior_notice_last_time:
+            value_presence: PRESENT
+      elseconditions:
+        slot_conditions:
+          prior_notice_last_time:
+            value_presence: ABSENT
+    - title: start_time_required_with_start_day
+      description: Required if prior_notice_start_day is defined. Forbidden otherwise.
+      preconditions:
+        slot_conditions:
+          prior_notice_start_day:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          prior_notice_start_time:
+            value_presence: PRESENT
+      elseconditions:
+        slot_conditions:
+          prior_notice_start_time:
+            value_presence: ABSENT
+  calendar:
+    description: The calendar.txt file.
+    attributes:
+      service_id:
+        range: Id
+        required: true
+        identifier: true
+      monday:
+        range: ServiceAvailability
+        required: true
+      tuesday:
+        range: ServiceAvailability
+        required: true
+      wednesday:
+        range: ServiceAvailability
+        required: true
+      thursday:
+        range: ServiceAvailability
+        required: true
+      friday:
+        range: ServiceAvailability
+        required: true
+      saturday:
+        range: ServiceAvailability
+        required: true
+      sunday:
+        range: ServiceAvailability
+        required: true
+      start_date:
+        range: Date
+        required: true
+      end_date:
+        range: Date
+        required: true
+  calendar_dates:
+    description: The calendar_dates.txt file.
+    attributes:
+      service_id:
+        range: calendar
+        required: true
+        comments:
+        - 'As trips.service_id: a service may be defined in either file, and this is linked to calendar.txt
+          so a reader can follow it.'
+      date:
+        range: Date
+        required: true
+      exception_type:
+        range: ExceptionType
+        required: true
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - service_id
+        - date
+  fare_attributes:
+    description: The fare_attributes.txt file.
+    attributes:
+      fare_id:
+        range: Id
+        required: true
+        identifier: true
+      price:
+        range: Decimal
+        required: true
+      currency_type:
+        range: CurrencyCode
+        required: true
+      payment_method:
+        range: PaymentMethod
+        required: true
+      transfers:
+        range: FareTransferCount
+        comments:
+        - 'Required as a column, but an empty value is meaningful: it means unlimited transfers are permitted.
+          So the column must be present while the value need not be.'
+        annotations:
+          gtfs_required: column_required_value_optional
+      agency_id:
+        range: agency
+        annotations:
+          gtfs_required: conditional
+          gtfs_condition: Required when the feed contains more than one agency.
+          gtfs_condition_enforced: false
+      transfer_duration:
+        range: Integer
+  fare_leg_join_rules:
+    description: The fare_leg_join_rules.txt file.
+    attributes:
+      from_network_id:
+        range: Id
+        required: true
+      to_network_id:
+        range: Id
+        required: true
+      from_stop_id:
+        range: stops
+      to_stop_id:
+        range: stops
+    rules:
+    - title: from_stop_required_with_to_stop
+      description: Required if to_stop_id is defined.
+      preconditions:
+        slot_conditions:
+          to_stop_id:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          from_stop_id:
+            value_presence: PRESENT
+    - title: to_stop_required_with_from_stop
+      description: Required if from_stop_id is defined.
+      preconditions:
+        slot_conditions:
+          from_stop_id:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          to_stop_id:
+            value_presence: PRESENT
+  fare_leg_rules:
+    description: The fare_leg_rules.txt file.
+    attributes:
+      leg_group_id:
+        range: Id
+      network_id:
+        range: Id
+      from_area_id:
+        range: areas
+      to_area_id:
+        range: areas
+      from_timeframe_group_id:
+        range: Id
+        annotations:
+          gtfs_references: timeframes.timeframe_group_id
+      to_timeframe_group_id:
+        range: Id
+        annotations:
+          gtfs_references: timeframes.timeframe_group_id
+      fare_product_id:
+        range: Id
+        required: true
+        annotations:
+          gtfs_references: fare_products.fare_product_id
+      rule_priority:
+        range: Integer
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - network_id
+        - from_area_id
+        - to_area_id
+        - from_timeframe_group_id
+        - to_timeframe_group_id
+        - fare_product_id
+  fare_media:
+    description: The fare_media.txt file.
+    attributes:
+      fare_media_id:
+        range: Id
+        required: true
+        identifier: true
+      fare_media_name:
+        range: Text
+      fare_media_type:
+        range: FareMediaType
+        required: true
+  fare_products:
+    description: The fare_products.txt file.
+    attributes:
+      fare_product_id:
+        range: Id
+        required: true
+      fare_product_name:
+        range: Text
+      amount:
+        range: Decimal
+        required: true
+      currency:
+        range: CurrencyCode
+        required: true
+      fare_media_id:
+        range: fare_media
+      rider_category_id:
+        range: rider_categories
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - fare_product_id
+        - fare_media_id
+        - rider_category_id
+  fare_rules:
+    description: The fare_rules.txt file.
+    attributes:
+      fare_id:
+        range: fare_attributes
+        required: true
+      route_id:
+        range: routes
+      origin_id:
+        range: Id
+        annotations:
+          gtfs_references: stops.zone_id
+      destination_id:
+        range: Id
+        annotations:
+          gtfs_references: stops.zone_id
+      contains_id:
+        range: Id
+        annotations:
+          gtfs_references: stops.zone_id
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - fare_id
+        - route_id
+        - origin_id
+        - destination_id
+        - contains_id
+  fare_transfer_rules:
+    description: The fare_transfer_rules.txt file.
+    attributes:
+      from_leg_group_id:
+        range: Id
+        annotations:
+          gtfs_references: fare_leg_rules.leg_group_id
+      to_leg_group_id:
+        range: Id
+        annotations:
+          gtfs_references: fare_leg_rules.leg_group_id
+      duration_limit:
+        range: Integer
+      duration_limit_type:
+        range: DurationLimitType
+      fare_transfer_type:
+        range: FareTransferType
+        required: true
+      transfer_count:
+        range: Integer
+      fare_product_id:
+        range: Id
+        annotations:
+          gtfs_references: fare_products.fare_product_id
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - from_leg_group_id
+        - to_leg_group_id
+        - duration_limit
+        - transfer_count
+        - fare_product_id
+    rules:
+    - title: duration_limit_type_required_with_duration_limit
+      description: Required if duration_limit is defined. Forbidden if duration_limit is empty.
+      preconditions:
+        slot_conditions:
+          duration_limit:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          duration_limit_type:
+            value_presence: PRESENT
+      elseconditions:
+        slot_conditions:
+          duration_limit_type:
+            value_presence: ABSENT
+  feed_info:
+    description: The feed_info.txt file.
+    attributes:
+      feed_publisher_name:
+        range: Text
+        required: true
+      feed_publisher_url:
+        range: Url
+        required: true
+      feed_lang:
+        range: LanguageCode
+        required: true
+      default_lang:
+        range: LanguageCode
+      feed_start_date:
+        range: Date
+      feed_end_date:
+        range: Date
+      feed_version:
+        range: Text
+      feed_contact_email:
+        range: Email
+      feed_contact_url:
+        range: Url
+  frequencies:
+    description: The frequencies.txt file.
+    attributes:
+      trip_id:
+        range: trips
+        required: true
+      start_time:
+        range: Time
+        required: true
+      end_time:
+        range: Time
+        required: true
+      headway_secs:
+        range: Integer
+        required: true
+      exact_times:
+        range: ExactTimes
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - trip_id
+        - start_time
+  levels:
+    description: The levels.txt file.
+    attributes:
+      level_id:
+        range: Id
+        required: true
+        identifier: true
+      level_index:
+        range: Float
+        required: true
+      level_name:
+        range: Text
+  location_group_stops:
+    description: The location_group_stops.txt file.
+    attributes:
+      location_group_id:
+        range: Id
+        required: true
+      stop_id:
+        range: Id
+        required: true
+  location_groups:
+    description: The location_groups.txt file.
+    attributes:
+      location_group_id:
+        range: Id
+        required: true
+        identifier: true
+      location_group_name:
+        range: Text
+  networks:
+    description: The networks.txt file.
+    attributes:
+      network_id:
+        range: Id
+        required: true
+        identifier: true
+      network_name:
+        range: Text
+  pathways:
+    description: The pathways.txt file.
+    attributes:
+      pathway_id:
+        range: Id
+        required: true
+        identifier: true
+      from_stop_id:
+        range: stops
+        required: true
+      to_stop_id:
+        range: stops
+        required: true
+      pathway_mode:
+        range: PathwayMode
+        required: true
+      is_bidirectional:
+        range: IsBidirectional
+        required: true
+      length:
+        range: Float
+      traversal_time:
+        range: Integer
+      stair_count:
+        range: Integer
+      max_slope:
+        range: Float
+      min_width:
+        range: Float
+      signposted_as:
+        range: Text
+      reversed_signposted_as:
+        range: Text
+  rider_categories:
+    description: The rider_categories.txt file.
+    attributes:
+      rider_category_id:
+        range: Id
+        required: true
+        identifier: true
+      rider_category_name:
+        range: Text
+        required: true
+      is_default_fare_category:
+        range: IsDefaultFareCategory
+        required: true
+      eligibility_url:
+        range: Url
+  route_networks:
+    description: The route_networks.txt file.
+    attributes:
+      route_id:
+        range: routes
+        required: true
+        identifier: true
+      network_id:
+        range: networks
+        required: true
+  routes:
+    description: The routes.txt file.
+    attributes:
+      route_id:
+        range: Id
+        required: true
+        identifier: true
+      agency_id:
+        range: agency
+        annotations:
+          gtfs_required: conditional
+          gtfs_condition: Required when the feed contains more than one agency.
+          gtfs_condition_enforced: false
+      route_short_name:
+        range: Text
+      route_long_name:
+        range: Text
+      route_desc:
+        range: Text
+      route_type:
+        range: RouteType
+        required: true
+      route_url:
+        range: Url
+      route_color:
+        range: Color
+      route_text_color:
+        range: Color
+      route_sort_order:
+        range: Integer
+      continuous_pickup:
+        range: ContinuousPickupDropOff
+      continuous_drop_off:
+        range: ContinuousPickupDropOff
+      network_id:
+        range: Id
+      cemv_support:
+        range: CemvSupport
+    rules:
+    - title: short_name_required_without_long_name
+      description: Required if route_long_name is empty.
+      preconditions:
+        slot_conditions:
+          route_long_name:
+            value_presence: ABSENT
+      postconditions:
+        slot_conditions:
+          route_short_name:
+            value_presence: PRESENT
+    - title: long_name_required_without_short_name
+      description: Required if route_short_name is empty.
+      preconditions:
+        slot_conditions:
+          route_short_name:
+            value_presence: ABSENT
+      postconditions:
+        slot_conditions:
+          route_long_name:
+            value_presence: PRESENT
+  shapes:
+    description: The shapes.txt file.
+    attributes:
+      shape_id:
+        range: Id
+        required: true
+      shape_pt_lat:
+        range: Latitude
+        required: true
+      shape_pt_lon:
+        range: Longitude
+        required: true
+      shape_pt_sequence:
+        range: Integer
+        required: true
+      shape_dist_traveled:
+        range: Float
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - shape_id
+        - shape_pt_sequence
+  stop_areas:
+    description: The stop_areas.txt file.
+    attributes:
+      area_id:
+        range: areas
+        required: true
+      stop_id:
+        range: stops
+        required: true
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - area_id
+        - stop_id
+  stop_times:
+    description: The stop_times.txt file.
+    attributes:
+      trip_id:
+        range: trips
+        required: true
+      arrival_time:
+        range: Time
+        annotations:
+          gtfs_required: conditional
+          gtfs_condition: Required for the first and last stop of a trip, and if timepoint=1.
+          gtfs_condition_enforced: false
+      departure_time:
+        range: Time
+        annotations:
+          gtfs_required: conditional
+          gtfs_condition: Required for the first and last stop of a trip, and if timepoint=1.
+          gtfs_condition_enforced: false
+      stop_id:
+        range: stops
+      location_group_id:
+        range: location_groups
+      location_id:
+        range: Id
+      stop_sequence:
+        range: Integer
+        required: true
+      stop_headsign:
+        range: Text
+      start_pickup_drop_off_window:
+        range: Time
+      end_pickup_drop_off_window:
+        range: Time
+      pickup_type:
+        range: PickupDropOffType
+      drop_off_type:
+        range: PickupDropOffType
+      continuous_pickup:
+        range: ContinuousPickupDropOff
+      continuous_drop_off:
+        range: ContinuousPickupDropOff
+      shape_dist_traveled:
+        range: Float
+      timepoint:
+        range: Timepoint
+      pickup_booking_rule_id:
+        range: booking_rules
+      drop_off_booking_rule_id:
+        range: booking_rules
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - trip_id
+        - stop_sequence
+    rules:
+    - title: stop_id_required_without_flex_location
+      description: Required if location_group_id and location_id are empty.
+      preconditions:
+        slot_conditions:
+          location_group_id:
+            value_presence: ABSENT
+          location_id:
+            value_presence: ABSENT
+      postconditions:
+        slot_conditions:
+          stop_id:
+            value_presence: PRESENT
+    - title: times_required_at_a_timepoint
+      description: Required if timepoint=1 (an exact time).
+      preconditions:
+        slot_conditions:
+          timepoint:
+            equals_string: '1'
+      postconditions:
+        slot_conditions:
+          arrival_time:
+            value_presence: PRESENT
+          departure_time:
+            value_presence: PRESENT
+    - title: pickup_window_required_for_flex_location
+      description: Required if location_group_id or location_id is defined.
+      preconditions:
+        slot_conditions:
+          location_id:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          start_pickup_drop_off_window:
+            value_presence: PRESENT
+          end_pickup_drop_off_window:
+            value_presence: PRESENT
+    - title: pickup_window_forbidden_with_a_fixed_time
+      description: Forbidden if arrival_time or departure_time is defined.
+      preconditions:
+        slot_conditions:
+          arrival_time:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          start_pickup_drop_off_window:
+            value_presence: ABSENT
+          end_pickup_drop_off_window:
+            value_presence: ABSENT
+  stops:
+    description: The stops.txt file.
+    attributes:
+      stop_id:
+        range: Id
+        required: true
+        identifier: true
+      stop_code:
+        range: Text
+      stop_name:
+        range: Text
+      tts_stop_name:
+        range: Text
+      stop_desc:
+        range: Text
+      stop_lat:
+        range: Latitude
+      stop_lon:
+        range: Longitude
+      zone_id:
+        range: Id
+      stop_url:
+        range: Url
+      location_type:
+        range: LocationType
+      parent_station:
+        range: stops
+      stop_timezone:
+        range: Timezone
+      wheelchair_boarding:
+        range: WheelchairAccessibility
+      level_id:
+        range: levels
+      platform_code:
+        range: Text
+      stop_access:
+        range: StopAccess
+    rules:
+    - title: name_and_position_required_for_physical_locations
+      description: Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for
+        3 (generic node) and 4 (boarding area).
+      preconditions:
+        slot_conditions:
+          location_type:
+            any_of:
+            - equals_string: '0'
+            - equals_string: '1'
+            - equals_string: '2'
+      postconditions:
+        slot_conditions:
+          stop_name:
+            value_presence: PRESENT
+          stop_lat:
+            value_presence: PRESENT
+          stop_lon:
+            value_presence: PRESENT
+    - title: parent_station_required_for_nested_locations
+      description: Required for location_type 2 (entrance/exit), 3 (generic node) and 4 (boarding area).
+      preconditions:
+        slot_conditions:
+          location_type:
+            any_of:
+            - equals_string: '2'
+            - equals_string: '3'
+            - equals_string: '4'
+      postconditions:
+        slot_conditions:
+          parent_station:
+            value_presence: PRESENT
+    - title: parent_station_forbidden_for_a_station
+      description: 'Forbidden for location_type 1: a station is itself the parent.'
+      preconditions:
+        slot_conditions:
+          location_type:
+            equals_string: '1'
+      postconditions:
+        slot_conditions:
+          parent_station:
+            value_presence: ABSENT
+  timeframes:
+    description: The timeframes.txt file.
+    attributes:
+      timeframe_group_id:
+        range: Id
+        required: true
+      start_time:
+        range: Time
+      end_time:
+        range: Time
+      service_id:
+        range: Text
+        required: true
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - timeframe_group_id
+        - start_time
+        - end_time
+        - service_id
+    rules:
+    - title: start_time_required_with_end_time
+      description: Required if end_time is defined.
+      preconditions:
+        slot_conditions:
+          end_time:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          start_time:
+            value_presence: PRESENT
+    - title: end_time_required_with_start_time
+      description: Required if start_time is defined.
+      preconditions:
+        slot_conditions:
+          start_time:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          end_time:
+            value_presence: PRESENT
+  transfers:
+    description: The transfers.txt file.
+    attributes:
+      from_stop_id:
+        range: stops
+      to_stop_id:
+        range: stops
+      transfer_type:
+        range: TransferType
+        required: true
+      min_transfer_time:
+        range: Integer
+      from_trip_id:
+        range: trips
+      to_trip_id:
+        range: trips
+      from_route_id:
+        range: routes
+      to_route_id:
+        range: routes
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - from_stop_id
+        - to_stop_id
+        - from_trip_id
+        - to_trip_id
+        - from_route_id
+        - to_route_id
+    rules:
+    - title: stops_required_unless_an_in_seat_transfer
+      description: Required unless transfer_type is 4 or 5, which identify the transfer by trip.
+      preconditions:
+        slot_conditions:
+          transfer_type:
+            any_of:
+            - equals_string: '0'
+            - equals_string: '1'
+            - equals_string: '2'
+            - equals_string: '3'
+      postconditions:
+        slot_conditions:
+          from_stop_id:
+            value_presence: PRESENT
+          to_stop_id:
+            value_presence: PRESENT
+    - title: min_transfer_time_required_for_a_minimum_time_transfer
+      description: Required if transfer_type=2 (a minimum time is needed).
+      preconditions:
+        slot_conditions:
+          transfer_type:
+            equals_string: '2'
+      postconditions:
+        slot_conditions:
+          min_transfer_time:
+            value_presence: PRESENT
+    - title: trips_required_for_an_in_seat_transfer
+      description: Required if transfer_type is 4 or 5 (in-seat transfers).
+      preconditions:
+        slot_conditions:
+          transfer_type:
+            any_of:
+            - equals_string: '4'
+            - equals_string: '5'
+      postconditions:
+        slot_conditions:
+          from_trip_id:
+            value_presence: PRESENT
+          to_trip_id:
+            value_presence: PRESENT
+  translations:
+    description: The translations.txt file.
+    attributes:
+      table_name:
+        range: Text
+        required: true
+      field_name:
+        range: Text
+        required: true
+      language:
+        range: LanguageCode
+        required: true
+      translation:
+        range: Text
+        required: true
+      record_id:
+        range: Text
+      record_sub_id:
+        range: Text
+      field_value:
+        range: Text
+    unique_keys:
+      primary_key:
+        description: The GTFS primary key for this file.
+        unique_key_slots:
+        - table_name
+        - field_name
+        - language
+        - record_id
+        - record_sub_id
+        - field_value
+    rules:
+    - title: record_id_required_without_field_value
+      description: Required if field_value is empty.
+      preconditions:
+        slot_conditions:
+          field_value:
+            value_presence: ABSENT
+      postconditions:
+        slot_conditions:
+          record_id:
+            value_presence: PRESENT
+    - title: field_value_required_without_record_id
+      description: Required if record_id is empty.
+      preconditions:
+        slot_conditions:
+          record_id:
+            value_presence: ABSENT
+      postconditions:
+        slot_conditions:
+          field_value:
+            value_presence: PRESENT
+    - title: record_sub_id_required_for_stop_times
+      description: Required if table_name is stop_times and record_id is defined.
+      preconditions:
+        slot_conditions:
+          table_name:
+            equals_string: stop_times
+          record_id:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          record_sub_id:
+            value_presence: PRESENT
+  trips:
+    description: The trips.txt file.
+    attributes:
+      trip_id:
+        range: Id
+        required: true
+        identifier: true
+      route_id:
+        range: routes
+        required: true
+      service_id:
+        range: calendar
+        required: true
+        comments:
+        - GTFS lets a service be defined in calendar.txt or in calendar_dates.txt, so this references
+          either. It is linked to calendar.txt so a reader can follow it.
+      trip_headsign:
+        range: Text
+      trip_short_name:
+        range: Text
+      direction_id:
+        range: DirectionId
+      block_id:
+        range: Id
+      shape_id:
+        range: Id
+        annotations:
+          gtfs_references: shapes.shape_id
+          gtfs_required: conditional
+          gtfs_condition: Required if the trip has continuous pickup or drop-off behaviour defined.
+          gtfs_condition_enforced: false
+      wheelchair_accessible:
+        range: WheelchairAccessibility
+      bikes_allowed:
+        range: BikesAllowed
+      cars_allowed:
+        range: CarsAllowed
+      safe_duration_factor:
+        range: Float
+      safe_duration_offset:
+        range: Float
