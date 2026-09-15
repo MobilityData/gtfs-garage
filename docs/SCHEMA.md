@@ -2,11 +2,11 @@
 
 <!-- GENERATED from schema/gtfs.yaml by scripts/build_schema_docs.py. Edit the schema, not this file. -->
 
-A description of the 31 files GTFS defines and the 218 fields in them:
-each field's type, whether it is required, and which file it points at. The
-machine-readable form of this is [`gtfs-schema.json`](../src/gtfs_garage/data/gtfs-schema.json),
-which ships inside the package; both are generated from
-[`schema/gtfs.yaml`](../schema/gtfs.yaml).
+The GTFS schema used in this project is based on the [official GTFS Schedule Reference](https://gtfs.org/documentation/schedule/reference/).
+This document and the schema files included in this project are **not intended to be the source of truth for the GTFS specification**.
+They are maintained to support this project in formatting and validating GTFS datasets.
+This documentation describes the 31 files defined by GTFS and the 218 fields they contain, including each field's data type, whether it is required, and any references to fields in other files.
+The machine-readable version is [`gtfs-schema.json`](../src/gtfs_garage/data/gtfs-schema.json), which is included in the package. Both this documentation and the JSON schema are generated from [`schema/gtfs.yaml`](../schema/gtfs.yaml).
 
 ## How the files relate
 
