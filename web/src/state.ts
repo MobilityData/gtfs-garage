@@ -1,4 +1,4 @@
-import type { ColumnInfo, Filter, TableInfo } from "./sources/types";
+import type { ColumnInfo, Filter, MissingFile, TableInfo } from "./sources/types";
 
 /** One browsable view: a table, its filters and which page of it. */
 export interface View {
@@ -9,6 +9,8 @@ export interface View {
 
 export interface AppState {
   tables: TableInfo[];
+  /** Files GTFS says this feed needs and it does not have. */
+  missing: MissingFile[];
   columnInfoByName: Record<string, ColumnInfo>;
   view: View;
   pageSize: number;
@@ -35,6 +37,7 @@ export interface AppState {
 export function createState(): AppState {
   return {
     tables: [],
+    missing: [],
     columnInfoByName: {},
     view: { table: "", filters: [], page: 1 },
     pageSize: 100,

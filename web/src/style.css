@@ -114,6 +114,15 @@ button:hover { filter: brightness(0.97); }
 .table-tab .count { color: var(--muted); font-weight: 400; }
 .table-tab.active .count { color: var(--accent); }
 
+/* A file the feed does not have. Muted and not a pointer, because there is
+   nothing behind it to open; the tooltip says why it is wanted. */
+.table-tab.missing { color: var(--muted); cursor: default; font-style: italic; }
+.table-tab.missing:hover { background: none; }
+
+/* A file the feed has that GTFS forbids. Still opens - the rows are there -
+   so only the marker is muted. */
+.table-tab.forbidden .count { font-style: italic; }
+
 [data-el="content"] {
   flex: 1;
   display: flex;

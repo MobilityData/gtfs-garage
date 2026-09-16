@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import yaml
 
 from gtfs_garage.core.conditions import CHECK_KINDS
 from gtfs_garage.core.schema import (
@@ -550,3 +551,81 @@ def test_every_published_pattern_is_safe_to_compile_and_run():
         assert SAFE_PATTERN.match(pattern), f"{name} uses syntax outside the agreed subset: {pattern}"
         assert not NESTED_QUANTIFIER.search(pattern), f"{name} can backtrack catastrophically: {pattern}"
         re.compile(pattern)
+
+
+def test_the_feed_holds_every_file_and_nothing_else():
+    """The containment rewrite's guard.
+
+    Adding a Feed that inlines all 31 files made every class contained, which
+    would have deleted every table from the viewer. The rule that separates
+    "the feed holds its files" from "a structure holds its parts" is easy to
+    break silently, so the table set is pinned.
+    """
+    tables = set(load_schema()["tables"])
+    assert len(tables) == 32
+    # The four that describe locations.geojson's structure, and the feed itself,
+    # are not files of rows.
+    types_and_structures = {"Feed", "LocationsGeoJson", "Feature", "FeatureProperties", "Geometry"}
+    assert not tables & types_and_structures
+    # `locations` is the flat projection the viewer browses, so it is a table
+    # even though it is not a CSV file.
+    assert "locations" in tables
+
+
+def test_the_schema_has_exactly_one_root():
+    """Two `tree_root` classes generate without error and one silently wins,
+    taking over the generated JSON Schema's root."""
+    classes = yaml.safe_load(
+        (Path(__file__).resolve().parent.parent / "schema" / "gtfs.yaml").read_text(encoding="utf-8")
+    )["classes"]
+    roots = [name for name, cls in classes.items() if cls.get("tree_root")]
+    assert roots == ["Feed"]
+
+
+def test_every_file_says_whether_a_feed_must_contain_it():
+    presence = {table: entry.get("presence") for table, entry in load_schema()["tables"].items()}
+    silent = sorted(name for name, value in presence.items() if not value)
+    assert not silent, f"files with no stated presence: {silent}"
+
+
+def test_the_files_gtfs_requires_are_exactly_these():
+    """Read off the reference file by file. Pinned so a fifth cannot appear
+    unnoticed - a file wrongly marked required is reported missing from every
+    feed that does not have it."""
+    tables = load_schema()["tables"]
+    required = {name for name, entry in tables.items() if entry.get("presence") == "required"}
+    assert required == {"agency", "routes", "trips", "stop_times"}
+
+    conditional = {name for name, entry in tables.items() if entry.get("presence") == "conditional"}
+    assert conditional == {"stops", "calendar", "calendar_dates", "levels", "feed_info"}
+
+
+CONDITIONAL_PRESENCE = ("conditional", "conditionally_forbidden")
+
+
+def test_every_file_condition_can_actually_be_answered():
+    """`scope: feed` means one answer settles this for the whole file. A
+    condition carrying that label and no check promises an answer nothing can
+    produce - prose wearing a machine-readable badge."""
+    for table, entry in load_schema()["tables"].items():
+        if entry.get("presence") not in CONDITIONAL_PRESENCE:
+            continue
+        assert entry.get("condition"), f"{table} is conditional with no stated condition"
+        assert entry.get("conditionScope") == "feed"
+        check = entry.get("conditionCheck")
+        assert check, f"{table} claims scope 'feed' but carries no check"
+        assert check["kind"] in CHECK_KINDS, f"{table} wants {check['kind']!r}, unimplemented"
+
+
+def test_the_files_gtfs_forbids_are_exactly_these():
+    """Direction is a separate fact from conditionality, and getting it wrong
+    is silent: a forbidden file whose check holds would be reported as missing
+    and needed, when GTFS says the feed should not have it at all."""
+    tables = load_schema()["tables"]
+    forbidden = {n for n, e in tables.items() if e.get("presence") == "conditionally_forbidden"}
+    assert forbidden == {"networks", "route_networks"}
+
+
+def test_presence_is_one_of_the_four_values_gtfs_uses():
+    values = {entry.get("presence") for entry in load_schema()["tables"].values()}
+    assert values == {"required", "optional", "conditional", "conditionally_forbidden"}

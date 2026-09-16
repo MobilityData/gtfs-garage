@@ -85,10 +85,21 @@ export interface ColumnInfo {
   type_description: string | null;
 }
 
+/**
+ * Why GTFS says this feed should not contain this file. The counterpart to
+ * `MissingFile`: that one is absent and needed, this one present and not wanted.
+ */
+export interface FileCondition {
+  condition: string;
+  outcome: ConditionOutcome;
+}
+
 export interface TableInfo {
   name: string;
   row_count: number;
   columns: ColumnInfo[];
+  /** Set only where GTFS forbids this file and the condition holds here. */
+  forbidden: FileCondition | null;
 }
 
 /** What one .txt file cost to open. */
@@ -143,9 +154,21 @@ export interface LoadProgress {
   running: boolean;
 }
 
+/**
+ * A file the feed does not have and needs - required, or conditionally required
+ * with the condition holding here. Files it merely could have are not listed.
+ */
+export interface MissingFile {
+  name: string;
+  presence: string;
+  condition: string | null;
+  condition_outcome: ConditionOutcome | null;
+}
+
 export interface TablesResponse {
   source: string;
   tables: TableInfo[];
+  missing: MissingFile[];
   metrics: LoadMetrics;
 }
 

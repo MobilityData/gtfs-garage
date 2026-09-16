@@ -96,6 +96,7 @@ async function start(): Promise<void> {
     dom.el("source-label").textContent = data.source;
     renderMetrics(dom, data.metrics, clientMs);
     state.tables = data.tables;
+    state.missing = data.missing ?? [];
     state.mapDataLoaded = false;
     state.routeShapes.clear();
 

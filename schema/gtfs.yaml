@@ -1,3 +1,12 @@
+# Based on the official GTFS Schedule Reference:
+# https://gtfs.org/documentation/schedule/reference/
+#
+# This file is not intended to be the source of truth for the GTFS
+# specification. It is maintained to support this project in formatting and
+# validating GTFS datasets, and is not updated on a schedule as GTFS changes,
+# so it may lag behind the reference or differ from it in detail. Where the two
+# disagree, the reference is right.
+#
 # GTFS described in LinkML.
 #
 # One class per CSV file: 31 files, 218 fields. GTFS's facts are carried by
@@ -354,6 +363,194 @@ enums:
       '2':
         title: Inaccessible
 classes:
+  Feed:
+    tree_root: true
+    description: A GTFS dataset - the files it may contain, and which of them it must.
+    attributes:
+      agency:
+        range: agency
+        multivalued: true
+        inlined_as_list: true
+        required: true
+      stops:
+        range: stops
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_condition:
+            value: Optional if demand-responsive zones are defined in locations.geojson. Required otherwise.
+            annotations:
+              scope: feed
+              check: file_absent
+              file: locations
+      routes:
+        range: routes
+        multivalued: true
+        inlined_as_list: true
+        required: true
+      trips:
+        range: trips
+        multivalued: true
+        inlined_as_list: true
+        required: true
+      stop_times:
+        range: stop_times
+        multivalued: true
+        inlined_as_list: true
+        required: true
+      calendar:
+        range: calendar
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_condition:
+            value: Required unless all dates of service are defined in calendar_dates.txt. Optional otherwise.
+            annotations:
+              scope: feed
+              check: file_absent
+              file: calendar_dates
+      calendar_dates:
+        range: calendar_dates
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_condition:
+            value: Required if calendar.txt is omitted, in which case it must contain all dates of service. Optional otherwise.
+            annotations:
+              scope: feed
+              check: file_absent
+              file: calendar
+      fare_attributes:
+        range: fare_attributes
+        multivalued: true
+        inlined_as_list: true
+      fare_rules:
+        range: fare_rules
+        multivalued: true
+        inlined_as_list: true
+      timeframes:
+        range: timeframes
+        multivalued: true
+        inlined_as_list: true
+      rider_categories:
+        range: rider_categories
+        multivalued: true
+        inlined_as_list: true
+      fare_media:
+        range: fare_media
+        multivalued: true
+        inlined_as_list: true
+      fare_products:
+        range: fare_products
+        multivalued: true
+        inlined_as_list: true
+      fare_leg_rules:
+        range: fare_leg_rules
+        multivalued: true
+        inlined_as_list: true
+      fare_leg_join_rules:
+        range: fare_leg_join_rules
+        multivalued: true
+        inlined_as_list: true
+      fare_transfer_rules:
+        range: fare_transfer_rules
+        multivalued: true
+        inlined_as_list: true
+      areas:
+        range: areas
+        multivalued: true
+        inlined_as_list: true
+      stop_areas:
+        range: stop_areas
+        multivalued: true
+        inlined_as_list: true
+      networks:
+        range: networks
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_forbidden:
+            value: Forbidden if network_id exists in routes.txt. Optional otherwise.
+            annotations:
+              scope: feed
+              check: column_present
+              file: routes
+              column: network_id
+      route_networks:
+        range: route_networks
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_forbidden:
+            value: Forbidden if network_id exists in routes.txt. Optional otherwise.
+            annotations:
+              scope: feed
+              check: column_present
+              file: routes
+              column: network_id
+      shapes:
+        range: shapes
+        multivalued: true
+        inlined_as_list: true
+      frequencies:
+        range: frequencies
+        multivalued: true
+        inlined_as_list: true
+      transfers:
+        range: transfers
+        multivalued: true
+        inlined_as_list: true
+      pathways:
+        range: pathways
+        multivalued: true
+        inlined_as_list: true
+      levels:
+        range: levels
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_condition:
+            value: Required when describing pathways with elevators (pathway_mode=5). Optional otherwise.
+            annotations:
+              scope: feed
+              check: rows_match
+              file: pathways
+              column: pathway_mode
+              equals: '5'
+      location_groups:
+        range: location_groups
+        multivalued: true
+        inlined_as_list: true
+      location_group_stops:
+        range: location_group_stops
+        multivalued: true
+        inlined_as_list: true
+      booking_rules:
+        range: booking_rules
+        multivalued: true
+        inlined_as_list: true
+      translations:
+        range: translations
+        multivalued: true
+        inlined_as_list: true
+      feed_info:
+        range: feed_info
+        multivalued: true
+        inlined_as_list: true
+        annotations:
+          gtfs_condition:
+            value: Required if translations.txt is provided. Recommended otherwise.
+            annotations:
+              scope: feed
+              check: file_present
+              file: translations
+      attributions:
+        range: attributions
+        multivalued: true
+        inlined_as_list: true
+      locations_geojson:
+        range: LocationsGeoJson
+        inlined: true
   agency:
     description: The agency.txt file.
     attributes:
@@ -895,7 +1092,6 @@ classes:
         comments:
         - The Feature's geometry as GeoJSON.
   LocationsGeoJson:
-    tree_root: true
     description: The locations.geojson file, as the GeoJSON document it is.
     attributes:
       type:

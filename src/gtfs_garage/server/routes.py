@@ -20,6 +20,7 @@ from gtfs_garage.core.queries import (
     UnknownTableError,
     distinct_values,
     query_table,
+    missing_files,
     table_summaries,
 )
 from gtfs_garage.server.models import (
@@ -94,8 +95,14 @@ def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
 
 
 def _tables_payload(registry: FeedRegistry) -> dict[str, Any]:
-    summaries = table_summaries(registry.current())
-    return {"source": registry.source, "tables": summaries, "metrics": _load_metrics(registry)}
+    feed = registry.current()
+    summaries = table_summaries(feed)
+    return {
+        "source": registry.source,
+        "tables": summaries,
+        "missing": missing_files(feed),
+        "metrics": _load_metrics(registry),
+    }
 
 
 @router.get("/config", response_model=ConfigResponse)

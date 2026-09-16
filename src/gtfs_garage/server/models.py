@@ -85,10 +85,41 @@ class ColumnInfo(BaseModel):
     type_description: str | None = None
 
 
+class MissingFile(BaseModel):
+    """A file the feed does not have and needs.
+
+    Only files GTFS requires, or conditionally requires with the condition
+    holding for this feed. A feed is normally without twenty optional files, and
+    reporting those would bury the ones that matter.
+    """
+
+    name: str
+    # "required" or "conditional".
+    presence: str
+    # For a conditional file, the condition in words. Null for a required one,
+    # which needs no explanation.
+    condition: str | None = None
+    # Why the condition holds here - "calendar_dates is absent".
+    condition_outcome: ConditionOutcome | None = None
+
+
+class FileCondition(BaseModel):
+    """Why GTFS says this feed should not contain this file.
+
+    The counterpart to `MissingFile`: that one is absent and needed, this one is
+    present and not wanted, which is a fact about a table the feed has.
+    """
+
+    condition: str
+    outcome: ConditionOutcome
+
+
 class TableInfo(BaseModel):
     name: str
     row_count: int
     columns: list[ColumnInfo]
+    # Set only where GTFS forbids this file and the condition holds here.
+    forbidden: FileCondition | None = None
 
 
 class FileMetrics(BaseModel):
@@ -153,6 +184,9 @@ class LoadProgressResponse(BaseModel):
 class TablesResponse(BaseModel):
     source: str
     tables: list[TableInfo]
+    # Files absent from this feed that GTFS says it needs. Empty for a complete
+    # feed, which is the usual case.
+    missing: list[MissingFile] = []
     metrics: LoadMetrics
 
 

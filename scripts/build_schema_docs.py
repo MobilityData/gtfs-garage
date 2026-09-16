@@ -150,10 +150,43 @@ def field_notes(field: dict) -> str:
     return "; ".join(notes)
 
 
+# locations.geojson is the one GTFS file that is not a CSV, so the extension
+# cannot simply be appended.
+FILE_EXTENSIONS = {"locations": "geojson"}
+
+
+def file_name(table: str) -> str:
+    return f"{table}.{FILE_EXTENSIONS.get(table, 'txt')}"
+
+
+def file_presence(table: dict) -> str:
+    """Whether a feed must contain this file, said before its fields.
+
+    Every field in the tables below carries a Required column; until now the
+    file holding them carried nothing, so a reader could see that `stop_id` is
+    required without being told that `stop_times.txt` is.
+    """
+    presence = table.get("presence")
+    if presence == "required":
+        return "**Required**"
+    if presence in ("conditional", "conditionally_forbidden"):
+        note = table.get("condition") or "see GTFS"
+        marker = CONDITION_SCOPE_MARKERS.get(table.get("conditionScope"), "")
+        label = "Conditionally forbidden" if presence == "conditionally_forbidden" else "Conditional"
+        return f"**{label}**{marker} — {note}"
+    if presence:
+        return presence.capitalize()
+    return ""
+
+
 def file_section(name: str, table: dict, description: str) -> str:
-    lines = [f"### `{name}.txt`", ""]
+    lines = [f"### `{file_name(name)}`", ""]
     if description:
         lines += [description, ""]
+
+    presence = file_presence(table)
+    if presence:
+        lines += [presence, ""]
 
     lines += ["| Field | Type | Required | Notes |", "|---|---|---|---|"]
     for field_name, field in table["fields"].items():

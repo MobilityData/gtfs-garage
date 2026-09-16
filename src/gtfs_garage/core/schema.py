@@ -63,6 +63,15 @@ ENUM_LIKE_COLUMNS: set[str] = set(_schema["enumLikeColumns"])
 # generated before field types were published.
 FIELD_TYPES: dict[str, dict[str, Any]] = _schema.get("fieldTypes", {})
 
+# table -> whether GTFS requires a feed to contain that file, and where that is
+# conditional, the condition and the check that settles it. Only files GTFS says
+# something about appear; the rest are optional by omission.
+FILE_PRESENCE: dict[str, dict[str, Any]] = {
+    table: {key: value for key, value in entry.items() if key != "fields"}
+    for table, entry in _schema["tables"].items()
+    if entry.get("presence")
+}
+
 
 def value_shape(gtfs_type: str | None) -> dict[str, Any]:
     """What a value of a GTFS field type must look like, or an empty record.

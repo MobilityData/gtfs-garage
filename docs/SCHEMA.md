@@ -194,6 +194,8 @@ it. A solid end means the reference is required, an open one that it is optional
 
 The agency.txt file.
 
+**Required**
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `agency_id` | ID | Conditional[^feed] — Required when the feed contains more than one agency. | primary key |
@@ -210,6 +212,8 @@ The agency.txt file.
 
 The areas.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `area_id` | ID | **Required** | primary key |
@@ -218,6 +222,8 @@ The areas.txt file.
 ### `attributions.txt`
 
 The attributions.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -236,6 +242,8 @@ The attributions.txt file.
 ### `booking_rules.txt`
 
 The booking_rules.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -259,6 +267,8 @@ The booking_rules.txt file.
 
 The calendar.txt file.
 
+**Conditional**[^feed] — Required unless all dates of service are defined in calendar_dates.txt. Optional otherwise.
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `service_id` | ID | **Required** | primary key |
@@ -276,6 +286,8 @@ The calendar.txt file.
 
 The calendar_dates.txt file.
 
+**Conditional**[^feed] — Required if calendar.txt is omitted, in which case it must contain all dates of service. Optional otherwise.
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `service_id` | ID | **Required** | primary key; → `calendar.service_id` |
@@ -285,6 +297,8 @@ The calendar_dates.txt file.
 ### `fare_attributes.txt`
 
 The fare_attributes.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -300,6 +314,8 @@ The fare_attributes.txt file.
 
 The fare_leg_join_rules.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `from_network_id` | ID | **Required** |  |
@@ -310,6 +326,8 @@ The fare_leg_join_rules.txt file.
 ### `fare_leg_rules.txt`
 
 The fare_leg_rules.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -326,6 +344,8 @@ The fare_leg_rules.txt file.
 
 The fare_media.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `fare_media_id` | ID | **Required** | primary key |
@@ -335,6 +355,8 @@ The fare_media.txt file.
 ### `fare_products.txt`
 
 The fare_products.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -349,6 +371,8 @@ The fare_products.txt file.
 
 The fare_rules.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `fare_id` | ID | **Required** | primary key; → `fare_attributes.fare_id` |
@@ -360,6 +384,8 @@ The fare_rules.txt file.
 ### `fare_transfer_rules.txt`
 
 The fare_transfer_rules.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -374,6 +400,8 @@ The fare_transfer_rules.txt file.
 ### `feed_info.txt`
 
 The feed_info.txt file.
+
+**Conditional**[^feed] — Required if translations.txt is provided. Recommended otherwise.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -391,6 +419,8 @@ The feed_info.txt file.
 
 The frequencies.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `trip_id` | ID | **Required** | primary key; → `trips.trip_id` |
@@ -403,6 +433,8 @@ The frequencies.txt file.
 
 The levels.txt file.
 
+**Conditional**[^feed] — Required when describing pathways with elevators (pathway_mode=5). Optional otherwise.
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `level_id` | ID | **Required** | primary key |
@@ -413,6 +445,8 @@ The levels.txt file.
 
 The location_group_stops.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `location_group_id` | ID | **Required** |  |
@@ -422,14 +456,18 @@ The location_group_stops.txt file.
 
 The location_groups.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `location_group_id` | ID | **Required** | primary key |
 | `location_group_name` | TEXT | Optional |  |
 
-### `locations.txt`
+### `locations.geojson`
 
 The locations.geojson file, as rows. One per Feature, which is what stop_times.location_id references.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -443,6 +481,8 @@ The locations.geojson file, as rows. One per Feature, which is what stop_times.l
 
 The networks.txt file.
 
+**Conditionally forbidden**[^feed] — Forbidden if network_id exists in routes.txt. Optional otherwise.
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `network_id` | ID | **Required** | primary key |
@@ -451,6 +491,8 @@ The networks.txt file.
 ### `pathways.txt`
 
 The pathways.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -471,6 +513,8 @@ The pathways.txt file.
 
 The rider_categories.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `rider_category_id` | ID | **Required** | primary key |
@@ -482,6 +526,8 @@ The rider_categories.txt file.
 
 The route_networks.txt file.
 
+**Conditionally forbidden**[^feed] — Forbidden if network_id exists in routes.txt. Optional otherwise.
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `route_id` | ID | **Required** | primary key; → `routes.route_id` |
@@ -490,6 +536,8 @@ The route_networks.txt file.
 ### `routes.txt`
 
 The routes.txt file.
+
+**Required**
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -512,6 +560,8 @@ The routes.txt file.
 
 The shapes.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `shape_id` | ID | **Required** | primary key |
@@ -524,6 +574,8 @@ The shapes.txt file.
 
 The stop_areas.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `area_id` | ID | **Required** | primary key; → `areas.area_id` |
@@ -532,6 +584,8 @@ The stop_areas.txt file.
 ### `stop_times.txt`
 
 The stop_times.txt file.
+
+**Required**
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -558,6 +612,8 @@ The stop_times.txt file.
 
 The stops.txt file.
 
+**Conditional**[^feed] — Optional if demand-responsive zones are defined in locations.geojson. Required otherwise.
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `stop_id` | ID | **Required** | primary key |
@@ -581,6 +637,8 @@ The stops.txt file.
 
 The timeframes.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `timeframe_group_id` | ID | **Required** | primary key |
@@ -591,6 +649,8 @@ The timeframes.txt file.
 ### `transfers.txt`
 
 The transfers.txt file.
+
+Optional
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -607,6 +667,8 @@ The transfers.txt file.
 
 The translations.txt file.
 
+Optional
+
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `table_name` | TEXT | **Required** | primary key |
@@ -620,6 +682,8 @@ The translations.txt file.
 ### `trips.txt`
 
 The trips.txt file.
+
+**Required**
 
 | Field | Type | Required | Notes |
 |---|---|---|---|

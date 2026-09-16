@@ -7,7 +7,7 @@
  */
 
 import schema from "../../../src/gtfs_garage/data/gtfs-schema.json";
-import type { ColumnInfo } from "./types";
+import type { ColumnInfo, TableInfo } from "./types";
 
 interface PublishedType {
   description: string;
@@ -59,4 +59,14 @@ export function typedColumn(type: string, overrides: Partial<ColumnInfo> = {}): 
     type_description: shape.description || null,
     ...overrides,
   });
+}
+
+export function tableInfo(overrides: Partial<TableInfo> = {}): TableInfo {
+  return {
+    name: "table",
+    row_count: 0,
+    columns: [],
+    forbidden: null,
+    ...overrides,
+  };
 }

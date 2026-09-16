@@ -1,5 +1,5 @@
 {
-  "$comment": "GTFS relational and field semantics, shared by the Python backend (core/schema.py) and any JavaScript/TypeScript consumer. Keyed by table, then by field, so per-field facts have somewhere to live. A field's \"type\" names an entry in \"fieldTypes\", which carries what a value of that type must look like. GENERATED from schema/gtfs.yaml by scripts/build_schema_json.py - edit that, not this. Keys are camelCase so this reads naturally from TypeScript.",
+  "$comment": "GTFS relational and field semantics, shared by the Python backend (core/schema.py) and any JavaScript/TypeScript consumer. Keyed by table, then by field. A table's \"presence\" says whether a feed must contain that file. A field's \"type\" names an entry in \"fieldTypes\", which carries what a value of that type must look like. GENERATED from schema/gtfs.yaml by scripts/build_schema_json.py - edit that, not this. Keys are camelCase so this reads naturally from TypeScript.",
   "fieldTypes": {
     "COLOR": {
       "description": "A color encoded as a six-digit hexadecimal number. The leading \"#\" is not included.",
@@ -63,6 +63,7 @@
   },
   "tables": {
     "agency": {
+      "presence": "required",
       "fields": {
         "agency_id": {
           "type": "ID",
@@ -115,6 +116,7 @@
       }
     },
     "areas": {
+      "presence": "optional",
       "fields": {
         "area_id": {
           "type": "ID",
@@ -127,6 +129,7 @@
       }
     },
     "attributions": {
+      "presence": "optional",
       "fields": {
         "attribution_id": {
           "type": "ID",
@@ -202,6 +205,7 @@
       }
     },
     "booking_rules": {
+      "presence": "optional",
       "fields": {
         "booking_rule_id": {
           "type": "ID",
@@ -271,6 +275,13 @@
       }
     },
     "calendar": {
+      "presence": "conditional",
+      "condition": "Required unless all dates of service are defined in calendar_dates.txt. Optional otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "file_absent",
+        "file": "calendar_dates"
+      },
       "fields": {
         "service_id": {
           "type": "ID",
@@ -344,6 +355,13 @@
       }
     },
     "calendar_dates": {
+      "presence": "conditional",
+      "condition": "Required if calendar.txt is omitted, in which case it must contain all dates of service. Optional otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "file_absent",
+        "file": "calendar"
+      },
       "fields": {
         "service_id": {
           "type": "ID",
@@ -370,6 +388,7 @@
       }
     },
     "fare_attributes": {
+      "presence": "optional",
       "fields": {
         "fare_id": {
           "type": "ID",
@@ -425,6 +444,7 @@
       }
     },
     "fare_leg_join_rules": {
+      "presence": "optional",
       "fields": {
         "from_network_id": {
           "type": "ID",
@@ -457,6 +477,7 @@
       }
     },
     "fare_leg_rules": {
+      "presence": "optional",
       "fields": {
         "leg_group_id": {
           "type": "ID"
@@ -512,6 +533,7 @@
       }
     },
     "fare_media": {
+      "presence": "optional",
       "fields": {
         "fare_media_id": {
           "type": "ID",
@@ -535,6 +557,7 @@
       }
     },
     "fare_products": {
+      "presence": "optional",
       "fields": {
         "fare_product_id": {
           "type": "ID",
@@ -571,6 +594,7 @@
       }
     },
     "fare_rules": {
+      "presence": "optional",
       "fields": {
         "fare_id": {
           "type": "ID",
@@ -616,6 +640,7 @@
       }
     },
     "fare_transfer_rules": {
+      "presence": "optional",
       "fields": {
         "from_leg_group_id": {
           "type": "ID",
@@ -673,6 +698,13 @@
       }
     },
     "feed_info": {
+      "presence": "conditional",
+      "condition": "Required if translations.txt is provided. Recommended otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "file_present",
+        "file": "translations"
+      },
       "fields": {
         "feed_publisher_name": {
           "type": "TEXT",
@@ -707,6 +739,7 @@
       }
     },
     "frequencies": {
+      "presence": "optional",
       "fields": {
         "trip_id": {
           "type": "ID",
@@ -744,6 +777,15 @@
       }
     },
     "levels": {
+      "presence": "conditional",
+      "condition": "Required when describing pathways with elevators (pathway_mode=5). Optional otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "rows_match",
+        "file": "pathways",
+        "column": "pathway_mode",
+        "equals": "5"
+      },
       "fields": {
         "level_id": {
           "type": "ID",
@@ -760,6 +802,7 @@
       }
     },
     "location_group_stops": {
+      "presence": "optional",
       "fields": {
         "location_group_id": {
           "type": "ID",
@@ -772,6 +815,7 @@
       }
     },
     "location_groups": {
+      "presence": "optional",
       "fields": {
         "location_group_id": {
           "type": "ID",
@@ -784,6 +828,7 @@
       }
     },
     "locations": {
+      "presence": "optional",
       "fields": {
         "id": {
           "type": "ID",
@@ -811,6 +856,14 @@
       }
     },
     "networks": {
+      "presence": "conditionally_forbidden",
+      "condition": "Forbidden if network_id exists in routes.txt. Optional otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "column_present",
+        "file": "routes",
+        "column": "network_id"
+      },
       "fields": {
         "network_id": {
           "type": "ID",
@@ -823,6 +876,7 @@
       }
     },
     "pathways": {
+      "presence": "optional",
       "fields": {
         "pathway_id": {
           "type": "ID",
@@ -890,6 +944,7 @@
       }
     },
     "rider_categories": {
+      "presence": "optional",
       "fields": {
         "rider_category_id": {
           "type": "ID",
@@ -914,6 +969,14 @@
       }
     },
     "route_networks": {
+      "presence": "conditionally_forbidden",
+      "condition": "Forbidden if network_id exists in routes.txt. Optional otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "column_present",
+        "file": "routes",
+        "column": "network_id"
+      },
       "fields": {
         "route_id": {
           "type": "ID",
@@ -935,6 +998,7 @@
       }
     },
     "routes": {
+      "presence": "required",
       "fields": {
         "route_id": {
           "type": "ID",
@@ -1043,6 +1107,7 @@
       }
     },
     "shapes": {
+      "presence": "optional",
       "fields": {
         "shape_id": {
           "type": "ID",
@@ -1068,6 +1133,7 @@
       }
     },
     "stop_areas": {
+      "presence": "optional",
       "fields": {
         "area_id": {
           "type": "ID",
@@ -1090,6 +1156,7 @@
       }
     },
     "stop_times": {
+      "presence": "required",
       "fields": {
         "trip_id": {
           "type": "ID",
@@ -1245,6 +1312,13 @@
       }
     },
     "stops": {
+      "presence": "conditional",
+      "condition": "Optional if demand-responsive zones are defined in locations.geojson. Required otherwise.",
+      "conditionScope": "feed",
+      "conditionCheck": {
+        "kind": "file_absent",
+        "file": "locations"
+      },
       "fields": {
         "stop_id": {
           "type": "ID",
@@ -1343,6 +1417,7 @@
       }
     },
     "timeframes": {
+      "presence": "optional",
       "fields": {
         "timeframe_group_id": {
           "type": "ID",
@@ -1371,6 +1446,7 @@
       }
     },
     "transfers": {
+      "presence": "optional",
       "fields": {
         "from_stop_id": {
           "type": "ID",
@@ -1453,6 +1529,7 @@
       }
     },
     "translations": {
+      "presence": "optional",
       "fields": {
         "table_name": {
           "type": "TEXT",
@@ -1497,6 +1574,7 @@
       }
     },
     "trips": {
+      "presence": "required",
       "fields": {
         "trip_id": {
           "type": "ID",

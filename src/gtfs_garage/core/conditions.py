@@ -6,8 +6,11 @@ few turn on the feed instead: `agency_id` is required "when the feed contains
 more than one agency", which is a question about agency.txt rather than about
 the row in front of you.
 
-Those fields carry `conditionScope: "feed"` and a `conditionCheck` saying what
-to count:
+The same is true one level up: whether a feed must contain calendar.txt depends
+on whether it contains calendar_dates.txt.
+
+Fields and files alike carry `conditionScope: "feed"` and a `conditionCheck`
+saying what to look at:
 
     {"kind": "row_count", "file": "agency", "minimum": 2}
 
@@ -42,8 +45,58 @@ def _row_count(feed: GtfsFeed, check: dict) -> Outcome | None:
     return count >= minimum, f"{table}.txt has {count} {'row' if count == 1 else 'rows'}"
 
 
+def _file_present(feed: GtfsFeed, check: dict) -> Outcome | None:
+    """Holds when the feed contains a file."""
+    table = check.get("file")
+    if table is None:
+        return None
+    present = table in feed.tables
+    # The state rather than the verdict, so the same sentence explains both this
+    # kind and its opposite.
+    return present, f"{table} is {'present' if present else 'absent'}"
+
+
+def _file_absent(feed: GtfsFeed, check: dict) -> Outcome | None:
+    """Holds when the feed does not contain a file."""
+    outcome = _file_present(feed, check)
+    return None if outcome is None else (not outcome[0], outcome[1])
+
+
+def _column_present(feed: GtfsFeed, check: dict) -> Outcome | None:
+    """Holds when a file carries a column."""
+    table, column = check.get("file"), check.get("column")
+    if table is None or column is None or table not in feed.tables:
+        return None
+    present = column in feed.tables[table]
+    return present, f"{table}.{column} is {'present' if present else 'absent'}"
+
+
+def _rows_match(feed: GtfsFeed, check: dict) -> Outcome | None:
+    """Holds when a file has at least one row whose column equals a value.
+
+    The first check that reads row data rather than the file list. It runs only
+    where the condition is still open - a feed that already has levels.txt is
+    never asked whether it needs one - and the files these conditions name are
+    small.
+    """
+    table, column, value = check.get("file"), check.get("column"), check.get("equals")
+    if table is None or column is None or value is None:
+        return None
+    if column not in feed.tables.get(table, []):
+        return None
+
+    # The value is a parameter; the identifiers come from the schema and are
+    # quoted the way every other query in this package quotes them.
+    count = feed.cursor().execute(f'SELECT COUNT(*) FROM "{table}" WHERE "{column}" = ?', [value]).fetchone()[0]
+    return count > 0, f"{table} has {count} {'row' if count == 1 else 'rows'} with {column}={value}"
+
+
 CHECK_KINDS: dict[str, Callable[[GtfsFeed, dict], Outcome | None]] = {
     "row_count": _row_count,
+    "file_present": _file_present,
+    "file_absent": _file_absent,
+    "column_present": _column_present,
+    "rows_match": _rows_match,
 }
 
 

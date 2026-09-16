@@ -35,7 +35,8 @@ import yaml
 COMMENT = (
     "GTFS relational and field semantics, shared by the Python backend "
     "(core/schema.py) and any JavaScript/TypeScript consumer. Keyed by table, "
-    "then by field, so per-field facts have somewhere to live. A field's "
+    "then by field. A table's \"presence\" says whether a feed must contain "
+    "that file. A field's "
     "\"type\" names an entry in \"fieldTypes\", which carries what a value of "
     "that type must look like. "
     "GENERATED from schema/gtfs.yaml by scripts/build_schema_json.py - edit that, "
@@ -71,7 +72,13 @@ def nested_annotations(slot: dict, name: str) -> dict:
 # What each kind of check needs to be acted on. The kind is the vocabulary a
 # consumer implements; the parameters are what distinguish one field's check
 # from another's.
-CHECK_PARAMETERS = {"row_count": ("file", "minimum")}
+CHECK_PARAMETERS = {
+    "row_count": ("file", "minimum"),
+    "file_present": ("file",),
+    "file_absent": ("file",),
+    "column_present": ("file", "column"),
+    "rows_match": ("file", "column", "equals"),
+}
 
 
 def condition_check(facts: dict) -> dict | None:
@@ -116,6 +123,54 @@ def field_types(types: dict) -> dict[str, dict]:
     return dict(sorted(published.items()))
 
 
+def file_presence(classes: dict) -> dict[str, dict]:
+    """Whether a feed must contain each file, from the feed root's own slots.
+
+    `required` is GTFS's Required and its absence is Optional. The two
+    conditional forms - Conditionally Required, and Conditionally Forbidden for
+    networks.txt and route_networks.txt - are a `gtfs_condition`, stated exactly
+    as a conditionally required field states one, so a consumer reads the same
+    keys at both levels.
+    """
+    root = feed_root(classes)
+    if not root:
+        return {}
+
+    presence: dict[str, dict] = {}
+    for slot in (classes[root].get("attributes") or {}).values():
+        slot = slot or {}
+        # Which annotation states the condition is what says which way it runs.
+        # A boolean would read the same in both directions and leave the reader
+        # to work out which one this is.
+        name = "gtfs_forbidden" if annotation(slot, "gtfs_forbidden") else "gtfs_condition"
+        condition = annotation(slot, name)
+
+        if slot.get("required"):
+            value = "required"
+        elif not condition:
+            value = "optional"
+        else:
+            value = "conditionally_forbidden" if name == "gtfs_forbidden" else "conditional"
+
+        entry: dict = {"presence": value}
+        if condition:
+            entry["condition"] = condition
+            facts = nested_annotations(slot, name)
+            entry["conditionScope"] = facts.get("scope") or "feed"
+            check = condition_check(facts)
+            if check:
+                entry["conditionCheck"] = check
+        presence[slot.get("range")] = entry
+
+    # locations.geojson is described by a document class, which is not a table.
+    # Its presence is published on `locations`, the flat projection of it, since
+    # that is the file as far as anything browsing the feed is concerned.
+    document = presence.pop("LocationsGeoJson", None)
+    if document:
+        presence["locations"] = document
+    return presence
+
+
 def conditions_from_rules(cls: dict) -> dict[str, str]:
     """Which slots a class's rules make conditional, and the condition in words.
 
@@ -141,21 +196,39 @@ def conditions_from_rules(cls: dict) -> dict[str, str]:
     return {slot: " ".join(filter(None, described)) for slot, described in conditions.items()}
 
 
+def feed_root(classes: dict) -> str | None:
+    """The class standing for a whole dataset, whose slots are its files."""
+    return next((name for name, cls in classes.items() if cls.get("tree_root")), None)
+
+
+def inlined_slots(cls: dict):
+    for slot in (cls.get("attributes") or {}).values():
+        slot = slot or {}
+        if slot.get("inlined") or slot.get("inlined_as_list"):
+            yield slot
+
+
 def contained_classes(classes: dict) -> set[str]:
     """Classes that are part of another structure rather than a file of rows.
 
-    `locations.geojson` is described twice: as the GeoJSON document it is, and
-    as the flat rows the viewer browses. Only the second is a table. The
-    difference is already in the LinkML - `tree_root` marks a document's root,
-    and `inlined` marks a slot that *contains* its range rather than referring
-    to it - so nothing needs to be marked up specially here. A foreign key is
-    not inlined, which is why the CSV classes are unaffected.
+    The feed holding its files and a structure holding its parts are both
+    `inlined`, so containment alone no longer separates them. What does:
+
+      - the feed root is the dataset, not a file in it;
+      - a class the root holds as one object rather than a collection is a
+        document, which is what locations.geojson is;
+      - a class inlined by anything other than the root is part of that thing,
+        which is what a GeoJSON Feature and Geometry are.
+
+    `locations`, the flat projection of locations.geojson, is inlined by nothing
+    and so remains a table, which is what the viewer browses.
     """
-    contained = {name for name, cls in classes.items() if cls.get("tree_root")}
-    for cls in classes.values():
-        for slot in (cls.get("attributes") or {}).values():
-            slot = slot or {}
-            if slot.get("inlined") or slot.get("inlined_as_list"):
+    root = feed_root(classes)
+    contained = {root} if root else set()
+
+    for name, cls in classes.items():
+        for slot in inlined_slots(cls):
+            if name != root or not slot.get("multivalued"):
                 contained.add(slot.get("range"))
     return contained - {None}
 
@@ -208,6 +281,7 @@ def build(schema: dict) -> dict:
         for name, cls in classes.items()
     }
 
+    presence = file_presence(classes)
     tables: dict[str, dict] = {}
     enum_columns: set[str] = set()
 
@@ -279,7 +353,7 @@ def build(schema: dict) -> dict:
                 field["whenEmpty"] = when_empty
 
             fields[name] = field
-        tables[table] = {"fields": fields}
+        tables[table] = {**presence.get(table, {}), "fields": fields}
 
     return {
         "$comment": COMMENT,

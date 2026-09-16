@@ -99,8 +99,89 @@ def test_nothing_is_evaluated_without_a_check(feed: GtfsFeed):
 
 
 def test_every_implemented_kind_answers_or_declines(feed: GtfsFeed):
-    """No kind may raise on a feed that lacks what it reads: `table_summaries`
-    runs whatever the schema declares, for whatever feed happens to be open."""
+    """No kind may raise, whatever feed happens to be open and whatever it is
+    pointed at - `table_summaries` runs whatever the schema declares.
+
+    Declining is not the only right answer: `row_count` cannot count a file that
+    is not there, while `file_absent` exists precisely to say that it is not.
+    """
     for kind in CHECK_KINDS:
-        result = evaluate(feed, {"kind": kind, "file": "not_in_this_feed", "minimum": 1})
-        assert result is None
+        for check in ({"kind": kind, "file": "not_in_this_feed", "minimum": 1}, {"kind": kind}):
+            result = evaluate(feed, check)
+            assert result is None or (isinstance(result[0], bool) and result[1])
+
+
+def test_a_file_the_feed_has_is_present(feed: GtfsFeed):
+    assert evaluate(feed, {"kind": "file_present", "file": "calendar"}) == (True, "calendar is present")
+    assert evaluate(feed, {"kind": "file_absent", "file": "calendar"}) == (False, "calendar is present")
+
+
+def test_a_file_the_feed_lacks_is_absent(feed: GtfsFeed):
+    assert evaluate(feed, {"kind": "file_present", "file": "translations"}) == (False, "translations is absent")
+    assert evaluate(feed, {"kind": "file_absent", "file": "translations"}) == (True, "translations is absent")
+
+
+def test_the_two_kinds_are_opposites_on_every_file(feed: GtfsFeed):
+    """Written as separate kinds rather than one with a polarity flag, so this
+    is the property that keeps them honest."""
+    for table in ["agency", "calendar", "translations", "levels", "not_a_gtfs_file"]:
+        present = evaluate(feed, {"kind": "file_present", "file": table})
+        absent = evaluate(feed, {"kind": "file_absent", "file": table})
+        assert present[0] is not absent[0]
+        # The evidence states the feed's state, so it reads the same either way.
+        assert present[1] == absent[1]
+
+
+def test_the_evidence_reports_the_state_not_the_verdict(feed: GtfsFeed):
+    """`file_absent` holding is good news for calendar.txt and bad news for
+    nothing; the sentence should say what was looked at, not what it implies."""
+    holds, evidence = evaluate(feed, {"kind": "file_absent", "file": "calendar_dates"})
+    assert holds is True
+    assert evidence == "calendar_dates is absent"
+
+
+def test_a_column_the_file_carries_is_present(feed: GtfsFeed):
+    check = {"kind": "column_present", "file": "routes", "column": "route_id"}
+    assert evaluate(feed, check) == (True, "routes.route_id is present")
+
+
+def test_a_column_the_file_lacks_is_absent(feed: GtfsFeed):
+    """The real case: networks.txt is forbidden when routes.txt has network_id,
+    and the fixture's routes.txt does not."""
+    check = {"kind": "column_present", "file": "routes", "column": "network_id"}
+    assert evaluate(feed, check) == (False, "routes.network_id is absent")
+
+
+def test_a_column_in_a_file_the_feed_does_not_have_is_unanswerable(feed: GtfsFeed):
+    assert evaluate(feed, {"kind": "column_present", "file": "pathways", "column": "pathway_mode"}) is None
+
+
+def test_rows_match_counts_what_it_found(feed: GtfsFeed):
+    """The evidence names the count, so an answer of "no" can be told apart
+    from a file that was never read."""
+    check = {"kind": "rows_match", "file": "stops", "column": "location_type", "equals": "1"}
+    assert evaluate(feed, check) == (False, "stops has 0 rows with location_type=1")
+
+
+def test_rows_match_holds_when_a_row_has_the_value(tmp_path: Path, feed_dir: Path):
+    directory = tmp_path / "with-station"
+    shutil.copytree(feed_dir, directory)
+    stops = directory / "stops.txt"
+    # Every column, or the loader drops the short row and the test passes for
+    # the wrong reason.
+    stops.write_text(stops.read_text(encoding="utf-8") + "S9,Central Station,45.5,-73.5,1,,0\n", encoding="utf-8")
+
+    loaded = GtfsFeed(str(directory))
+    try:
+        check = {"kind": "rows_match", "file": "stops", "column": "location_type", "equals": "1"}
+        assert evaluate(loaded, check) == (True, "stops has 1 row with location_type=1")
+    finally:
+        loaded.close()
+
+
+def test_rows_match_is_unanswerable_without_the_column(feed: GtfsFeed):
+    """levels.txt asks whether any pathway is an elevator. A feed with no
+    pathways.txt cannot say, and must not be made to guess."""
+    check = {"kind": "rows_match", "file": "pathways", "column": "pathway_mode", "equals": "5"}
+    assert evaluate(feed, check) is None
+    assert evaluate(feed, {"kind": "rows_match", "file": "stops", "column": "not_a_column", "equals": "5"}) is None
