@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 MARKER = "<!-- gtfs-garage-benchmark -->"
@@ -134,9 +135,14 @@ def main(argv: list[str] | None = None) -> int:
 
     head = load(args.head)
     if head is None:
-        # Without the head there is no report to write at all.
+        # A missing base is tolerable - that step is allowed to fail, since the
+        # base commit may not benchmark. A missing head means this branch's own
+        # measurement produced nothing, which is a broken harness rather than an
+        # absence of news, so it fails the check instead of posting an apology
+        # under a green tick. The comment still goes up, carrying the reason.
         print(f"{MARKER}\n### Performance\n\nThe benchmark did not produce a result for this branch.")
-        return 0
+        print(f"{args.head} is missing or is not valid JSON", file=sys.stderr)
+        return 1
 
     print(report(load(args.base), head))
     return 0

@@ -177,8 +177,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      # Calls the module directly, not scripts/benchmark.sh, for the reason the
+      # base step gives below: both sides have to run the same harness, and the
+      # wrapper would measure this side inside a virtualenv it creates while
+      # the base side runs under the interpreter this job installed into.
       - name: Benchmark this branch
-        run: scripts/benchmark.sh --json > /tmp/head.json
+        run: python scripts/benchmark.py --json > /tmp/head.json
 
       # The harness has to be identical on both sides or the two runs are
       # different experiments: a branch that changes the generated feed or adds

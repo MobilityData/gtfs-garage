@@ -33,8 +33,11 @@ die() {
     exit 1
 }
 
+# To stderr, like `die`. A wrapper's stdout may be the caller's data - CI pipes
+# `benchmark.sh --json` into a file - and progress lines mixed into it are not
+# recoverable from.
 step() {
-    printf "${YELLOW}==>${NC} %s\n" "$1"
+    printf "${YELLOW}==>${NC} %s\n" "$1" >&2
 }
 
 # Make sure .venv exists with the given extra installed, then put it on PATH.
