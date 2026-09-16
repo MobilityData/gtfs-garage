@@ -73,6 +73,17 @@ async function start(): Promise<void> {
       const shapeId = state.routeShapes.get(routeId);
       if (shapeId) await map.highlight(await source.geojson("shapes", [shapeId]));
     },
+    onHighlightLocation: async (locationId) => {
+      await map.highlight(await source.geojson("locations", [locationId]));
+    },
+  });
+
+  // A display preference, so it redraws the page in place rather than going
+  // through the navigator: toggling it is not a new view to go Back from.
+  const rawValues = dom.el<HTMLInputElement>("raw-values-input");
+  rawValues.addEventListener("change", () => {
+    state.rawValues = rawValues.checked;
+    tableView.redraw();
   });
 
   /**
@@ -85,6 +96,7 @@ async function start(): Promise<void> {
     dom.el("source-label").textContent = data.source;
     renderMetrics(dom, data.metrics, clientMs);
     state.tables = data.tables;
+    state.missing = data.missing ?? [];
     state.mapDataLoaded = false;
     state.routeShapes.clear();
 

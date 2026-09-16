@@ -26,17 +26,71 @@ def load_schema() -> dict[str, Any]:
 
 _schema = load_schema()
 
+# The document is keyed by table, then by field, so that per-field facts - a
+# type, whether it is required - have somewhere to live as they are added. The
+# lookups below flatten it into the shapes the query layer wants; adding a fact
+# to a field changes nothing here.
+TABLES: dict[str, dict[str, dict[str, Any]]] = {
+    table: entry.get("fields", {}) for table, entry in _schema["tables"].items()
+}
+
+
+def _fields_where(predicate) -> dict[str, dict[str, Any]]:
+    return {
+        table: {column: field for column, field in fields.items() if predicate(field)}
+        for table, fields in TABLES.items()
+    }
+
+
 # table -> { column: (referenced_table, referenced_column) }
 FOREIGN_KEYS: dict[str, dict[str, tuple[str, str]]] = {
-    table: {column: (ref["table"], ref["column"]) for column, ref in columns.items()}
-    for table, columns in _schema["foreignKeys"].items()
+    table: {column: (field["references"]["table"], field["references"]["field"]) for column, field in fields.items()}
+    for table, fields in _fields_where(lambda f: "references" in f).items()
+    if fields
 }
 
 # table -> the column holding that entity's own id, used to find every other
 # table that points back at a given row.
-PRIMARY_ID_COLUMNS: dict[str, str] = dict(_schema["primaryIdColumns"])
+PRIMARY_ID_COLUMNS: dict[str, str] = {
+    table: next(iter(fields)) for table, fields in _fields_where(lambda f: f.get("primaryKey")).items() if fields
+}
 
 ENUM_LIKE_COLUMNS: set[str] = set(_schema["enumLikeColumns"])
+
+# GTFS field type -> what a value of it must look like: its description in the
+# reference's own words, and where GTFS states a format, a `pattern` or a
+# `minimum`/`maximum`. A field's "type" is the key. Empty for a document
+# generated before field types were published.
+FIELD_TYPES: dict[str, dict[str, Any]] = _schema.get("fieldTypes", {})
+
+# table -> whether GTFS requires a feed to contain that file, and where that is
+# conditional, the condition and the check that settles it. Only files GTFS says
+# something about appear; the rest are optional by omission.
+FILE_PRESENCE: dict[str, dict[str, Any]] = {
+    table: {key: value for key, value in entry.items() if key != "fields"}
+    for table, entry in _schema["tables"].items()
+    if entry.get("presence")
+}
+
+
+def value_shape(gtfs_type: str | None) -> dict[str, Any]:
+    """What a value of a GTFS field type must look like, or an empty record.
+
+    Empty for a column the schema does not describe, and for a type GTFS states
+    no format for - `Email` excepted, whose pattern the schema owns and marks as
+    its own. A caller can read the result without checking first.
+    """
+    return FIELD_TYPES.get(gtfs_type or "", {})
+
+
+def field_info(table: str, column: str) -> dict[str, Any]:
+    """What the schema says about one column, or an empty record.
+
+    Empty for anything the schema does not describe - a producer's extension
+    column, a file added to GTFS since this was last imported - so a caller can
+    read it without checking first, and such a column simply renders untyped.
+    """
+    return TABLES.get(table, {}).get(column, {})
 
 
 def related_tables(table: str) -> list[tuple[str, str]]:

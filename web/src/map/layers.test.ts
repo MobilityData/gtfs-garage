@@ -9,7 +9,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const feedLayerIds = ["shapes", "routes-white", "routes", "stops", "highlight-line"];
+const feedLayerIds = [
+  "locations-fill",
+  "locations-outline",
+  "shapes",
+  "routes-white",
+  "routes",
+  "stops",
+  "highlight-fill",
+  "highlight-line",
+];
 
 describe("buildStyle", () => {
   it("includes the feed's sources and layers with no basemap", async () => {
@@ -22,6 +31,15 @@ describe("buildStyle", () => {
     const style = (await buildStyle(BASEMAPS.esri)) as Style;
     expect(style.layers[0].id).toBe("basemap");
     expect(style.layers.at(-1)?.id).toBe("highlight-point");
+  });
+
+  it("draws the flex zones beneath the lines", async () => {
+    // A zone is an area a rider can be picked up in, not something drawn over
+    // the network - if it sat on top it would wash out the routes it contains.
+    const style = (await buildStyle(BASEMAPS.none)) as Style;
+    const at = (id: string) => style.layers.findIndex((l) => l.id === id);
+    expect(at("locations-fill")).toBeLessThan(at("routes"));
+    expect(at("locations-outline")).toBeLessThan(at("shapes"));
   });
 
   it("carries the raster basemap's attribution onto its source", async () => {

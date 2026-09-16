@@ -13,12 +13,13 @@ const MAP_VISIBLE_KEY = "gtfs-garage.map-visible";
 
 /** Drawn in this order: the coloured routes first, so something useful appears
  * within a second even on a feed whose shapes take half a minute. */
-const LAYER_ORDER: GeoJsonKind[] = ["routes", "stops", "shapes"];
+const LAYER_ORDER: GeoJsonKind[] = ["routes", "locations", "stops", "shapes"];
 
 const LAYER_NOUNS: Record<GeoJsonKind, string> = {
   routes: "routes",
   stops: "stops",
   shapes: "shapes",
+  locations: "zones",
 };
 
 /** MapLibre is loaded from a CDN script tag, so it arrives as a global. */
@@ -40,6 +41,8 @@ export class MapController {
 
   /** Cancels an in-flight refresh when a new feed arrives mid-draw. */
   private drawing: AbortController | null = null;
+  /** The first full draw, while it is still running. See `highlight`. */
+  private pendingRefresh: Promise<void> | null = null;
 
   /** Layers the server thinned to fit, and by how much. */
   private readonly simplifiedLayers = new Map<GeoJsonKind, number>();
@@ -113,7 +116,14 @@ export class MapController {
 
     this.map.resize();
     if (!this.state.mapDataLoaded) {
-      void this.refresh().catch((error) => console.error("Map layers failed to load:", error));
+      // Kept rather than fired and forgotten, because `refresh` clears every
+      // source on its way in - `highlight` included - so anything drawn while
+      // it runs has to wait for it.
+      this.pendingRefresh = this.refresh()
+        .catch((error) => console.error("Map layers failed to load:", error))
+        .finally(() => {
+          this.pendingRefresh = null;
+        });
     }
   }
 
@@ -130,6 +140,10 @@ export class MapController {
   async highlight(collection: FeatureCollection, options: { point?: boolean } = {}): Promise<void> {
     // Asked to see something on the map, so show the map.
     if (!this.isVisible()) this.setVisible(true);
+    // Revealing the map may have started the first full draw, which wipes every
+    // source. Without waiting, clicking a row before the map has ever loaded
+    // revealed it with nothing selected.
+    if (this.pendingRefresh) await this.pendingRefresh;
     await this.setSourceData("highlight", collection);
     if (collection.features.length) this.fitTo(collection, options.point ? 16 : 14);
   }

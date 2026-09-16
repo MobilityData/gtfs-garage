@@ -177,6 +177,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      # Calls the module directly, not scripts/benchmark.sh, for the reason the
+      # base step gives below: both sides have to run the same harness, and the
+      # wrapper would measure this side inside a virtualenv it creates while
+      # the base side runs under the interpreter this job installed into.
       - name: Benchmark this branch
         run: python scripts/benchmark.py --json > /tmp/head.json
 
@@ -192,6 +196,11 @@ jobs:
         run: |
           # Mirrors the repo layout: benchmark.py finds the feed generator at
           # ../tests/conftest.py relative to itself.
+          #
+          # This step calls the .py directly rather than scripts/benchmark.sh:
+          # the wrapper resolves the repository from its own location, which
+          # under /tmp/harness would be the wrong tree. Everywhere else the
+          # wrapper is the entry point.
           mkdir -p /tmp/harness/scripts /tmp/harness/tests
           cp scripts/benchmark.py scripts/compare_benchmarks.py /tmp/harness/scripts/
           cp tests/conftest.py /tmp/harness/tests/

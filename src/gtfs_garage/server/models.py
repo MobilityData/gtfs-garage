@@ -20,6 +20,30 @@ class RelatedLink(BaseModel):
     column: str
 
 
+class ImpliedValue(BaseModel):
+    """What GTFS says an empty value means for this field.
+
+    `code` is one of the field's own enum codes - "0 or empty - Regularly
+    scheduled pickup" - and is absent only where the implied meaning has no
+    code, as for fare_attributes.transfers, whose empty value means unlimited
+    transfers.
+    """
+
+    code: str | None = None
+    label: str
+
+
+class ConditionOutcome(BaseModel):
+    """Whether a feed-scope condition holds in the feed now loaded.
+
+    `evidence` is what the check counted to decide - "3 agencies" - so a reader
+    can see the answer's basis instead of being asked to trust it.
+    """
+
+    holds: bool
+    evidence: str
+
+
 class ColumnInfo(BaseModel):
     name: str
     # Set only when the referenced table and column exist in this feed.
@@ -29,12 +53,73 @@ class ColumnInfo(BaseModel):
     enum_like: bool = False
     # Always present; empty for columns that are not a table's primary id.
     related: list[RelatedLink] = []
+    # What GTFS says this field holds - ID, ENUM, COLOR, LATITUDE, DATE and so
+    # on - used to format the value. Null for a column the schema does not
+    # describe, such as a producer's own extension, which renders as text.
+    type: str | None = None
+    # For an enumeration, its codes and their labels; null otherwise.
+    values: dict[str, str] | None = None
+    # "always", "conditional", or null where GTFS makes the field optional.
+    required: str | None = None
+    # For a conditionally required field, the condition in words, so the UI can
+    # explain it. Null otherwise.
+    condition: str | None = None
+    # What decides the condition: "row" where the row settles it, "feed" where
+    # the feed as a whole does, "row_context" where it varies row by row and the
+    # row does not carry what decides it. Null unless the field is conditional.
+    condition_scope: str | None = None
+    # The answer for this feed, for a "feed" scope. Null for any other scope,
+    # and null when the check could not run - a resolved answer is only ever
+    # present when one was actually computed.
+    condition_outcome: ConditionOutcome | None = None
+    # What an empty value implies, where GTFS defines it. Null otherwise.
+    when_empty: ImpliedValue | None = None
+    # What a value of this field's type must look like, from the schema's
+    # `fieldTypes`. The rule lives there so the UI does not keep a second copy;
+    # all four are null for a type GTFS states no format for.
+    pattern: str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    # GTFS's own definition of the type, shown when a value does not match and
+    # the UI has no shorter wording of its own.
+    type_description: str | None = None
+
+
+class MissingFile(BaseModel):
+    """A file the feed does not have and needs.
+
+    Only files GTFS requires, or conditionally requires with the condition
+    holding for this feed. A feed is normally without twenty optional files, and
+    reporting those would bury the ones that matter.
+    """
+
+    name: str
+    # "required" or "conditional".
+    presence: str
+    # For a conditional file, the condition in words. Null for a required one,
+    # which needs no explanation.
+    condition: str | None = None
+    # Why the condition holds here - "calendar_dates is absent".
+    condition_outcome: ConditionOutcome | None = None
+
+
+class FileCondition(BaseModel):
+    """Why GTFS says this feed should not contain this file.
+
+    The counterpart to `MissingFile`: that one is absent and needed, this one is
+    present and not wanted, which is a fact about a table the feed has.
+    """
+
+    condition: str
+    outcome: ConditionOutcome
 
 
 class TableInfo(BaseModel):
     name: str
     row_count: int
     columns: list[ColumnInfo]
+    # Set only where GTFS forbids this file and the condition holds here.
+    forbidden: FileCondition | None = None
 
 
 class FileMetrics(BaseModel):
@@ -99,6 +184,9 @@ class LoadProgressResponse(BaseModel):
 class TablesResponse(BaseModel):
     source: str
     tables: list[TableInfo]
+    # Files absent from this feed that GTFS says it needs. Empty for a complete
+    # feed, which is the usual case.
+    missing: list[MissingFile] = []
     metrics: LoadMetrics
 
 

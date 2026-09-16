@@ -1,10 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Runs the test suite with branch coverage and enforces the threshold.
 #
-set -e
-SCRIPT_PATH="$(dirname -- "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")"
-cd "$SCRIPT_PATH/.." || exit 1
+source "$(dirname -- "$0")/_common.sh"
+ensure_python dev
 
 COVERAGE_THRESHOLD=80
 

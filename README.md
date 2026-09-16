@@ -20,9 +20,10 @@ import step and only the rows on screen are ever materialised.
   `wheelchair_boarding`, …) offer a picklist of the values actually present,
   with counts.
 - **See it on a map.** Stops and route shapes render from the feed's own
-  `shapes.txt`, coloured by its `route_color`. Per-row buttons highlight a
-  particular stop, shape or route. The map can be turned off, and while it is
-  off none of its data is fetched.
+  `shapes.txt`, coloured by its `route_color`, and a flex feed's on-demand zones
+  are drawn from `locations.geojson`. Per-row buttons highlight a particular
+  stop, shape, route or zone. The map can be turned off, and while it is off
+  none of its data is fetched.
 - **Open a large feed.** A multi-gigabyte feed is converted once to a
   columnar store at load, so queries stay in milliseconds instead of re-reading
   gigabytes of CSV, and the map streams in progressively rather than arriving in
@@ -138,7 +139,7 @@ pip install -e ".[dev,perf]" && playwright install chromium
 pytest -m browser
 ```
 
-`python scripts/benchmark.py` measures a generated feed: payload sizes, feature
+`scripts/benchmark.sh` measures a generated feed: payload sizes, feature
 and vertex counts, and the time each phase takes. It reports rather than asserts.
 
 On a pull request, CI runs it twice on the same runner - once on the branch, once

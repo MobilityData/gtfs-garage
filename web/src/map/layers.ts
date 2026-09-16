@@ -21,7 +21,7 @@ export const EMPTY_FEATURE_COLLECTION = {
 
 const geojsonSource = () => ({ type: "geojson", data: EMPTY_FEATURE_COLLECTION });
 
-export const SOURCE_IDS = ["routes", "shapes", "stops", "highlight"] as const;
+export const SOURCE_IDS = ["locations", "routes", "shapes", "stops", "highlight"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 type StyleSpec = Record<string, unknown> & {
@@ -35,6 +35,20 @@ function feedSources(): Record<string, unknown> {
 
 function feedLayers(): Record<string, unknown>[] {
   return [
+    // Zones first, so they sit under the lines. A zone is an area a rider can
+    // be picked up in, not a thing drawn on top of the network.
+    {
+      id: "locations-fill",
+      type: "fill",
+      source: "locations",
+      paint: { "fill-color": "#7c3aed", "fill-opacity": 0.12 },
+    },
+    {
+      id: "locations-outline",
+      type: "line",
+      source: "locations",
+      paint: { "line-color": "#7c3aed", "line-width": 1, "line-opacity": 0.5 },
+    },
     // Shapes no route claims (feeds whose trips.txt has no shape_id) still need
     // drawing, otherwise those feeds render an empty map.
     {
@@ -76,6 +90,13 @@ function feedLayers(): Record<string, unknown>[] {
         "circle-color": "#1c1e21",
         "circle-opacity": 0.45,
       },
+    },
+    {
+      id: "highlight-fill",
+      type: "fill",
+      source: "highlight",
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "fill-color": "#ff0066", "fill-opacity": 0.25 },
     },
     {
       id: "highlight-line",

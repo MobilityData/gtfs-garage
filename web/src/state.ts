@@ -1,4 +1,4 @@
-import type { ColumnInfo, Filter, TableInfo } from "./sources/types";
+import type { ColumnInfo, Filter, MissingFile, TableInfo } from "./sources/types";
 
 /** One browsable view: a table, its filters and which page of it. */
 export interface View {
@@ -9,6 +9,8 @@ export interface View {
 
 export interface AppState {
   tables: TableInfo[];
+  /** Files GTFS says this feed needs and it does not have. */
+  missing: MissingFile[];
   columnInfoByName: Record<string, ColumnInfo>;
   view: View;
   pageSize: number;
@@ -21,16 +23,27 @@ export interface AppState {
    */
   routeShapes: Map<string, string>;
   mapDataLoaded: boolean;
+  /**
+   * Show the characters the feed contains instead of formatted values.
+   *
+   * A display preference, not part of the view: it is deliberately kept out of
+   * `View` so that toggling it does not push a history entry, and out of the
+   * URL so that Back still means the previous table rather than the previous
+   * rendering.
+   */
+  rawValues: boolean;
 }
 
 export function createState(): AppState {
   return {
     tables: [],
+    missing: [],
     columnInfoByName: {},
     view: { table: "", filters: [], page: 1 },
     pageSize: 100,
     routeShapes: new Map(),
     mapDataLoaded: false,
+    rawValues: false,
   };
 }
 

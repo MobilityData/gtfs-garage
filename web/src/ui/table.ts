@@ -9,7 +9,8 @@
  */
 
 import { button, type Dom } from "../dom";
-import type { Filter, PageResponse, RelatedLink, Row } from "../sources/types";
+import type { ColumnInfo, Filter, PageResponse, RelatedLink, Row } from "../sources/types";
+import { describeColumn, renderValue } from "./values";
 import type { AppState } from "../state";
 
 export interface RelatedButton {
@@ -44,9 +45,17 @@ export interface TableCallbacks {
   onHighlightStop: (stopId: string) => void;
   onHighlightShape: (shapeId: string) => void;
   onHighlightRoute: (routeId: string) => void;
+  onHighlightLocation: (locationId: string) => void;
 }
 
 export class TableView {
+  /**
+   * The page currently on screen, so that a display change can redraw without
+   * asking the server again - on a large feed a refetch to toggle formatting
+   * would be a needless round trip over millions of rows.
+   */
+  private lastPage: PageResponse | null = null;
+
   constructor(
     private readonly dom: Dom,
     private readonly state: AppState,
@@ -60,7 +69,13 @@ export class TableView {
     );
   }
 
+  /** Draw the current page again, picking up a changed display preference. */
+  redraw(): void {
+    if (this.lastPage) this.render(this.lastPage);
+  }
+
   showMessage(text: string): void {
+    this.lastPage = null;
     const container = this.dom.el("table-scroll");
     container.innerHTML = "";
     const message = document.createElement("div");
@@ -71,6 +86,7 @@ export class TableView {
   }
 
   render(page: PageResponse): void {
+    this.lastPage = page;
     const table = document.createElement("table");
 
     const head = document.createElement("thead");
@@ -79,6 +95,10 @@ export class TableView {
     for (const column of page.columns) {
       const cell = document.createElement("th");
       cell.textContent = column;
+      // What the schema knows that the column name does not show: the field
+      // type, and why it may be required.
+      const description = describeColumn(this.state.columnInfoByName[column]);
+      if (description) cell.title = description;
       headRow.appendChild(cell);
     }
     head.appendChild(headRow);
@@ -129,7 +149,7 @@ export class TableView {
       });
       cell.appendChild(link);
     } else {
-      cell.textContent = value ?? "";
+      this.renderValue(cell, value, info);
     }
 
     if (info?.related.length && value) {
@@ -146,6 +166,53 @@ export class TableView {
     }
 
     return cell;
+  }
+
+  /**
+   * Draw what `renderValue` decided.
+   *
+   * Every path here writes through `textContent`, never `innerHTML`, so a feed
+   * cannot inject markup - and an `href` is only ever set from a URL that
+   * module already restricted to http, https and mailto.
+   */
+  private renderValue(cell: HTMLElement, value: string | null, info: ColumnInfo | undefined): void {
+    const rendered = renderValue(value, info, this.state.rawValues);
+
+    if (rendered.kind === "link" && rendered.href) {
+      const link = document.createElement("a");
+      link.href = rendered.href;
+      link.textContent = rendered.text;
+      link.className = "value-link";
+      // A feed's link is someone else's site; do not hand it this page.
+      link.rel = "noopener noreferrer";
+      link.target = "_blank";
+      cell.appendChild(link);
+      return;
+    }
+
+    if (rendered.kind === "color" && rendered.swatch) {
+      const swatch = document.createElement("span");
+      swatch.className = "value-swatch";
+      swatch.style.backgroundColor = rendered.swatch;
+      cell.append(swatch, document.createTextNode(rendered.text));
+      return;
+    }
+
+    if (rendered.implied) {
+      // Muted, because it is not what the producer wrote. An inspection tool
+      // that let an implied value pass for a real one would be worse than one
+      // that showed nothing.
+      cell.classList.add("value-implied");
+      cell.title = rendered.implied;
+    }
+    if (rendered.kind === "numeric") cell.classList.add("value-numeric");
+    if (rendered.malformed) {
+      // Shown exactly as the feed has it, with what was expected on hover. The
+      // class is a hook for a visible marker, deliberately unstyled for now.
+      cell.classList.add("value-malformed");
+      cell.title = `Expected ${rendered.malformed}`;
+    }
+    cell.textContent = rendered.text;
   }
 
   private buildRowActions(values: Record<string, string | null>): HTMLElement {
@@ -167,6 +234,12 @@ export class TableView {
     if (values.route_id && this.state.routeShapes.size) {
       const routeId = values.route_id;
       add("🚌", "Show this route on the map", () => this.callbacks.onHighlightRoute(routeId));
+    }
+    // Keyed on the table rather than the column: "id" is too generic a name to
+    // treat as a zone wherever it appears.
+    if (values.id && this.state.view.table === "locations") {
+      const locationId = values.id;
+      add("🗺️", "Show this zone on the map", () => this.callbacks.onHighlightLocation(locationId));
     }
     return wrap;
   }

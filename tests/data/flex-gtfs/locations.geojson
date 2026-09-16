@@ -1,0 +1,35 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "zone-north",
+      "properties": { "stop_name": "North Service Area", "stop_desc": "Dial-a-ride zone" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-73.60, 45.50], [-73.50, 45.50], [-73.50, 45.60], [-73.60, 45.60], [-73.60, 45.50]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "zone-split",
+      "properties": { "stop_name": "Split Zone" },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[-73.90, 45.30], [-73.80, 45.30], [-73.80, 45.40], [-73.90, 45.30]]],
+          [[[-73.20, 45.10], [-73.10, 45.10], [-73.10, 45.20], [-73.20, 45.10]]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "zone-bare",
+      "properties": {},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-74.00, 45.00], [-73.95, 45.00], [-73.95, 45.05], [-74.00, 45.00]]]
+      }
+    }
+  ]
+}

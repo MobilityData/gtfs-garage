@@ -12,7 +12,7 @@ Two kinds of number come out of this, and the distinction is the point:
   timing  how long each phase took. Moves with whatever else the machine is
           doing, so only large differences mean anything.
 
-`--json` emits both, keyed by kind, for scripts/compare_benchmarks.py to diff
+`--json` emits both, keyed by kind, for scripts/compare-benchmarks.sh to diff
 against another run. Without it, the same numbers print as a markdown table.
 """
 

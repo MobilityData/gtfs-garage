@@ -21,6 +21,10 @@ from pathlib import Path
 PHASE_EXTRACT = "extract"
 PHASE_CONVERT = "convert"
 
+# The one GTFS file that is not a CSV, and the table it becomes.
+LOCATIONS_GEOJSON = "locations.geojson"
+LOCATIONS_TABLE = "locations"
+
 ProgressFn = Callable[[str, int, int, str], None]
 """Called as (phase, done, total, detail) while a feed opens."""
 
@@ -140,7 +144,9 @@ class GtfsFeed:
             if not (self.source_path / "stops.txt").exists():
                 nested = next(self.source_path.rglob("stops.txt"), None)
                 data_dir = nested.parent if nested else self.source_path
-            self.stats.source_bytes = sum(f.stat().st_size for f in data_dir.glob("*.txt"))
+            self.stats.source_bytes = sum(
+                f.stat().st_size for f in list(data_dir.glob("*.txt")) + list(data_dir.glob(LOCATIONS_GEOJSON))
+            )
             return data_dir
 
         if self.source_path.suffix.lower() == ".zip":
@@ -200,7 +206,74 @@ class GtfsFeed:
                     columns=len(columns),
                 )
             )
+        self._load_locations_geojson()
         self.stats.register_ms = _elapsed_ms(started)
+
+    def _load_locations_geojson(self) -> None:
+        """Register locations.geojson, the one GTFS file that is not a CSV.
+
+        GTFS-Flex describes pickup and drop-off zones as GeoJSON polygons, and
+        `stop_times.location_id` references a Feature's id. Flattening the
+        FeatureCollection to one row per Feature is what lets the rest of the
+        application treat it like any other file: it browses, filters and links
+        with no special case anywhere downstream.
+
+        Every column is cast to VARCHAR to match the `read_csv(ALL_VARCHAR)`
+        contract the rest of the code is written against - `core/filters.py`
+        compares with ILIKE and `= ''`, which need text.
+        """
+        source = self.data_dir / LOCATIONS_GEOJSON
+        if not source.exists():
+            return
+
+        escaped_path = str(source).replace("'", "''")
+        file_started = time.perf_counter()
+        try:
+            # `features` is read as opaque JSON rather than letting DuckDB infer
+            # its shape, so a feed mixing Polygon and MultiPolygon cannot change
+            # the columns this produces.
+            self.con.execute(f"""
+                CREATE VIEW "{LOCATIONS_TABLE}" AS
+                SELECT
+                    CAST(json_extract_string(feature, '$.id') AS VARCHAR) AS id,
+                    CAST(json_extract_string(feature, '$.properties.stop_name') AS VARCHAR)
+                        AS stop_name,
+                    CAST(json_extract_string(feature, '$.properties.stop_desc') AS VARCHAR)
+                        AS stop_desc,
+                    CAST(json_extract_string(feature, '$.geometry.type') AS VARCHAR)
+                        AS geometry_type,
+                    CAST(json_extract(feature, '$.geometry') AS VARCHAR) AS geometry
+                FROM (
+                    SELECT unnest(features) AS feature
+                    FROM read_json(
+                        '{escaped_path}',
+                        columns = {{type: 'VARCHAR', features: 'JSON[]'}}
+                    )
+                )
+                """)
+            columns = [row[0] for row in self.con.execute(f'DESCRIBE "{LOCATIONS_TABLE}"').fetchall()]
+            # A view is lazy, so creating one over malformed JSON succeeds and
+            # the parse error surfaces later - during the Parquet conversion, or
+            # under a reader's query. Reading a row here forces the parse while
+            # it can still be handled.
+            self.con.execute(f'SELECT * FROM "{LOCATIONS_TABLE}" LIMIT 1').fetchall()
+        except Exception:
+            # Malformed JSON, or a document that is not a FeatureCollection. The
+            # rest of the feed still opens; the zones are simply not there.
+            self.con.execute(f'DROP VIEW IF EXISTS "{LOCATIONS_TABLE}"')
+            return
+
+        self.tables[LOCATIONS_TABLE] = columns
+        self.stats.files.append(
+            FileStats(
+                name=LOCATIONS_GEOJSON,
+                table=LOCATIONS_TABLE,
+                bytes=source.stat().st_size,
+                compressed_bytes=self._compressed_sizes.get(LOCATIONS_GEOJSON),
+                register_ms=_elapsed_ms(file_started),
+                columns=len(columns),
+            )
+        )
 
     def _convert_to_parquet(self) -> None:
         """Rewrite each table as Parquet and repoint its view at the result.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { columnInfo, tableInfo } from "../sources/fixtures";
 
 import type { Dom } from "../dom";
 import type { TableInfo } from "../sources/types";
@@ -53,7 +54,7 @@ describe("parseUrl", () => {
 
 describe("initialView", () => {
   const tables = (...names: string[]) =>
-    names.map((name) => ({ name, row_count: 0, columns: [] }));
+    names.map((name) => tableInfo({ name }));
 
   it("returns null for a feed with no tables", () => {
     expect(initialView([])).toBeNull();
@@ -101,11 +102,8 @@ describe("initialView", () => {
  * browser history is needed here.
  */
 describe("Navigator with a private back stack", () => {
-  const table = (name: string): TableInfo => ({
-    name,
-    row_count: 1,
-    columns: [{ name: "id", fk_table: null, fk_column: null, enum_like: false, related: [] }],
-  });
+  const table = (name: string): TableInfo =>
+    tableInfo({ name, row_count: 1, columns: [columnInfo({ name: "id" })] });
 
   function harness() {
     const backButton = { disabled: false, addEventListener: () => {} };

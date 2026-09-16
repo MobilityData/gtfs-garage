@@ -42,11 +42,96 @@ it.
 Three seams exist for reuse, and each is enforced rather than merely intended -
 which is the only reason to trust them.
 
-**`data/gtfs-schema.json`** — the foreign keys, each table's primary id column,
-and the columns GTFS defines as enumerations. Anything that makes an id
-clickable needs exactly this, and a second hand-maintained copy of it will
-drift. Reached from Python through `importlib.resources`, so it works from an
-installed wheel; the frontend reads the same file rather than keeping a copy.
+**The GTFS description.** `schema/gtfs.yaml` is the source — LinkML, one class
+per file. It describes all 31 CSV files plus `locations.geojson`, 223 fields in
+total, and its field names and presence agree exactly with `google/transit`'s
+published reference.
+
+GTFS's facts are carried by LinkML's own constructs: field types are `types`
+with a `range` naming one of GTFS's field types, enumerations
+are `enums`, foreign keys are a `range` pointing at the referenced class,
+primary keys are `identifier` or — for the 12 files GTFS keys on more than one
+column — `unique_keys`, and conditional requirement is 26 `rules`.
+
+`locations.geojson` is a GeoJSON document rather than a CSV, so it is described
+twice: `LocationsGeoJson` / `Feature` / `Geometry` are its structure, and
+`locations` is the flat projection the viewer browses and that
+`stop_times.location_id` points at. **A class is a file of rows unless it is
+contained** — `tree_root`, or the range of an `inlined` slot, means it is part
+of another structure — which is how the generator tells the two apart without
+anything being marked up for its benefit.
+
+Some conditions reach outside the single row a rule is evaluated against —
+"required when the feed has more than one agency" is a question about
+`agency.txt`, not about the row in front of you. Those six fields are
+annotations rather than rules, and each states a `conditionScope` naming what
+settles it. `row_context` means it varies row by row on something the row does
+not carry, such as whether a `stop_time` is its trip's first or last.
+
+**`feed` means one answer covers the whole column, so the viewer gives it.**
+`table_summaries` runs the field's check once against the loaded feed, and the
+header reads *Required in this feed (agency.txt has 3 rows)* rather than quoting
+the rule and leaving the reader to apply it. The evidence is shown because the
+answer should be checkable, and the condition is kept beside it because an
+answer that hides its rule cannot be argued with.
+
+**A check says what it does rather than naming itself.** It is a record — `kind`
+plus arguments — not a label:
+
+```json
+"conditionCheck": {"kind": "row_count", "file": "agency", "minimum": 2}
+```
+
+This matters because `gtfs-schema.json` is published for other projects to read.
+A `kind` is a vocabulary: implement `row_count` once and every field using it
+becomes answerable, in any language, without this repository's Python. `CHECK_PARAMETERS` in the generator rejects a kind it does not know,
+or one missing an argument, so a check that could not be carried out fails the
+build rather than shipping.
+
+A check returns nothing when the feed lacks the file it reads, and an
+unrecognised kind is ignored — the document ships in the wheel and can be newer
+than the Python beside it. None of this reports a violation: it says what GTFS
+requires of this feed, not whether the feed complies, which is
+`gtfs-validator`'s job.
+
+**What a value must look like is published too, under `fieldTypes`.** GTFS's
+sixteen field types are stated once each, with the reference's own description
+and, where GTFS spells out a format, a `pattern` or a `minimum`/`maximum`:
+
+```json
+"COLOR": {"description": "A color encoded as a six-digit hexadecimal number…",
+          "pattern": "^[0-9A-Fa-f]{6}$"}
+```
+
+`queries.py` flattens a column's type onto the column, as it already does for an
+enum's values, and `web/src/ui/values.ts` applies the pattern before any
+formatting. So the rule has one home. The formatters keep only what a regular
+expression cannot do — rejecting `20260231`, which is eight digits and not a
+date; building a colour swatch; refusing a URL scheme that would execute.
+
+Two constraints follow from a pattern crossing into the browser. It is compiled
+once and cached, never per cell, because a feed can have sixty million rows; and
+one that will not compile is skipped rather than thrown, because no value may
+ever be blanked. `tests/test_schema.py` holds every published pattern to a
+syntax subset that means the same thing in Python and JavaScript and rejects
+nested quantifiers, so a pattern cannot be added that hangs the viewer on one
+cell.
+
+`data/gtfs-schema.json` is generated from it by `scripts/build-schema-json.sh`
+and committed. Two reasons it is a separate artifact rather than a duplicate:
+
+- **It is what gets published.** LinkML is an authoring format; a flat JSON is
+  what another project consumes, the way `gbfs-json-schema` publishes JSON
+  Schema and generates bindings rather than shipping its models. A consumer
+  wanting GTFS's foreign keys should not need a YAML parser, let alone LinkML.
+- **It ships in the wheel.** `schema/` is not package data, and reading YAML at
+  runtime would add a dependency to a package that other projects embed - it
+  has four.
+
+Generated-and-committed can drift, so
+`test_the_packaged_json_matches_the_linkml_source` regenerates and compares.
+Nothing in `web/` reads either file today: the frontend receives schema facts
+through `ColumnInfo` on `/api/tables`, so the server is the only reader.
 
 **`gtfs_garage.core`** — feed loading, filters to SQL, table summaries,
 pagination, distinct values, GeoJSON. What reusing it buys over rewriting is the
@@ -103,6 +188,17 @@ knowing: `column = ''` matches nothing, so the filter layer rewrites `= (empty)`
 into `IS NULL OR = ''`. Skipping that made the "(empty)" picklist entry return
 zero rows despite reporting a count.
 
+**An empty field can still carry a value.** GTFS defines what empty means for 19
+fields — "0 or empty - Regularly scheduled pickup" — so the schema records it
+(LinkML's `ifabsent`) and the table draws it *muted and italic*, with the rule on
+hover. The observable behaviour: a blank cell in one of those columns shows the
+implied value in grey, a value the feed actually contains is shown in black, and
+**the raw-values toggle hides the implied one**, because raw means the characters
+the file holds and here it holds none. The implied code is not always `0`: a
+blank `pickup_type` means 0 and a blank `continuous_pickup` beside it means 1,
+which is why it is recorded per field rather than per enumeration. A feed that
+writes every value explicitly shows none of this.
+
 **A cursor per request.** A DuckDB connection cannot serve queries issued
 concurrently from different threads — results come back empty or wrong. Every
 read takes `feed.cursor()`, a fresh cursor over the same in-memory database. Keep
@@ -151,7 +247,7 @@ own that asserted something trivially true, and one that injected a "regression"
 which turned out not to cost anything: storing a layer's features in `AppState`
 adds nothing, because `setData` already makes MapLibre retain the same object.
 
-Timing is deliberately not asserted. `scripts/benchmark.py` measures a generated
+Timing is deliberately not asserted. `scripts/benchmark.sh` measures a generated
 feed and never fails: a shared runner varies enough that any threshold either
 flakes or is too loose to catch anything.
 
@@ -210,7 +306,12 @@ layers are both drawn from `shapes.txt` into the same browser heap, so they
 share a single step. Budgeting them separately quietly allowed twice the
 intended geometry, which is how a tab still reached a gigabyte and died. The
 `stops` layer is never thinned at any size: a stop is one point, so half a
-million of them cost far less than the lines do.
+million of them cost far less than the lines do. The `locations` layer — a flex
+feed's on-demand zones, drawn as filled polygons — is not thinned either, and is
+not counted against the budget: a feed carries tens to hundreds of zones of a
+few hundred vertices, which is three orders of magnitude below what the budget
+exists to ration. A feed with no `locations.geojson` streams a `total: 0` header
+and draws nothing, exactly as a feed with no `shapes.txt` already does.
 
 So the observable behaviour is: **a feed with 600,000 shape rows or fewer is
 drawn exactly; past that, lines lose intermediate points in proportion and

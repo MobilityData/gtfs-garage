@@ -50,6 +50,10 @@ const browse = (parts: Required<ViewerParts>) => `
         <div data-el="filter-bar">
           <button data-el="back-btn" title="Back to the previous view" disabled>&larr; Back</button>
           <button data-el="add-filter-btn">+ Filter</button>
+          <label data-el="raw-values" class="raw-toggle"
+                 title="Show the characters the feed contains, without formatting">
+            <input data-el="raw-values-input" type="checkbox" /> Raw values
+          </label>
         </div>
         <div data-el="add-filter-form">
           <select data-el="filter-column"></select>

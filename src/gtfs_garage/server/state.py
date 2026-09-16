@@ -69,6 +69,21 @@ class FeedRecord:
     acquire: AcquireStats | None = None
 
 
+@dataclass(frozen=True)
+class Serving:
+    """One consistent view of what is being served.
+
+    The feed, where it came from and what it cost to load are three pieces of
+    registry state that a load replaces separately. Read one at a time, a
+    response can pair one feed's tables with another load's metrics; captured
+    together under the lock, they cannot disagree.
+    """
+
+    feed: GtfsFeed
+    source: str
+    load: FeedRecord
+
+
 @dataclass
 class LoadProgress:
     """Where a running load has got to.
@@ -122,8 +137,8 @@ class FeedRegistry:
         return self._feed
 
     @contextmanager
-    def reading(self) -> Iterator[GtfsFeed]:
-        """Borrow the current feed for the life of one request.
+    def serving(self) -> Iterator[Serving]:
+        """Borrow the current feed, and what produced it, for one request.
 
         Holding this keeps the feed alive even if a load replaces it midway.
         Streaming responses must hold it for the whole stream, not just while
@@ -132,15 +147,22 @@ class FeedRegistry:
         """
         with self._lock:
             feed = self._feed
-            if feed is None:
+            if feed is None or self._source is None or self.last_load is None:
                 raise NoFeedLoadedError()
+            served = Serving(feed=feed, source=self._source, load=self.last_load)
             self._readers += 1
         try:
-            yield feed
+            yield served
         finally:
             with self._lock:
                 self._readers -= 1
                 self._release_retired(feed)
+
+    @contextmanager
+    def reading(self) -> Iterator[GtfsFeed]:
+        """Borrow just the feed, for the handlers that need nothing else."""
+        with self.serving() as served:
+            yield served.feed
 
     def _release_retired(self, feed: GtfsFeed) -> None:
         """Close a replaced feed once the last request reading it is done."""

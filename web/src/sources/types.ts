@@ -13,6 +13,29 @@ export interface RelatedLink {
   column: string;
 }
 
+/**
+ * What GTFS says an empty value means for a field.
+ *
+ * `code` is one of the field's own enum codes - "0 or empty - Regularly
+ * scheduled pickup" - and is null only where the implied meaning has no code,
+ * as for `fare_attributes.transfers`, whose empty value means unlimited
+ * transfers.
+ */
+export interface ImpliedValue {
+  code: string | null;
+  label: string;
+}
+
+/**
+ * Whether a feed-scope condition holds in the feed now loaded. `evidence` is
+ * what the check counted to decide - "3 agencies" - so the answer can be read
+ * back rather than trusted.
+ */
+export interface ConditionOutcome {
+  holds: boolean;
+  evidence: string;
+}
+
 export interface ColumnInfo {
   name: string;
   /** Set only when the referenced table and column exist in this feed. */
@@ -22,12 +45,61 @@ export interface ColumnInfo {
   enum_like: boolean;
   /** Always present; empty unless this column is its table's primary id. */
   related: RelatedLink[];
+  /**
+   * What GTFS says the field holds - ID, ENUM, COLOR, LATITUDE, DATE and so on.
+   * Null for a column the schema does not describe, such as a producer's own
+   * extension column, which renders as text.
+   */
+  type: string | null;
+  /** For an enumeration, its codes and their labels; null otherwise. */
+  values: Record<string, string> | null;
+  /** "always", "conditional", or null where GTFS makes the field optional. */
+  required: string | null;
+  /**
+   * For a conditionally required field, the condition in words - "Required if
+   * route_long_name is empty." Null otherwise.
+   */
+  condition: string | null;
+  /**
+   * What decides the condition: "row" where the row settles it, "feed" where
+   * the feed as a whole does, "row_context" where it varies row by row and the
+   * row does not carry what decides it. Null unless the field is conditional.
+   */
+  condition_scope: string | null;
+  /**
+   * The answer for this feed, for a "feed" scope. Null for any other scope, and
+   * null when the check could not run.
+   */
+  condition_outcome: ConditionOutcome | null;
+  /** What an empty value implies, where GTFS defines it. Null otherwise. */
+  when_empty: ImpliedValue | null;
+  /**
+   * What a value of this field's type must look like, from the schema's
+   * `fieldTypes`. The rule is declared there rather than here so there is one
+   * copy of it; all four are null for a type GTFS states no format for.
+   */
+  pattern: string | null;
+  minimum: number | null;
+  maximum: number | null;
+  /** GTFS's own definition of the type, for when a value does not match it. */
+  type_description: string | null;
+}
+
+/**
+ * Why GTFS says this feed should not contain this file. The counterpart to
+ * `MissingFile`: that one is absent and needed, this one present and not wanted.
+ */
+export interface FileCondition {
+  condition: string;
+  outcome: ConditionOutcome;
 }
 
 export interface TableInfo {
   name: string;
   row_count: number;
   columns: ColumnInfo[];
+  /** Set only where GTFS forbids this file and the condition holds here. */
+  forbidden: FileCondition | null;
 }
 
 /** What one .txt file cost to open. */
@@ -82,9 +154,21 @@ export interface LoadProgress {
   running: boolean;
 }
 
+/**
+ * A file the feed does not have and needs - required, or conditionally required
+ * with the condition holding here. Files it merely could have are not listed.
+ */
+export interface MissingFile {
+  name: string;
+  presence: string;
+  condition: string | null;
+  condition_outcome: ConditionOutcome | null;
+}
+
 export interface TablesResponse {
   source: string;
   tables: TableInfo[];
+  missing: MissingFile[];
   metrics: LoadMetrics;
 }
 
@@ -125,7 +209,7 @@ export interface AppConfig {
   version: string;
 }
 
-export type GeoJsonKind = "stops" | "shapes" | "routes";
+export type GeoJsonKind = "stops" | "shapes" | "routes" | "locations";
 
 export interface FeatureCollection {
   type: "FeatureCollection";

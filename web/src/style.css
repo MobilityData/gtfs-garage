@@ -114,6 +114,15 @@ button:hover { filter: brightness(0.97); }
 .table-tab .count { color: var(--muted); font-weight: 400; }
 .table-tab.active .count { color: var(--accent); }
 
+/* A file the feed does not have. Muted and not a pointer, because there is
+   nothing behind it to open; the tooltip says why it is wanted. */
+.table-tab.missing { color: var(--muted); cursor: default; font-style: italic; }
+.table-tab.missing:hover { background: none; }
+
+/* A file the feed has that GTFS forbids. Still opens - the rows are there -
+   so only the marker is muted. */
+.table-tab.forbidden .count { font-style: italic; }
+
 [data-el="content"] {
   flex: 1;
   display: flex;
@@ -146,6 +155,21 @@ button:hover { filter: brightness(0.97); }
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
+
+/* Pushed to the end of the filter bar: a display preference, not a filter. */
+.raw-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.raw-toggle input { cursor: pointer; }
 
 .chip {
   display: flex;
@@ -432,4 +456,42 @@ a.fk-link:hover { text-decoration: underline; }
   font-variant-numeric: tabular-nums;
   box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
   pointer-events: none;
+}
+
+/* Type-aware cell rendering. The value itself is always the feed's own text;
+   these only affect how it sits on the page. */
+[data-el="table-scroll"] td.value-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A value the feed left empty that GTFS gives a meaning to. Drawn muted so it
+   cannot be read as something the producer wrote - unlike a malformed value,
+   which is visible and can be judged, this one does not exist in the file at
+   all, so it has to announce that it is inferred. */
+[data-el="table-scroll"] td.value-implied {
+  color: var(--muted);
+  font-style: italic;
+  cursor: help;
+}
+
+/* A hook for a visible marker on values that do not match their declared type.
+   Deliberately unstyled: the tooltip carries the information, and a browser
+   should not shout about a feed that is merely imperfect. */
+[data-el="table-scroll"] td.value-malformed {
+  cursor: help;
+}
+
+.value-swatch {
+  display: inline-block;
+  width: 0.75em;
+  height: 0.75em;
+  margin-right: 6px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+
+.value-link {
+  color: var(--accent);
 }

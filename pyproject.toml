@@ -31,6 +31,14 @@ dependencies = [
 # Drives a real browser for the memory guard in tests/browser. Kept out of
 # `dev` so the ordinary contributor setup does not pull a browser down.
 perf = ["playwright~=1.49"]
+# Validates schema/gtfs.yaml and regenerates the packaged schema document.
+# Kept out of `dev` for the same reason as `perf`: LinkML pulls a large
+# dependency tree, and only someone editing the schema needs it. The generated
+# JSON is committed, so building and running the app never needs LinkML.
+# mkdocs builds the browsable site in scripts/build-schema-site.sh. Declared
+# here rather than named in an error message, so the script can install what it
+# needs instead of telling you to.
+schema = ["linkml~=1.9", "mkdocs~=1.6", "mkdocs-material~=9.5"]
 # Only needed to query a feed from Python; the server extra adds the web UI.
 dev = [
     "black==26.3.1",
@@ -39,6 +47,9 @@ dev = [
     "httpx~=0.28",
     "pre-commit==3.4.0",
     "pytest~=7.4.3",
+    # scripts/build_schema_json.py reads the LinkML. Reading it needs only a
+    # YAML parser; only validating it needs the much heavier `schema` extra.
+    "pyyaml~=6.0",
 ]
 
 [project.scripts]

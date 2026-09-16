@@ -10,13 +10,17 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from gtfs_garage.core.conditions import evaluate
 from gtfs_garage.core.feed import GtfsFeed
 from gtfs_garage.core.filters import build_where
 from gtfs_garage.core.schema import (
     ENUM_LIKE_COLUMNS,
+    FILE_PRESENCE,
     FOREIGN_KEYS,
     PRIMARY_ID_COLUMNS,
+    field_info,
     related_tables,
+    value_shape,
 )
 
 
@@ -46,6 +50,35 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
     def resolves(target_table: str, target_column: str) -> bool:
         return target_column in feed.tables.get(target_table, [])
 
+    # Keyed on the check itself, so the three agency_id columns - which declare
+    # the same one - read agency.txt once between them rather than each.
+    answered: dict[tuple, tuple[bool, str] | None] = {}
+
+    def outcome(check: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Whether a feed-scope condition holds here, or None if unanswerable."""
+        if not check:
+            return None
+        key = tuple(sorted(check.items()))
+        if key not in answered:
+            answered[key] = evaluate(feed, check)
+        result = answered[key]
+        return None if result is None else {"holds": result[0], "evidence": result[1]}
+
+    def forbidden(table: str) -> dict[str, Any] | None:
+        """Why GTFS says this feed should not have this file, if it says so.
+
+        The other half of `missing_files`. That one answers "absent and needed";
+        this one answers "present and not wanted", which is a fact about a table
+        the feed has and so travels with it.
+        """
+        described = FILE_PRESENCE.get(table, {})
+        if described.get("presence") != "conditionally_forbidden":
+            return None
+        answer = outcome(described.get("conditionCheck"))
+        if not answer or not answer["holds"]:
+            return None
+        return {"condition": described["condition"], "outcome": answer}
+
     summaries = []
     for table, columns in feed.tables.items():
         fk_map = FOREIGN_KEYS.get(table, {})
@@ -61,6 +94,15 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
             if column == primary_column:
                 related = [{"table": t, "column": c} for t, c in related_tables(table) if resolves(t, c)]
 
+            # The schema is already loaded; this is the same lookup as the
+            # foreign key above, returning what the interface needs to render a
+            # value rather than only to link it.
+            described = field_info(table, column)
+            # Stated once per type in the document and flattened onto the column
+            # here, as the enum's values are: the UI reads one record per column
+            # rather than carrying a second lookup table.
+            shape = value_shape(described.get("type"))
+
             column_infos.append(
                 {
                     "name": column,
@@ -68,6 +110,17 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
                     "fk_column": fk_column,
                     "enum_like": column in ENUM_LIKE_COLUMNS,
                     "related": related,
+                    "type": described.get("type"),
+                    "values": described.get("values"),
+                    "required": described.get("required"),
+                    "condition": described.get("condition"),
+                    "condition_scope": described.get("conditionScope"),
+                    "condition_outcome": outcome(described.get("conditionCheck")),
+                    "when_empty": described.get("whenEmpty"),
+                    "pattern": shape.get("pattern"),
+                    "minimum": shape.get("minimum"),
+                    "maximum": shape.get("maximum"),
+                    "type_description": shape.get("description"),
                 }
             )
 
@@ -77,8 +130,55 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
         row_count = feed.row_count(table)
         feed.stats.record_count(table, row_count, (time.perf_counter() - started) * 1000)
 
-        summaries.append({"name": table, "row_count": row_count, "columns": column_infos})
+        summaries.append(
+            {
+                "name": table,
+                "row_count": row_count,
+                "columns": column_infos,
+                "forbidden": forbidden(table),
+            }
+        )
     return summaries
+
+
+def missing_files(feed: GtfsFeed) -> list[dict[str, Any]]:
+    """Files this feed does not have and needs.
+
+    Only what is wanted: required outright, or conditionally required with the
+    condition holding here. A feed is normally missing twenty optional files,
+    and listing those would bury the ones that matter.
+
+    A conditional file whose check cannot run is left out rather than guessed
+    at - the same rule the column headers follow, where an answer appears only
+    when one was actually computed.
+    """
+    wanted = []
+    for table, described in FILE_PRESENCE.items():
+        if table in feed.tables:
+            continue
+
+        # Required, or conditionally required. Never conditionally forbidden:
+        # its check holding means the feed should not have the file, and
+        # reporting that as "missing and needed" would be exactly backwards.
+        presence = described.get("presence")
+        outcome = None
+        if presence == "conditional":
+            result = evaluate(feed, described.get("conditionCheck"))
+            if result is None or not result[0]:
+                continue
+            outcome = {"holds": result[0], "evidence": result[1]}
+        elif presence != "required":
+            continue
+
+        wanted.append(
+            {
+                "name": table,
+                "presence": presence,
+                "condition": described.get("condition"),
+                "condition_outcome": outcome,
+            }
+        )
+    return sorted(wanted, key=lambda entry: entry["name"])
 
 
 def query_table(
