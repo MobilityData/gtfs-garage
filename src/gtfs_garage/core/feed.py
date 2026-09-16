@@ -116,14 +116,18 @@ class GtfsFeed:
         self.stats = FeedStats()
         # Populated from the archive before extraction; empty for a folder.
         self._compressed_sizes: dict[str, int] = {}
+        # Set by `_resolve_data_dir`, which runs next, when the source has
+        # already been converted.
+        self._parquet_source = False
         self.data_dir = self._resolve_data_dir()
         self.con = duckdb.connect(database=":memory:")
         self.tables: dict[str, list[str]] = {}
         self._load_tables()
         if not self.tables:
             self.close()
-            raise GtfsLoadError(f"No GTFS .txt files found under {self.data_dir}")
-        if optimise:
+            raise GtfsLoadError(f"No GTFS files found under {self.data_dir}")
+        # Nothing to convert when the source is already Parquet.
+        if optimise and not self._parquet_source:
             self._convert_to_parquet()
 
     def _progress(self, phase: str, done: int, total: int, detail: str = "") -> None:
@@ -140,6 +144,14 @@ class GtfsFeed:
             raise GtfsLoadError(f"Path does not exist: {self.source_path}")
 
         if self.source_path.is_dir():
+            # A directory of Parquet is what `export_parquet` writes and what a
+            # browser reads over range requests. Opening one skips extracting
+            # and converting entirely, which is the whole point of producing it.
+            if not any(self.source_path.glob("*.txt")) and any(self.source_path.glob("*.parquet")):
+                self._parquet_source = True
+                self.stats.source_bytes = sum(f.stat().st_size for f in self.source_path.glob("*.parquet"))
+                return self.source_path
+
             data_dir = self.source_path
             if not (self.source_path / "stops.txt").exists():
                 nested = next(self.source_path.rglob("stops.txt"), None)
@@ -176,6 +188,10 @@ class GtfsFeed:
 
     def _load_tables(self) -> None:
         started = time.perf_counter()
+        if self._parquet_source:
+            self._load_parquet_tables()
+            self.stats.register_ms = _elapsed_ms(started)
+            return
         for txt_file in sorted(self.data_dir.glob("*.txt")):
             table_name = txt_file.stem
             escaped_path = str(txt_file).replace("'", "''")
@@ -208,6 +224,55 @@ class GtfsFeed:
             )
         self._load_locations_geojson()
         self.stats.register_ms = _elapsed_ms(started)
+
+    def _load_parquet_tables(self) -> None:
+        """Point a view at each Parquet file, with no conversion to do.
+
+        `export_parquet` wrote these through the same `ALL_VARCHAR` views the
+        CSVs were read with, so every column is already text and the queries
+        behave identically to a feed opened from source.
+        """
+        for parquet_file in sorted(self.data_dir.glob("*.parquet")):
+            table_name = parquet_file.stem
+            escaped_path = str(parquet_file).replace("'", "''")
+            file_started = time.perf_counter()
+            try:
+                self.con.execute(f"""CREATE VIEW "{table_name}" AS SELECT * FROM read_parquet('{escaped_path}')""")
+            except Exception:
+                continue
+            columns = [row[0] for row in self.con.execute(f'DESCRIBE "{table_name}"').fetchall()]
+            self.tables[table_name] = columns
+            size = parquet_file.stat().st_size
+            self.stats.files.append(
+                FileStats(
+                    name=parquet_file.name,
+                    table=table_name,
+                    bytes=size,
+                    # Already converted, so there is no archive it came out of
+                    # and no separate on-disk form to report.
+                    compressed_bytes=None,
+                    parquet_bytes=size,
+                    register_ms=_elapsed_ms(file_started),
+                    columns=len(columns),
+                )
+            )
+
+    def export_parquet(self, destination: Path) -> list[Path]:
+        """Write every table as Parquet into `destination`, and return the files.
+
+        The same conversion `_convert_to_parquet` performs, kept rather than
+        thrown away with the scratch directory. This is the artifact a browser
+        queries over range requests, and producing it here means the thing
+        served is the thing this tool's own tests cover.
+        """
+        destination.mkdir(parents=True, exist_ok=True)
+        written = []
+        for table in sorted(self.tables):
+            target = destination / f"{table}.parquet"
+            escaped = str(target).replace("'", "''")
+            self.con.execute(f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
+            written.append(target)
+        return written
 
     def _load_locations_geojson(self) -> None:
         """Register locations.geojson, the one GTFS file that is not a CSV.

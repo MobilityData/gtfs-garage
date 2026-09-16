@@ -27,8 +27,12 @@ export interface HistoryPort {
   push(entry: HistoryEntry): void;
   replace(entry: HistoryEntry): void;
   back(): void;
-  /** Called when the user navigates back or forward. */
-  onPop(handler: (entry: HistoryEntry | null) => void): void;
+  /**
+   * Called when the user navigates back or forward. Returns a disposer: an
+   * embedded viewer is unmounted and remounted by its host, and a listener left
+   * on `window` would drive a viewer that no longer exists.
+   */
+  onPop(handler: (entry: HistoryEntry | null) => void): () => void;
   /** The view this viewer should open on, if the location names one. */
   initialView(): View | null;
 }
@@ -74,12 +78,14 @@ export function browserHistory(): HistoryPort {
     replace: (entry) => history.replaceState(toState(entry), "", urlFor(entry.view)),
     back: () => history.back(),
     onPop(handler) {
-      window.addEventListener("popstate", (event) => {
+      const listener = (event: PopStateEvent) => {
         const state = event.state as BrowserState | null;
         if (!state?.gtfsView) return handler(null);
         const { depth, ...view } = state.gtfsView;
         handler({ view, depth: depth ?? 0, feed: state.feed });
-      });
+      };
+      window.addEventListener("popstate", listener);
+      return () => window.removeEventListener("popstate", listener);
     },
     initialView: () => parseUrl(location.search),
   };
@@ -109,6 +115,9 @@ export function memoryHistory(initial: View | null = null): HistoryPort {
     },
     onPop(next) {
       handler = next;
+      return () => {
+        handler = () => {};
+      };
     },
     initialView: () => initial,
   };

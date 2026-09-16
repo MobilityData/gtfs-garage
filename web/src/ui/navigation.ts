@@ -43,6 +43,8 @@ export function initialView(tables: TableInfo[], restoreFrom?: View | null): Vie
 export class Navigator {
   private depth = 0;
   private feed = "";
+  /** Undoes the history subscription taken in the constructor. */
+  private readonly stopListening: () => void;
 
   constructor(
     private readonly dom: Dom,
@@ -50,7 +52,7 @@ export class Navigator {
     private readonly state: AppState,
     private readonly onChange: ViewListener,
   ) {
-    this.history.onPop((entry) => {
+    this.stopListening = this.history.onPop((entry) => {
       if (!entry) return;
 
       // Entries from a previously opened feed cannot be honoured: only one feed
@@ -67,6 +69,11 @@ export class Navigator {
     });
 
     this.dom.el<HTMLButtonElement>("back-btn").addEventListener("click", () => this.back());
+  }
+
+  /** Stop responding to the host's history. See `mount`'s `destroy`. */
+  destroy(): void {
+    this.stopListening();
   }
 
   private entryFor(view: View): HistoryEntry {

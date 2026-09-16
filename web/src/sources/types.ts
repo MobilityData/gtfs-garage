@@ -8,6 +8,8 @@
  * without the UI knowing the difference.
  */
 
+import type { NdjsonMessage } from "./ndjson";
+
 export interface RelatedLink {
   table: string;
   column: string;
@@ -169,7 +171,11 @@ export interface TablesResponse {
   source: string;
   tables: TableInfo[];
   missing: MissingFile[];
-  metrics: LoadMetrics;
+  /**
+   * What the feed cost to open. Absent for a source with no load to report -
+   * a browser reading Parquet did not download, unzip or convert anything.
+   */
+  metrics?: LoadMetrics;
 }
 
 /** Row values are strings or null: every column is read as text. */
@@ -220,6 +226,24 @@ export interface GeoFeature {
   type: "Feature";
   geometry: { type: string; coordinates: unknown } | null;
   properties: Record<string, string>;
+}
+
+/**
+ * What a whole viewer needs, which is more than a table needs.
+ *
+ * `GtfsSource` answers the table. The map additionally streams, because a large
+ * feed's shapes arrive over seconds and are drawn as they land rather than all
+ * at the end - so a host supplying its own source implements this, not just
+ * `GtfsSource`. `config` is optional: it exists on the REST source, where the
+ * basemap is a server setting, and a host that passes `basemap` needs neither.
+ */
+export interface ViewerSource extends GtfsSource {
+  geojsonStream(
+    kind: GeoJsonKind,
+    onMessage: (message: NdjsonMessage) => void,
+    signal?: AbortSignal,
+  ): Promise<void>;
+  config?(): Promise<AppConfig>;
 }
 
 export interface GtfsSource {

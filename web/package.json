@@ -1,23 +1,93 @@
 {
   "name": "@mobilitydata/gtfs-garage-web",
   "version": "0.1.0",
-  "private": true,
-  "description": "Frontend for GTFS Garage. Built output is committed to src/gtfs_garage/web so pip install needs no Node.",
+  "description": "Browse a GTFS feed: a mountable viewer with a table, filters and a map.",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:lib": "vite build --config vite.lib.config.ts && yarn types",
+    "types": "tsc -p tsconfig.lib.json"
   },
   "devDependencies": {
+    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
     "@types/node": "^22.20.2",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "maplibre-gl": "^5.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
     "vitest": "^4.1.11"
   },
   "resolutions": {
     "vite": "^6.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MobilityData/gtfs-garage.git",
+    "directory": "web"
+  },
+  "homepage": "https://github.com/MobilityData/gtfs-garage",
+  "keywords": [
+    "gtfs",
+    "transit",
+    "viewer",
+    "maplibre"
+  ],
+  "files": [
+    "dist"
+  ],
+  "types": "./dist/mount.d.ts",
+  "module": "./dist/mount.js",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/mount.d.ts",
+      "import": "./dist/mount.js"
+    },
+    "./map": {
+      "types": "./dist/map-part.d.ts",
+      "import": "./dist/map.js"
+    },
+    "./parquet": {
+      "types": "./dist/sources/parquet.d.ts",
+      "import": "./dist/parquet.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./style.css": "./dist/gtfs-garage-web.css",
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@duckdb/duckdb-wasm": "^1.29.0",
+    "maplibre-gl": "^5.0.0",
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
+  "peerDependenciesMeta": {
+    "@duckdb/duckdb-wasm": {
+      "optional": true
+    },
+    "maplibre-gl": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

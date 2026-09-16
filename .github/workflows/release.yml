@@ -63,3 +63,54 @@ jobs:
           PY
 
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  npm:
+    name: Build and publish to npm
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      # Trusted publishing again, this time npm's: the registry verifies this
+      # workflow's OIDC token instead of a stored NPM_TOKEN, and stamps the
+      # package with provenance for it.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+          registry-url: https://registry.npmjs.org
+
+      # Node 22 ships npm 10, which predates trusted publishing.
+      - name: Use an npm that can publish without a token
+        run: npm install -g npm@latest
+
+      - name: Check the tag matches the package version
+        working-directory: web
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version=$(node -p "require('./package.json').version")
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag $tag does not match web/package.json version $version"
+            exit 1
+          fi
+
+      - name: Build the library
+        working-directory: web
+        run: yarn install --frozen-lockfile && yarn build:lib
+
+      # The exports map names four files; a build that silently stopped
+      # producing one would publish a package nothing can import.
+      - name: The package must contain what it exports
+        working-directory: web
+        run: |
+          for file in dist/mount.js dist/mount.d.ts dist/map.js dist/map-part.d.ts \
+                      dist/react.js dist/react.d.ts dist/gtfs-garage-web.css; do
+            test -s "$file" || { echo "::error::$file is missing or empty"; exit 1; }
+          done
+
+      - name: Publish
+        working-directory: web
+        run: npm publish

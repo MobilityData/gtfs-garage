@@ -1,127 +1,27 @@
-/** Wires the pieces together: source -> navigation -> table/filters/map. */
+/**
+ * The standalone application.
+ *
+ * Everything the viewer does lives in `mount`; this is only the part that is
+ * true of the application and not of an embedded viewer. It owns the page, so
+ * it takes the load dialog and the load report, and its back stack is the
+ * browser's own history - which is what makes a view a shareable link.
+ */
 
-import "./style.css";
+import "maplibre-gl/dist/maplibre-gl.css";
 
-import { createDom } from "./dom";
-import { buildViewer } from "./markup";
-import { MapController } from "./map/map";
-import { RestSource } from "./sources/rest";
-import type { TablesResponse } from "./sources/types";
-import { createState, type View } from "./state";
-import { FeedLoader } from "./ui/feed-loader";
-import { initMetricsPanel, renderMetrics } from "./ui/feed-metrics";
-import { FilterBar } from "./ui/filters";
+import "./app.css";
+
+import { mapPart } from "./map-part";
+import { mount } from "./mount";
 import { browserHistory } from "./ui/history";
-import { initialView, Navigator } from "./ui/navigation";
-import { renderSidebar } from "./ui/sidebar";
-import { TableView } from "./ui/table";
 
-async function start(): Promise<void> {
-  // The application mounts the viewer into its own page and takes every part,
-  // including the ones only a local tool needs. An embedded viewer mounts the
-  // same markup into whatever root its host gives it, without those.
-  const root = document.getElementById("gtfs-garage");
-  if (!root) throw new Error("Missing #gtfs-garage to mount into");
-  buildViewer(root);
-  const dom = createDom(root);
-  const state = createState();
-  const source = new RestSource();
-  initMetricsPanel(dom);
+const root = document.getElementById("gtfs-garage");
+if (!root) throw new Error("Missing #gtfs-garage to mount into");
 
-  // The basemap is a server setting, and a vector style has to be fetched
-  // before the map can be constructed.
-  const config = await source.config().catch(() => null);
-  const map = await MapController.create(dom, state, source, config?.basemap);
-  map.restoreVisibility();
-
-  const loadPage = async (view: View): Promise<void> => {
-    try {
-      tableView.render(await source.query(view.table, view.filters, view.page, state.pageSize));
-    } catch (error) {
-      tableView.showMessage(`Could not load ${view.table}: ${(error as Error).message}`);
-    }
-  };
-
-  // The navigator drives redraws and the filter bar drives the navigator, so one
-  // of the two is referenced before it is built. The callback only runs once a
-  // view is applied, by which point both exist.
-  let filterBar: FilterBar | undefined;
-
-  // The application owns the page, so its back stack is the browser's own
-  // history and the URL describes the view. An embedded viewer passes
-  // `memoryHistory()` instead and leaves the host's address bar alone.
-  const navigator = new Navigator(dom, browserHistory(), state, (view) => {
-    renderSidebar(dom, state, (table) => navigator.selectTable(table));
-    filterBar?.render();
-    void loadPage(view);
-  });
-
-  filterBar = new FilterBar(dom, state, source, (filters) =>
-    navigator.go({ table: state.view.table, filters, page: 1 }),
-  );
-
-  const tableView = new TableView(dom, state, {
-    onNavigate: (table, filters) => navigator.selectTable(table, filters),
-    onPage: (page) => navigator.go({ ...navigator.current(), page }),
-    onHighlightStop: async (stopId) => {
-      await map.highlight(await source.geojson("stops", [stopId]), { point: true });
-    },
-    onHighlightShape: async (shapeId) => {
-      await map.highlight(await source.geojson("shapes", [shapeId]));
-    },
-    onHighlightRoute: async (routeId) => {
-      const shapeId = state.routeShapes.get(routeId);
-      if (shapeId) await map.highlight(await source.geojson("shapes", [shapeId]));
-    },
-    onHighlightLocation: async (locationId) => {
-      await map.highlight(await source.geojson("locations", [locationId]));
-    },
-  });
-
-  // A display preference, so it redraws the page in place rather than going
-  // through the navigator: toggling it is not a new view to go Back from.
-  const rawValues = dom.el<HTMLInputElement>("raw-values-input");
-  rawValues.addEventListener("change", () => {
-    state.rawValues = rawValues.checked;
-    tableView.redraw();
-  });
-
-  /**
-   * `restoreFromUrl` is only true on page load, so a reloaded or shared link
-   * returns to its view. Opening a different feed starts clean: the previous
-   * feed's filters do not describe this one's data.
-   */
-  const onFeedLoaded = (data: TablesResponse, clientMs?: number, restoreFromUrl = false): void => {
-    feedLoader.close();
-    dom.el("source-label").textContent = data.source;
-    renderMetrics(dom, data.metrics, clientMs);
-    state.tables = data.tables;
-    state.missing = data.missing ?? [];
-    state.mapDataLoaded = false;
-    state.routeShapes.clear();
-
-    renderSidebar(dom, state, (table) => navigator.selectTable(table));
-    void map.refresh().catch((error) => console.error("Map layers failed to load:", error));
-
-    const initial = initialView(data.tables, restoreFromUrl ? navigator.fromLocation() : null);
-    if (initial) navigator.reset(initial, data.source);
-  };
-
-  const feedLoader = new FeedLoader(
-    dom,
-    source,
-    (data, clientMs) => onFeedLoaded(data, clientMs),
-    () => state.tables.length > 0,
-  );
-
-  try {
-    // No client timing on this path: a feed named on the command line was
-    // opened before the page existed, so there is no round trip to report.
-    onFeedLoaded(await source.tables(), undefined, true);
-  } catch {
-    // Nothing loaded yet (409) or the server is unreachable - let the user pick.
-    feedLoader.open();
-  }
-}
-
-void start();
+void mount(root, {
+  // The application always shows a map, so it takes the part unconditionally.
+  // An embedded viewer imports it only if its host wants one.
+  map: mapPart,
+  parts: { load: true, report: true },
+  history: browserHistory(),
+});

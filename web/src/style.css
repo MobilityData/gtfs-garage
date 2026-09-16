@@ -25,21 +25,9 @@
   position: relative;
 }
 
-* { box-sizing: border-box; }
+.gtfs-viewer, .gtfs-viewer * { box-sizing: border-box; }
 
-/* The application gives its viewer the whole window. A host gives it whatever
-   box it likes; the viewer fills it either way. */
-body {
-  margin: 0;
-  height: 100vh;
-  color-scheme: light;
-}
-
-#gtfs-garage {
-  height: 100%;
-}
-
-header {
+.gtfs-viewer header {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -49,12 +37,12 @@ header {
   flex-shrink: 0;
 }
 
-header h1 {
+.gtfs-viewer header h1 {
   font-size: 16px;
   margin: 0;
 }
 
-[data-el="source-label"] {
+.gtfs-viewer [data-el="source-label"] {
   color: var(--muted);
   font-size: 13px;
   flex: 1;
@@ -63,7 +51,7 @@ header h1 {
   white-space: nowrap;
 }
 
-button {
+.gtfs-viewer button {
   font: inherit;
   cursor: pointer;
   border: 1px solid var(--border);
@@ -72,26 +60,26 @@ button {
   padding: 6px 10px;
 }
 
-button.primary {
+.gtfs-viewer button.primary {
   background: var(--accent);
   color: white;
   border-color: var(--accent);
 }
 
-button:disabled {
+.gtfs-viewer button:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-button:hover { filter: brightness(0.97); }
+.gtfs-viewer button:hover { filter: brightness(0.97); }
 
-[data-el="layout"] {
+.gtfs-viewer [data-el="layout"] {
   flex: 1;
   display: flex;
   min-height: 0;
 }
 
-[data-el="sidebar"] {
+.gtfs-viewer [data-el="sidebar"] {
   width: 210px;
   flex-shrink: 0;
   background: var(--panel);
@@ -100,7 +88,7 @@ button:hover { filter: brightness(0.97); }
   padding: 8px;
 }
 
-.table-tab {
+.gtfs-viewer .table-tab {
   display: flex;
   justify-content: space-between;
   padding: 7px 10px;
@@ -109,28 +97,28 @@ button:hover { filter: brightness(0.97); }
   font-size: 13px;
 }
 
-.table-tab:hover { background: var(--bg); }
-.table-tab.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
-.table-tab .count { color: var(--muted); font-weight: 400; }
-.table-tab.active .count { color: var(--accent); }
+.gtfs-viewer .table-tab:hover { background: var(--bg); }
+.gtfs-viewer .table-tab.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.gtfs-viewer .table-tab .count { color: var(--muted); font-weight: 400; }
+.gtfs-viewer .table-tab.active .count { color: var(--accent); }
 
 /* A file the feed does not have. Muted and not a pointer, because there is
    nothing behind it to open; the tooltip says why it is wanted. */
-.table-tab.missing { color: var(--muted); cursor: default; font-style: italic; }
-.table-tab.missing:hover { background: none; }
+.gtfs-viewer .table-tab.missing { color: var(--muted); cursor: default; font-style: italic; }
+.gtfs-viewer .table-tab.missing:hover { background: none; }
 
 /* A file the feed has that GTFS forbids. Still opens - the rows are there -
    so only the marker is muted. */
-.table-tab.forbidden .count { font-style: italic; }
+.gtfs-viewer .table-tab.forbidden .count { font-style: italic; }
 
-[data-el="content"] {
+.gtfs-viewer [data-el="content"] {
   flex: 1;
   display: flex;
   min-width: 0;
   min-height: 0;
 }
 
-[data-el="table-pane"] {
+.gtfs-viewer [data-el="table-pane"] {
   flex: 1.3;
   display: flex;
   flex-direction: column;
@@ -138,15 +126,15 @@ button:hover { filter: brightness(0.97); }
   border-right: 1px solid var(--border);
 }
 
-[data-el="map-pane"] {
+.gtfs-viewer [data-el="map-pane"] {
   flex: 1;
   min-width: 0;
   position: relative;
 }
 
-[data-el="map"] { position: absolute; inset: 0; }
+.gtfs-viewer [data-el="map"] { position: absolute; inset: 0; }
 
-[data-el="filter-bar"] {
+.gtfs-viewer [data-el="filter-bar"] {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -157,7 +145,7 @@ button:hover { filter: brightness(0.97); }
 }
 
 /* Pushed to the end of the filter bar: a display preference, not a filter. */
-.raw-toggle {
+.gtfs-viewer .raw-toggle {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -169,9 +157,9 @@ button:hover { filter: brightness(0.97); }
   user-select: none;
 }
 
-.raw-toggle input { cursor: pointer; }
+.gtfs-viewer .raw-toggle input { cursor: pointer; }
 
-.chip {
+.gtfs-viewer .chip {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -181,7 +169,7 @@ button:hover { filter: brightness(0.97); }
   font-size: 12px;
 }
 
-.chip button {
+.gtfs-viewer .chip button {
   border: none;
   background: none;
   padding: 0;
@@ -190,7 +178,7 @@ button:hover { filter: brightness(0.97); }
   line-height: 1;
 }
 
-[data-el="add-filter-form"] {
+.gtfs-viewer [data-el="add-filter-form"] {
   display: none;
   gap: 6px;
   align-items: center;
@@ -200,55 +188,55 @@ button:hover { filter: brightness(0.97); }
   font-size: 13px;
 }
 
-[data-el="add-filter-form"].open { display: flex; }
-[data-el="add-filter-form"] select, [data-el="add-filter-form"] input {
+.gtfs-viewer [data-el="add-filter-form"].open { display: flex; }
+.gtfs-viewer [data-el="add-filter-form"] select, .gtfs-viewer [data-el="add-filter-form"] input {
   font: inherit;
   padding: 4px 6px;
   border: 1px solid var(--border);
   border-radius: 4px;
 }
 
-[data-el="table-scroll"] {
+.gtfs-viewer [data-el="table-scroll"] {
   flex: 1;
   overflow: auto;
 }
 
-table {
+.gtfs-viewer table {
   border-collapse: collapse;
   width: 100%;
   font-size: 12.5px;
 }
 
-th, td {
+.gtfs-viewer th, .gtfs-viewer td {
   border-bottom: 1px solid var(--border);
   padding: 5px 10px;
   text-align: left;
   white-space: nowrap;
 }
 
-th {
+.gtfs-viewer th {
   position: sticky;
   top: 0;
   background: var(--panel);
   z-index: 1;
 }
 
-tr:hover td { background: [data-el="fafafa"]; }
+.gtfs-viewer tr:hover td { background: #fafafa; }
 
-a.fk-link {
+.gtfs-viewer a.fk-link {
   color: var(--accent);
   text-decoration: none;
 }
-a.fk-link:hover { text-decoration: underline; }
+.gtfs-viewer a.fk-link:hover { text-decoration: underline; }
 
-.related-row {
+.gtfs-viewer .related-row {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
   margin-top: 2px;
 }
 
-.related-btn {
+.gtfs-viewer .related-btn {
   font-size: 10.5px;
   padding: 1px 6px;
   border-radius: 999px;
@@ -256,9 +244,9 @@ a.fk-link:hover { text-decoration: underline; }
   border: none;
   color: var(--muted);
 }
-.related-btn:hover { background: var(--accent-bg); color: var(--accent); }
+.gtfs-viewer .related-btn:hover { background: var(--accent-bg); color: var(--accent); }
 
-[data-el="pager"] {
+.gtfs-viewer [data-el="pager"] {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -268,9 +256,9 @@ a.fk-link:hover { text-decoration: underline; }
   font-size: 12.5px;
 }
 
-[data-el="pager"] .spacer { flex: 1; }
+.gtfs-viewer [data-el="pager"] .spacer { flex: 1; }
 
-[data-el="load-overlay"] {
+.gtfs-viewer [data-el="load-overlay"] {
   position: fixed;
   inset: 0;
   background: rgba(20, 20, 25, 0.45);
@@ -280,9 +268,9 @@ a.fk-link:hover { text-decoration: underline; }
   z-index: 50;
 }
 
-[data-el="load-overlay"].hidden { display: none; }
+.gtfs-viewer [data-el="load-overlay"].hidden { display: none; }
 
-[data-el="load-panel"] {
+.gtfs-viewer [data-el="load-panel"] {
   background: var(--panel);
   border-radius: 10px;
   padding: 24px;
@@ -290,9 +278,9 @@ a.fk-link:hover { text-decoration: underline; }
   max-width: 90vw;
 }
 
-[data-el="load-panel"] h2 { margin-top: 0; font-size: 16px; }
+.gtfs-viewer [data-el="load-panel"] h2 { margin-top: 0; font-size: 16px; }
 
-[data-el="dropzone"] {
+.gtfs-viewer [data-el="dropzone"] {
   border: 2px dashed var(--border);
   border-radius: 8px;
   padding: 24px;
@@ -302,11 +290,11 @@ a.fk-link:hover { text-decoration: underline; }
   margin-bottom: 12px;
 }
 
-[data-el="dropzone"].drag { border-color: var(--accent); color: var(--accent); }
+.gtfs-viewer [data-el="dropzone"].drag { border-color: var(--accent); color: var(--accent); }
 
-[data-el="load-panel"] .or { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0; }
+.gtfs-viewer [data-el="load-panel"] .or { text-align: center; color: var(--muted); font-size: 12px; margin: 8px 0; }
 
-[data-el="load-panel"] input[type="text"] {
+.gtfs-viewer [data-el="load-panel"] input[type="text"] {
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -315,55 +303,55 @@ a.fk-link:hover { text-decoration: underline; }
   margin-bottom: 10px;
 }
 
-[data-el="load-panel"] input[type="text"]:focus {
+.gtfs-viewer [data-el="load-panel"] input[type="text"]:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
   border-color: var(--accent);
 }
 
-.field-label {
+.gtfs-viewer .field-label {
   display: block;
   font-size: 12px;
   color: var(--muted);
   margin-bottom: 4px;
 }
 
-[data-el="pick-row"] {
+.gtfs-viewer [data-el="pick-row"] {
   display: flex;
   gap: 8px;
   margin-bottom: 4px;
 }
 
-[data-el="pick-row"] button {
+.gtfs-viewer [data-el="pick-row"] button {
   flex: 1;
 }
 
-[data-el="load-actions"] {
+.gtfs-viewer [data-el="load-actions"] {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-[data-el="load-status"] {
+.gtfs-viewer [data-el="load-status"] {
   color: var(--muted);
   font-size: 12.5px;
   margin-top: 8px;
 }
 
-[data-el="load-error"] {
+.gtfs-viewer [data-el="load-error"] {
   color: [data-el="b91c1c"];
   font-size: 12.5px;
   margin-top: 8px;
 }
 
-[data-el="empty-state"] {
+.gtfs-viewer [data-el="empty-state"] {
   padding: 40px;
   color: var(--muted);
   text-align: center;
 }
 
 /* The load report: a summary in the header that expands into a panel. */
-[data-el="metrics-btn"] {
+.gtfs-viewer [data-el="metrics-btn"] {
   color: var(--muted);
   font-size: 12.5px;
   padding: 4px 8px;
@@ -371,7 +359,7 @@ a.fk-link:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 
-[data-el="metrics-panel"] {
+.gtfs-viewer [data-el="metrics-panel"] {
   position: absolute;
   top: 46px;
   right: 16px;
@@ -387,62 +375,62 @@ a.fk-link:hover { text-decoration: underline; }
   box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
 }
 
-[data-el="metrics-panel"].hidden { display: none; }
+.gtfs-viewer [data-el="metrics-panel"].hidden { display: none; }
 
-[data-el="metrics-header"] {
+.gtfs-viewer [data-el="metrics-header"] {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
 }
 
-[data-el="metrics-header"] strong { flex: 1; }
+.gtfs-viewer [data-el="metrics-header"] strong { flex: 1; }
 
-[data-el="metrics-header"] button {
+.gtfs-viewer [data-el="metrics-header"] button {
   padding: 0 6px;
   line-height: 1.4;
 }
 
-[data-el="metrics-phases"] {
+.gtfs-viewer [data-el="metrics-phases"] {
   display: grid;
   grid-template-columns: auto auto;
   gap: 2px 14px;
   margin: 0 0 12px;
 }
 
-[data-el="metrics-phases"] dt { color: var(--muted); }
+.gtfs-viewer [data-el="metrics-phases"] dt { color: var(--muted); }
 
-[data-el="metrics-phases"] dd {
+.gtfs-viewer [data-el="metrics-phases"] dd {
   margin: 0;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-[data-el="metrics-body"] table {
+.gtfs-viewer [data-el="metrics-body"] table {
   border-collapse: collapse;
   white-space: nowrap;
 }
 
-[data-el="metrics-body"] th {
+.gtfs-viewer [data-el="metrics-body"] th {
   text-align: left;
   color: var(--muted);
   font-weight: 500;
   border-bottom: 1px solid var(--border);
 }
 
-[data-el="metrics-body"] th,
-[data-el="metrics-body"] td {
+.gtfs-viewer [data-el="metrics-body"] th,
+.gtfs-viewer [data-el="metrics-body"] td {
   padding: 3px 10px 3px 0;
 }
 
 /* Every column but the file name is a number, and numbers line up right. */
-[data-el="metrics-body"] td:not(:first-child) {
+.gtfs-viewer [data-el="metrics-body"] td:not(:first-child) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 /* Shown over the map while a layer is still streaming in. */
-[data-el="map-progress"] {
+.gtfs-viewer [data-el="map-progress"] {
   position: absolute;
   left: 12px;
   bottom: 12px;
@@ -460,7 +448,7 @@ a.fk-link:hover { text-decoration: underline; }
 
 /* Type-aware cell rendering. The value itself is always the feed's own text;
    these only affect how it sits on the page. */
-[data-el="table-scroll"] td.value-numeric {
+.gtfs-viewer [data-el="table-scroll"] td.value-numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -469,7 +457,7 @@ a.fk-link:hover { text-decoration: underline; }
    cannot be read as something the producer wrote - unlike a malformed value,
    which is visible and can be judged, this one does not exist in the file at
    all, so it has to announce that it is inferred. */
-[data-el="table-scroll"] td.value-implied {
+.gtfs-viewer [data-el="table-scroll"] td.value-implied {
   color: var(--muted);
   font-style: italic;
   cursor: help;
@@ -478,11 +466,11 @@ a.fk-link:hover { text-decoration: underline; }
 /* A hook for a visible marker on values that do not match their declared type.
    Deliberately unstyled: the tooltip carries the information, and a browser
    should not shout about a feed that is merely imperfect. */
-[data-el="table-scroll"] td.value-malformed {
+.gtfs-viewer [data-el="table-scroll"] td.value-malformed {
   cursor: help;
 }
 
-.value-swatch {
+.gtfs-viewer .value-swatch {
   display: inline-block;
   width: 0.75em;
   height: 0.75em;
@@ -492,6 +480,6 @@ a.fk-link:hover { text-decoration: underline; }
   vertical-align: baseline;
 }
 
-.value-link {
+.gtfs-viewer .value-link {
   color: var(--accent);
 }
