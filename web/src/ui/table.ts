@@ -45,6 +45,7 @@ export interface TableCallbacks {
   onHighlightStop: (stopId: string) => void;
   onHighlightShape: (shapeId: string) => void;
   onHighlightRoute: (routeId: string) => void;
+  onHighlightLocation: (locationId: string) => void;
 }
 
 export class TableView {
@@ -197,6 +198,13 @@ export class TableView {
       return;
     }
 
+    if (rendered.implied) {
+      // Muted, because it is not what the producer wrote. An inspection tool
+      // that let an implied value pass for a real one would be worse than one
+      // that showed nothing.
+      cell.classList.add("value-implied");
+      cell.title = rendered.implied;
+    }
     if (rendered.kind === "numeric") cell.classList.add("value-numeric");
     if (rendered.malformed) {
       // Shown exactly as the feed has it, with what was expected on hover. The
@@ -226,6 +234,12 @@ export class TableView {
     if (values.route_id && this.state.routeShapes.size) {
       const routeId = values.route_id;
       add("🚌", "Show this route on the map", () => this.callbacks.onHighlightRoute(routeId));
+    }
+    // Keyed on the table rather than the column: "id" is too generic a name to
+    // treat as a zone wherever it appears.
+    if (values.id && this.state.view.table === "locations") {
+      const locationId = values.id;
+      add("🗺️", "Show this zone on the map", () => this.callbacks.onHighlightLocation(locationId));
     }
     return wrap;
   }

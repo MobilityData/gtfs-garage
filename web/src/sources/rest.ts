@@ -34,6 +34,14 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+/** What each layer calls its ids. Routes are highlighted through their shape. */
+const ID_PARAMS: Record<GeoJsonKind, string> = {
+  stops: "stop_ids",
+  shapes: "shape_ids",
+  routes: "shape_ids",
+  locations: "location_ids",
+};
+
 export class RestSource implements GtfsSource {
   constructor(private readonly baseUrl = "") {}
 
@@ -71,7 +79,7 @@ export class RestSource implements GtfsSource {
   geojson(kind: GeoJsonKind, ids?: string[]): Promise<FeatureCollection> {
     const params = new URLSearchParams();
     if (ids?.length) {
-      params.set(kind === "stops" ? "stop_ids" : "shape_ids", ids.join(","));
+      params.set(ID_PARAMS[kind], ids.join(","));
     }
     const query = params.toString();
     return fetchJson<FeatureCollection>(

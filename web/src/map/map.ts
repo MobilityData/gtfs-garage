@@ -13,12 +13,13 @@ const MAP_VISIBLE_KEY = "gtfs-garage.map-visible";
 
 /** Drawn in this order: the coloured routes first, so something useful appears
  * within a second even on a feed whose shapes take half a minute. */
-const LAYER_ORDER: GeoJsonKind[] = ["routes", "stops", "shapes"];
+const LAYER_ORDER: GeoJsonKind[] = ["routes", "locations", "stops", "shapes"];
 
 const LAYER_NOUNS: Record<GeoJsonKind, string> = {
   routes: "routes",
   stops: "stops",
   shapes: "shapes",
+  locations: "zones",
 };
 
 /** MapLibre is loaded from a CDN script tag, so it arrives as a global. */

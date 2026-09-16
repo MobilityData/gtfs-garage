@@ -20,6 +20,30 @@ class RelatedLink(BaseModel):
     column: str
 
 
+class ImpliedValue(BaseModel):
+    """What GTFS says an empty value means for this field.
+
+    `code` is one of the field's own enum codes - "0 or empty - Regularly
+    scheduled pickup" - and is absent only where the implied meaning has no
+    code, as for fare_attributes.transfers, whose empty value means unlimited
+    transfers.
+    """
+
+    code: str | None = None
+    label: str
+
+
+class ConditionOutcome(BaseModel):
+    """Whether a feed-scope condition holds in the feed now loaded.
+
+    `evidence` is what the check counted to decide - "3 agencies" - so a reader
+    can see the answer's basis instead of being asked to trust it.
+    """
+
+    holds: bool
+    evidence: str
+
+
 class ColumnInfo(BaseModel):
     name: str
     # Set only when the referenced table and column exist in this feed.
@@ -40,6 +64,25 @@ class ColumnInfo(BaseModel):
     # For a conditionally required field, the condition in words, so the UI can
     # explain it. Null otherwise.
     condition: str | None = None
+    # What decides the condition: "row" where the row settles it, "feed" where
+    # the feed as a whole does, "row_context" where it varies row by row and the
+    # row does not carry what decides it. Null unless the field is conditional.
+    condition_scope: str | None = None
+    # The answer for this feed, for a "feed" scope. Null for any other scope,
+    # and null when the check could not run - a resolved answer is only ever
+    # present when one was actually computed.
+    condition_outcome: ConditionOutcome | None = None
+    # What an empty value implies, where GTFS defines it. Null otherwise.
+    when_empty: ImpliedValue | None = None
+    # What a value of this field's type must look like, from the schema's
+    # `fieldTypes`. The rule lives there so the UI does not keep a second copy;
+    # all four are null for a type GTFS states no format for.
+    pattern: str | None = None
+    minimum: float | None = None
+    maximum: float | None = None
+    # GTFS's own definition of the type, shown when a value does not match and
+    # the UI has no shorter wording of its own.
+    type_description: str | None = None
 
 
 class TableInfo(BaseModel):

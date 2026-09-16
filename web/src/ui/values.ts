@@ -31,6 +31,12 @@ export interface Rendered {
   swatch?: string;
   /** What was expected, when the value does not conform. Shown on hover. */
   malformed?: string;
+  /**
+   * Set when the feed left this field empty and GTFS says what that means. The
+   * text is the implied value, not something the producer wrote, so it must be
+   * drawn in a way that cannot be mistaken for one.
+   */
+  implied?: string;
 }
 
 const LINK_SCHEMES = new Set(["http:", "https:", "mailto:"]);
@@ -62,7 +68,9 @@ function asLink(value: string, expected: string, base?: string): Rendered {
   }
 }
 
-function asNumber(value: string, expected: string, min?: number, max?: number): Rendered {
+function asNumber(value: string, expected: string, column: ColumnInfo): Rendered {
+  const min = column.minimum ?? undefined;
+  const max = column.maximum ?? undefined;
   // Number("") is 0 and Number(" ") is 0, neither of which is a number in a
   // feed; require something that looks numeric before trusting it.
   if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(value.trim())) {
@@ -78,24 +86,24 @@ function asNumber(value: string, expected: string, min?: number, max?: number): 
   return { text: value, kind: "numeric" };
 }
 
-/** `20260822` as a readable date, or the raw value. */
-function asDate(value: string): Rendered {
-  const expected = "a date as YYYYMMDD";
-  const match = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
-  if (!match) return wrong(value, expected);
-
-  const [, year, month, day] = match;
-  const date = new Date(Number(year), Number(month) - 1, Number(day));
-  // Rejects 20260231: the Date would roll over into March.
-  if (date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day)) {
+/**
+ * `20260822` as a readable date, or the raw value.
+ *
+ * Read by position rather than by a second regex: the schema's `^\d{8}$` has
+ * already run. What is left is the check a pattern cannot make - 20260231 is
+ * eight digits and not a date, and `Date` would quietly roll it into March.
+ */
+function asDate(value: string, expected: string): Rendered {
+  const [year, month, day] = [value.slice(0, 4), value.slice(4, 6), value.slice(6, 8)].map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getMonth() !== month - 1 || date.getDate() !== day) {
     return wrong(value, expected);
   }
   return plain(date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }));
 }
 
-/** Six hex digits, and GTFS forbids the leading `#`. */
+/** A swatch. The six hex digits were guaranteed by the schema's pattern. */
 function asColor(value: string): Rendered {
-  if (!/^[0-9a-fA-F]{6}$/.test(value)) return wrong(value, "six hex digits, without a leading #");
   return { text: value, kind: "color", swatch: `#${value}` };
 }
 
@@ -109,35 +117,117 @@ function asColor(value: string): Rendered {
  */
 function asEnum(value: string, values: Record<string, string> | null | undefined): Rendered {
   const label = values?.[value];
-  return label ? plain(`${label} (${value})`) : plain(value);
+  // Some enumerations are named rather than numbered - a geometry is "Polygon",
+  // not "3" - so the code is already the label and "Polygon (Polygon)" would be
+  // noise.
+  if (!label || label === value) return plain(value);
+  return plain(`${label} (${value})`);
+}
+
+/**
+ * Short wording for what a type expects, where it reads better than GTFS's own
+ * sentence.
+ *
+ * Only the phrasing lives here; the rule is the schema's. A type with no entry
+ * falls back to the published description, which is how TIME, CURRENCY_CODE and
+ * TIMEZONE are explained without copy being invented for them.
+ */
+const EXPECTED: Record<string, string> = {
+  COLOR: "six hex digits, without a leading #",
+  DATE: "a date as YYYYMMDD",
+  EMAIL: "an email address",
+  URL: "a URL",
+  LATITUDE: "a latitude",
+  LONGITUDE: "a longitude",
+  INTEGER: "a number",
+  FLOAT: "a number",
+  CURRENCY_AMOUNT: "a number",
+};
+
+function expectation(column: ColumnInfo): string {
+  const phrase = EXPECTED[column.type ?? ""] ?? column.type_description ?? "a value GTFS recognises";
+  // The bounds are quoted from the schema rather than written out here, so the
+  // numbers do not end up with two homes.
+  const { minimum, maximum } = column;
+  return minimum !== null && maximum !== null ? `${phrase} between ${minimum} and ${maximum}` : phrase;
+}
+
+/**
+ * Patterns compiled once and kept, never once per cell: a sixty-million-row
+ * feed would otherwise rebuild the same expression for every value in a column.
+ *
+ * One that will not compile is remembered as null and its check skipped. Rule 1
+ * of this module is that nothing throws and no value is blanked, so a document
+ * newer than this build must not be able to empty the table.
+ */
+const compiled = new Map<string, RegExp | null>();
+
+function matcher(pattern: string): RegExp | null {
+  if (!compiled.has(pattern)) {
+    try {
+      compiled.set(pattern, new RegExp(pattern));
+    } catch {
+      compiled.set(pattern, null);
+    }
+  }
+  return compiled.get(pattern) ?? null;
 }
 
 function decide(value: string, column: ColumnInfo): Rendered {
+  // The schema's rule for the type, applied before anything is formatted. Every
+  // formatter below can then assume the shape it needs, and none of them keeps
+  // a second copy of the rule that establishes it.
+  if (column.pattern) {
+    const rule = matcher(column.pattern);
+    if (rule && !rule.test(value)) return wrong(value, expectation(column));
+  }
+
   switch (column.type) {
     case "ENUM":
       return asEnum(value, column.values);
     case "COLOR":
       return asColor(value);
     case "URL":
-      return asLink(value, "a URL");
+      return asLink(value, expectation(column));
     case "EMAIL":
-      return asLink(value, "an email address", "mailto:");
+      return asLink(value, expectation(column), "mailto:");
     case "DATE":
-      return asDate(value);
+      return asDate(value, expectation(column));
     case "LATITUDE":
-      return asNumber(value, "a latitude between -90 and 90", -90, 90);
     case "LONGITUDE":
-      return asNumber(value, "a longitude between -180 and 180", -180, 180);
     case "INTEGER":
     case "FLOAT":
     case "CURRENCY_AMOUNT":
-      return asNumber(value, "a number");
-    // TIME is deliberately untouched: GTFS times legitimately exceed 24:00:00
-    // for trips running past midnight, and a formatter that "corrected"
-    // 25:30:00 would be worse than none.
+      return asNumber(value, expectation(column), column);
+    // TIME has a pattern and so is checked above, but is deliberately not
+    // reformatted: GTFS times legitimately exceed 24:00:00 for trips running
+    // past midnight, and a formatter that "corrected" 25:30:00 would be worse
+    // than none.
     default:
       return plain(value);
   }
+}
+
+/**
+ * What GTFS implies when the field is empty.
+ *
+ * "0 or empty - Regularly scheduled pickup" means a blank cell carries a value;
+ * it is just not written down. Showing it is the difference between a reader
+ * knowing what a feed says and having to remember the specification - and the
+ * implied code is not always 0, so remembering is genuinely hard: a blank
+ * `pickup_type` means 0 and a blank `continuous_pickup` beside it means 1.
+ */
+function asImplied(column: ColumnInfo): Rendered {
+  const implied = column.when_empty;
+  if (!implied) return plain("");
+  const text = implied.code ? `${implied.label} (${implied.code})` : implied.label;
+  return {
+    text,
+    kind: "plain",
+    implied: implied.code
+      ? `Empty. GTFS implies ${implied.code} - ${implied.label}.`
+      : `Empty. GTFS implies: ${implied.label}`,
+  };
 }
 
 /**
@@ -158,13 +248,43 @@ export function renderValue(
   column: ColumnInfo | undefined,
   raw = false,
 ): Rendered {
-  if (value === null || value === undefined) return plain("");
+  // Raw mode shows the characters the file contains, and here it contains
+  // nothing - so an implied value is suppressed for the same reason a link is.
+  if (value === null || value === undefined) {
+    return !raw && column ? asImplied(column) : plain("");
+  }
   if (raw || !column) return plain(value);
   try {
     return decide(value, column);
   } catch {
     return plain(value);
   }
+}
+
+/**
+ * Whether a column must be filled in, said as definitely as the feed allows.
+ *
+ * Most of GTFS's conditions turn on the row that carries them, and a reader
+ * looking at the row can apply them. Some do not. "Required when the feed
+ * contains more than one agency" is a question about agency.txt, and the server
+ * has answered it for the feed on screen - so say the answer, and what it was
+ * counted from. The condition itself stays either way: an answer that hides the
+ * rule it came from cannot be argued with.
+ *
+ * Where no answer is possible the scope still distinguishes a condition a row
+ * settles from one it does not, so the two do not read alike.
+ */
+function describeRequirement(column: ColumnInfo): string {
+  if (column.required === "always") return "Required";
+  if (column.required !== "conditional") return "";
+
+  const outcome = column.condition_outcome;
+  let lead: string;
+  if (outcome) lead = `${outcome.holds ? "Required" : "Not required"} in this feed (${outcome.evidence})`;
+  else if (column.condition_scope === "row_context") lead = "Conditionally required, row by row";
+  else lead = "Conditionally required";
+
+  return column.condition ? `${lead} - ${column.condition}` : lead;
 }
 
 /**
@@ -179,9 +299,11 @@ export function describeColumn(column: ColumnInfo | undefined): string {
   if (!column) return "";
   const parts: string[] = [];
   if (column.type) parts.push(column.type);
-  if (column.required === "always") parts.push("Required");
-  else if (column.required === "conditional") {
-    parts.push(column.condition ? `Conditionally required - ${column.condition}` : "Conditionally required");
+  const requirement = describeRequirement(column);
+  if (requirement) parts.push(requirement);
+  if (column.when_empty) {
+    const { code, label } = column.when_empty;
+    parts.push(code ? `empty implies ${code} - ${label}` : `empty implies: ${label}`);
   }
   return parts.join(" · ");
 }

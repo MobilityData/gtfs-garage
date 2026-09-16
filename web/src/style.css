@@ -456,6 +456,16 @@ a.fk-link:hover { text-decoration: underline; }
   font-variant-numeric: tabular-nums;
 }
 
+/* A value the feed left empty that GTFS gives a meaning to. Drawn muted so it
+   cannot be read as something the producer wrote - unlike a malformed value,
+   which is visible and can be judged, this one does not exist in the file at
+   all, so it has to announce that it is inferred. */
+[data-el="table-scroll"] td.value-implied {
+  color: var(--muted);
+  font-style: italic;
+  cursor: help;
+}
+
 /* A hook for a visible marker on values that do not match their declared type.
    Deliberately unstyled: the tooltip carries the information, and a browser
    should not shout about a feed that is merely imperfect. */

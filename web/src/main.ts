@@ -73,6 +73,9 @@ async function start(): Promise<void> {
       const shapeId = state.routeShapes.get(routeId);
       if (shapeId) await map.highlight(await source.geojson("shapes", [shapeId]));
     },
+    onHighlightLocation: async (locationId) => {
+      await map.highlight(await source.geojson("locations", [locationId]));
+    },
   });
 
   // A display preference, so it redraws the page in place rather than going

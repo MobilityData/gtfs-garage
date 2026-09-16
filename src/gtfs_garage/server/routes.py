@@ -268,6 +268,16 @@ def shapes_geojson(request: Request, shape_ids: Optional[str] = None):
     )
 
 
+@router.get("/geojson/locations")
+def locations_geojson(request: Request, location_ids: Optional[str] = None):
+    registry = _registry(request)
+    if location_ids:
+        with registry.reading() as feed:
+            return geojson_builders.locations_geojson(feed.cursor(), _split_ids(location_ids))
+    # No step: zones are never thinned.
+    return _ndjson(registry, geojson_builders.count_locations, geojson_builders.iter_locations)
+
+
 @router.get("/geojson/routes")
 def routes_geojson(request: Request):
     registry = _registry(request)

@@ -103,17 +103,32 @@ def diagram(document: dict) -> tuple[str, list[str]]:
     return "\n".join(lines), unshown
 
 
+# A condition that reaches outside the row it governs is footnoted with what it
+# reaches for: the condition alone reads as though a row could settle it.
+CONDITION_SCOPE_MARKERS = {"feed": "[^feed]", "row_context": "[^rowcontext]"}
+
+CONDITION_SCOPE_NOTES = {
+    "feed": (
+        "[^feed]: Answered by the feed as a whole rather than by any single row, so "
+        "it can be settled once for a whole column. `gtfs-schema.json` carries the "
+        "check to run as a `conditionCheck` record - a `kind` naming the sort of "
+        "question, plus its arguments."
+    ),
+    "row_context": (
+        "[^rowcontext]: Settled row by row, but not by the row alone - it turns "
+        "on the row's position among its siblings, or on rows in another file."
+    ),
+}
+
+
 def requirement(field: dict) -> str:
     required = field.get("required")
     if required == "always":
         return "**Required**"
     if required == "conditional":
         note = field.get("condition") or "see GTFS"
-        # A condition quantifying over a whole file cannot be checked per row,
-        # so say which kind this is rather than implying it is enforced.
-        if field.get("conditionEnforced") is False:
-            return f"Conditional[^unenforced] — {note}"
-        return f"Conditional — {note}"
+        marker = CONDITION_SCOPE_MARKERS.get(field.get("conditionScope"), "")
+        return f"Conditional{marker} — {note}"
     if required:
         return required.replace("_", " ").capitalize()
     return "Optional"
@@ -183,17 +198,12 @@ def render(document: dict, schema: dict) -> str:
         description = (classes.get(name) or {}).get("description") or ""
         parts.append(file_section(name, table, description))
 
-    if any(
-        field.get("conditionEnforced") is False
-        for table in document["tables"].values()
-        for field in table["fields"].values()
-    ):
-        parts.append(
-            "[^unenforced]: The condition quantifies over the whole file rather than a "
-            "single row, so the schema states it in words and does not attempt to "
-            "enforce it."
-        )
-        parts.append("")
+    scopes = {
+        field.get("conditionScope") for table in document["tables"].values() for field in table["fields"].values()
+    }
+    for scope, note in CONDITION_SCOPE_NOTES.items():
+        if scope in scopes:
+            parts.extend([note, ""])
 
     return "\n".join(parts)
 

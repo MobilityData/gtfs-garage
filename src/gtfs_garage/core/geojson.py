@@ -10,6 +10,7 @@ after a complete collection has been built in memory on both ends.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 
 # Batches are a compromise: large enough that per-batch overhead disappears,
@@ -289,6 +290,82 @@ def iter_stops(con) -> Iterator[list[dict]]:
                     yield feature
 
     yield from _batched(features())
+
+
+# Only the geometry and what a click needs, matching the stop layer. Properties
+# are sent for every feature, so anything nothing reads is memory spent twice -
+# once in the payload and once in the browser's copy of the collection.
+_LOCATIONS_COLUMNS = """
+    SELECT id, stop_name, geometry
+    FROM locations
+    WHERE geometry IS NOT NULL
+"""
+
+
+def count_locations(con) -> int:
+    try:
+        return con.execute("SELECT COUNT(*) FROM locations WHERE geometry IS NOT NULL").fetchone()[0]
+    except Exception:
+        return 0
+
+
+def _location_feature(row) -> dict | None:
+    """One GTFS-Flex zone. The geometry is stored as the GeoJSON text the feed
+    contained, so it is parsed rather than rebuilt - a zone is whatever polygon
+    the producer drew, and re-deriving it could only lose something."""
+    location_id, stop_name, geometry = row
+    try:
+        shape = json.loads(geometry)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(shape, dict) or "coordinates" not in shape:
+        return None
+    return {
+        "type": "Feature",
+        "geometry": shape,
+        "properties": {"location_id": location_id or "", "stop_name": stop_name or ""},
+    }
+
+
+def iter_locations(con) -> Iterator[list[dict]]:
+    """Every GTFS-Flex zone, in batches.
+
+    Never thinned. A feed carries tens to hundreds of zones of a few hundred
+    vertices each, which is nothing beside the millions of points in shapes.txt
+    that the vertex budget exists for.
+    """
+    try:
+        cursor = con.execute(_LOCATIONS_COLUMNS)
+    except Exception:
+        return
+
+    def features() -> Iterator[dict]:
+        while True:
+            rows = cursor.fetchmany(BATCH_SIZE)
+            if not rows:
+                break
+            for row in rows:
+                feature = _location_feature(row)
+                if feature is not None:
+                    yield feature
+
+    yield from _batched(features())
+
+
+def locations_geojson(con, location_ids: list[str] | None = None) -> dict:
+    """Named zones, for a highlight; the whole collection when none are named."""
+    try:
+        where, params = "", []
+        if location_ids:
+            placeholders = ", ".join(["?"] * len(location_ids))
+            where = f"AND id IN ({placeholders})"
+            params = location_ids
+        rows = con.execute(f"{_LOCATIONS_COLUMNS} {where}", params).fetchall()
+    except Exception:
+        return {"type": "FeatureCollection", "features": []}
+
+    features = [f for f in (_location_feature(row) for row in rows) if f is not None]
+    return {"type": "FeatureCollection", "features": features}
 
 
 def iter_routes(con) -> Iterator[list[dict]]:

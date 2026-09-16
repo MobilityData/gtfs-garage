@@ -3,11 +3,13 @@ guard both its packaging and its internal consistency.
 """
 
 import json
+import re
 import tempfile
 from pathlib import Path
 
 import pytest
 
+from gtfs_garage.core.conditions import CHECK_KINDS
 from gtfs_garage.core.schema import (
     ENUM_LIKE_COLUMNS,
     FOREIGN_KEYS,
@@ -193,26 +195,100 @@ def test_a_conditionally_required_field_says_what_the_condition_is():
     assert not silent, f"conditionally required with no stated condition: {silent}"
 
 
-def test_conditions_that_are_not_per_row_are_marked_unenforceable():
-    """The honest half of the conditional story.
+def test_every_conditional_field_says_what_settles_its_condition():
+    """Stated positively, on every one of them.
 
-    Most conditions are a property of a single row and are LinkML `rules`, which
-    validate. A few - "required when the feed has more than one agency" - are a
-    property of the whole feed, which a per-row rule cannot express. Those are
-    recorded in words and flagged, rather than written as a rule that would look
-    authoritative and check nothing.
+    The scope was once the absence of a flag, which left "settled by the row"
+    and "nobody has said" looking identical. A consumer should not have to read
+    silence.
     """
-    unenforceable = {
-        f"{table}.{column}" for table, column, field in _fields() if field.get("conditionEnforced") is False
+    silent = [
+        f"{table}.{column}"
+        for table, column, field in _fields()
+        if field.get("required") == "conditional" and not field.get("conditionScope")
+    ]
+    assert not silent, f"conditionally required with no scope: {silent}"
+
+
+def test_the_conditions_that_reach_outside_their_row_are_exactly_these():
+    """The six a LinkML rule cannot express, and which way each escapes it.
+
+    `feed` is answerable once for a whole column; `row_context` varies row by
+    row on something the row does not carry. Everything else is a rule.
+    """
+    by_scope: dict[str, set[str]] = {}
+    for table, column, field in _fields():
+        scope = field.get("conditionScope")
+        if scope and scope != "row":
+            by_scope.setdefault(scope, set()).add(f"{table}.{column}")
+
+    assert by_scope == {
+        "feed": {"agency.agency_id", "fare_attributes.agency_id", "routes.agency_id"},
+        "row_context": {"stop_times.arrival_time", "stop_times.departure_time", "trips.shape_id"},
     }
-    assert unenforceable == {
-        "agency.agency_id",
-        "fare_attributes.agency_id",
-        "routes.agency_id",
-        "trips.shape_id",
-        "stop_times.arrival_time",
-        "stop_times.departure_time",
-    }
+
+
+def test_every_feed_scope_condition_carries_a_check_that_can_be_carried_out():
+    """A condition promising an answer must have something that produces one."""
+    for table, column, field in _fields():
+        if field.get("conditionScope") != "feed":
+            continue
+        check = field.get("conditionCheck")
+        assert check, f"{table}.{column} is feed-scope but carries no check"
+        assert check["kind"] in CHECK_KINDS, f"{table}.{column} wants {check['kind']!r}, unimplemented"
+
+
+def test_a_check_says_what_it_does_rather_than_naming_itself():
+    """The document is published for other projects, so a check has to be
+    readable without this codebase. `{"kind": "row_count", "file": "agency",
+    "minimum": 2}` can be carried out by anything; `more_than_one_agency` could
+    only be looked up in a dictionary the reader does not have.
+    """
+    for table, column, field in _fields():
+        check = field.get("conditionCheck")
+        if not check:
+            continue
+        assert isinstance(check, dict), f"{table}.{column} carries a bare check name"
+        assert check.get("kind") in CHECK_KINDS, f"{table}.{column}: {check}"
+        # Arguments beyond the kind, or it says no more than a name would.
+        assert set(check) > {"kind"}, f"{table}.{column} declares a kind with no arguments"
+
+
+def test_the_agency_checks_say_what_gtfs_says():
+    """Read back against the specification: "more than one agency" is two or
+    more rows in agency.txt, and nothing else."""
+    for table in ("agency", "routes", "fare_attributes"):
+        check = TABLES[table]["agency_id"]["conditionCheck"]
+        assert check == {"kind": "row_count", "file": "agency", "minimum": 2}
+
+
+def test_only_a_feed_scope_condition_carries_a_check():
+    """A check on any other scope would be an answer nothing asked for."""
+    stray = [
+        f"{table}.{column}"
+        for table, column, field in _fields()
+        if field.get("conditionCheck") and field.get("conditionScope") != "feed"
+    ]
+    assert not stray, f"a check on a scope that cannot use it: {stray}"
+
+
+def test_no_condition_states_the_same_sentence_twice():
+    """A rule naming one slot in both halves used to describe it once per half.
+
+    "Required if X. Forbidden otherwise." came out doubled end to end, in the
+    shipped document and in the column header. `stops.parent_station` genuinely
+    carries two rules' descriptions, so the guard is against a repeated
+    sentence rather than against more than one.
+    """
+    repeated = []
+    for table, column, field in _fields():
+        condition = field.get("condition")
+        if not condition:
+            continue
+        sentences = [part.strip(" .") for part in condition.split(". ") if part.strip(" .")]
+        if len(sentences) != len(set(sentences)):
+            repeated.append(f"{table}.{column}: {condition}")
+    assert not repeated, f"condition text repeats itself: {repeated}"
 
 
 def test_no_field_is_both_always_and_conditionally_required():
@@ -238,3 +314,239 @@ def test_enumerations_are_ordered_by_their_numeric_code():
     """The filter picklist shows them in this order, so 2 must not follow 12."""
     codes = list(TABLES["routes"]["route_type"]["values"])
     assert codes == sorted(codes, key=int)
+
+
+# --------------------------------------------------------------------------
+# locations.geojson is described twice: as the GeoJSON document it is, and as
+# the flat rows the viewer browses. Only the second is a table.
+# --------------------------------------------------------------------------
+
+
+def _linkml() -> dict:
+    yaml = pytest.importorskip("yaml")
+    source = Path(__file__).resolve().parents[1] / "schema" / "gtfs.yaml"
+    if not source.exists():
+        pytest.skip("schema/gtfs.yaml is not in this checkout")
+    return yaml.safe_load(source.read_text(encoding="utf-8"))
+
+
+def test_a_contained_class_is_not_a_table():
+    """`Feature` and `Geometry` are parts of a document, not files of rows.
+
+    If they leaked into the document the sidebar would list them, and clicking
+    one would issue a SQL query for a table that does not exist.
+    """
+    for name in ("LocationsGeoJson", "Feature", "Geometry", "FeatureProperties"):
+        assert name in _linkml()["classes"], f"{name} should be described"
+        assert name not in TABLES, f"{name} is contained and must not be a table"
+
+
+def test_containment_is_not_mistaken_for_a_foreign_key():
+    """`range:` means a foreign key for a CSV column and containment for an
+    inlined slot. Only the reading that produces a followable link belongs in
+    the document."""
+    for table, columns in FOREIGN_KEYS.items():
+        for column, (target, _) in columns.items():
+            assert target in TABLES, f"{table}.{column} links to {target}, which is not a table"
+
+
+def test_the_browsable_projection_matches_the_document_it_comes_from():
+    """The flat `locations` table and the nested `Feature` describe one file, so
+    they must not drift: every column is either the Feature's own id, one of its
+    properties, or a fact about its geometry."""
+    classes = _linkml()["classes"]
+    projectable = (
+        set(classes["Feature"]["attributes"]) | set(classes["FeatureProperties"]["attributes"]) | {"geometry_type"}
+    ) - {"type", "properties"}
+    assert set(TABLES["locations"]) <= projectable
+
+
+def test_stop_times_can_reach_a_zone():
+    assert FOREIGN_KEYS["stop_times"]["location_id"] == ("locations", "id")
+
+
+def test_only_the_geometries_gtfs_permits_are_enumerated():
+    assert set(TABLES["locations"]["geometry_type"]["values"]) == {"Polygon", "MultiPolygon"}
+
+
+# --------------------------------------------------------------------------
+# What GTFS says an empty value means. Declared per field, because the spec
+# assigns it per field rather than per enumeration.
+# --------------------------------------------------------------------------
+
+
+def _when_empty(table: str, column: str):
+    return TABLES[table][column].get("whenEmpty")
+
+
+def test_an_implied_value_resolves_to_a_code_and_its_label():
+    assert _when_empty("stop_times", "pickup_type") == {"code": "0", "label": "Regular"}
+
+
+def test_the_implied_code_is_not_always_zero():
+    """The case a default stored on the enumeration would get wrong.
+
+    `pickup_type` and `continuous_pickup` sit beside each other in the same
+    file; a blank in the first means 0 and a blank in the second means 1.
+    """
+    assert _when_empty("stop_times", "pickup_type")["code"] == "0"
+    assert _when_empty("stop_times", "continuous_pickup")["code"] == "1"
+    assert _when_empty("routes", "continuous_pickup")["code"] == "1"
+
+
+def test_a_meaning_with_no_code_is_still_carried():
+    """fare_attributes.transfers is Required as a column, and its empty value
+    means unlimited transfers - which is not one of its codes, so there is
+    nothing for LinkML's `ifabsent` to name."""
+    implied = _when_empty("fare_attributes", "transfers")
+    assert implied["label"].startswith("Unlimited transfers")
+    assert "code" not in implied
+
+
+def test_a_field_gtfs_says_nothing_about_has_no_implied_value():
+    for table, column in (("routes", "route_type"), ("trips", "direction_id")):
+        assert _when_empty(table, column) is None
+
+
+def test_only_a_column_required_field_both_requires_and_implies():
+    """If GTFS demands a value, an empty cell is an error rather than a default,
+    so the two facts should not meet on one field.
+
+    One field legitimately carries both. `fare_attributes.transfers` is required
+    as a *column* while its value may be empty and means unlimited transfers -
+    a distinction the document flattens to "always", so it shows up here as the
+    single exception rather than as a separate requiredness.
+    """
+    both = {
+        f"{table}.{column}"
+        for table, columns in TABLES.items()
+        for column, field in columns.items()
+        if field.get("required") == "always" and "whenEmpty" in field
+    }
+    assert both == {"fare_attributes.transfers"}
+
+
+def test_every_implied_code_is_one_of_the_fields_own_values():
+    for table, columns in TABLES.items():
+        for column, field in columns.items():
+            implied = field.get("whenEmpty")
+            if implied and "code" in implied:
+                assert implied["code"] in (
+                    field.get("values") or {}
+                ), f"{table}.{column} implies {implied['code']}, which is not one of its codes"
+
+
+def _linkml_types() -> dict:
+    """The `types` block of the LinkML source, or skip.
+
+    Constraints live only in schema/gtfs.yaml - the packaged document carries
+    the GTFS field type a column has, not the shape of its values - so these
+    read the source and skip against an installed wheel, as the sync test does.
+    """
+    source = Path(__file__).resolve().parent.parent / "schema" / "gtfs.yaml"
+    if not source.exists():
+        pytest.skip("schema/gtfs.yaml is not in this checkout (an installed wheel ships only the JSON)")
+    import yaml
+
+    return yaml.safe_load(source.read_text(encoding="utf-8"))["types"]
+
+
+def test_exactly_these_types_carry_a_constraint():
+    """Pinned as a set so adding or removing one is a deliberate act with a
+    visible diff rather than something that drifts in.
+    """
+    types = _linkml_types()
+    constrained = {
+        name for name, definition in types.items() if {"pattern", "minimum_value", "maximum_value"} & set(definition)
+    }
+    assert constrained == {
+        "COLOR",  # "a six-digit hexadecimal number"
+        "DATE",  # "the YYYYMMDD format"
+        "TIME",  # "the HH:MM:SS format (H:MM:SS is also accepted)"
+        "URL",  # "includes http:// or https://"
+        "CURRENCY_CODE",  # "An ISO 4217 alphabetical currency code"
+        "TIMEZONE",  # "never contain the space character"
+        "LATITUDE",  # "greater than or equal to -90.0 and less than or equal to 90.0"
+        "LONGITUDE",  # "greater than or equal to -180.0 and less than or equal to 180.0"
+        "EMAIL",
+    }
+
+
+def test_every_constraint_accepts_what_its_own_description_describes():
+    """A pattern that rejected the reference's own wording would be a bug in the
+    schema, not in a feed."""
+    import re
+
+    types = _linkml_types()
+    for type_name, value in [
+        ("COLOR", "FFFFFF"),
+        ("COLOR", "00aabb"),
+        ("DATE", "20260822"),
+        ("TIME", "25:30:00"),  # past midnight, which GTFS explicitly allows
+        ("TIME", "8:30:00"),  # H:MM:SS, which the description accepts
+        ("URL", "https://example.org"),
+        ("CURRENCY_CODE", "EUR"),
+        ("TIMEZONE", "America/Argentina/Buenos_Aires"),  # underscores are allowed
+    ]:
+        assert re.match(types[type_name]["pattern"], value), f"{type_name} rejects {value!r}"
+
+    for type_name, value in [("COLOR", "#FFFFFF"), ("DATE", "2026-08-22"), ("TIMEZONE", "America/New York")]:
+        assert not re.match(types[type_name]["pattern"], value), f"{type_name} accepts {value!r}"
+
+
+def test_the_published_field_types_match_the_linkml_they_came_from():
+    """The guard against the generator drifting from the source.
+
+    The viewer applies these patterns, so a constraint that reached the document
+    in a different shape from the one the schema states would be enforced
+    without ever having been written down.
+    """
+    types = _linkml_types()
+    published = load_schema()["fieldTypes"]
+
+    expected = {}
+    for name, definition in types.items():
+        entry = {"description": definition["description"]}
+        if definition.get("pattern"):
+            entry["pattern"] = definition["pattern"]
+        for source, key in (("minimum_value", "minimum"), ("maximum_value", "maximum")):
+            if definition.get(source) is not None:
+                entry[key] = definition[source]
+        expected[name] = entry
+
+    assert published == expected
+
+
+def test_every_type_a_field_uses_is_published():
+    """A field naming a type the document does not describe would be a column
+    the viewer could not check or explain."""
+    published = load_schema()["fieldTypes"]
+    used = {field["type"] for _, _, field in _fields() if field.get("type")}
+    # ENUM and ID are produced from a `range` pointing at an enum or a class
+    # rather than from the types block, so they have no entry to find.
+    assert not (used - set(published)) - {"ENUM"}, f"types used but not published: {used - set(published)}"
+
+
+# Characters a pattern may use: anchors, character classes, escapes, grouping,
+# alternation, and quantifiers that are not nested. Anything else has to be
+# added here deliberately.
+SAFE_PATTERN = re.compile(r"^[\^\$\w\\\-\[\]\{\},\.\|\(\)\+\*\?/:@ ]+$")
+NESTED_QUANTIFIER = re.compile(r"[+*}]\s*[+*]|\)[+*]\s*[+*]|\([^)]*[+*][^)]*\)[+*]")
+
+
+def test_every_published_pattern_is_safe_to_compile_and_run():
+    """These cross a language boundary: the browser compiles them with
+    `new RegExp` and runs them over every visible cell.
+
+    Two hazards. A construct that means different things to Python and
+    JavaScript would enforce two rules from one declaration, so the syntax is
+    held to a common subset. A nested quantifier can backtrack catastrophically,
+    so a feed could hang the viewer with one cell.
+    """
+    for name, published in load_schema()["fieldTypes"].items():
+        pattern = published.get("pattern")
+        if not pattern:
+            continue
+        assert SAFE_PATTERN.match(pattern), f"{name} uses syntax outside the agreed subset: {pattern}"
+        assert not NESTED_QUANTIFIER.search(pattern), f"{name} can backtrack catastrophically: {pattern}"
+        re.compile(pattern)

@@ -57,6 +57,22 @@ PRIMARY_ID_COLUMNS: dict[str, str] = {
 
 ENUM_LIKE_COLUMNS: set[str] = set(_schema["enumLikeColumns"])
 
+# GTFS field type -> what a value of it must look like: its description in the
+# reference's own words, and where GTFS states a format, a `pattern` or a
+# `minimum`/`maximum`. A field's "type" is the key. Empty for a document
+# generated before field types were published.
+FIELD_TYPES: dict[str, dict[str, Any]] = _schema.get("fieldTypes", {})
+
+
+def value_shape(gtfs_type: str | None) -> dict[str, Any]:
+    """What a value of a GTFS field type must look like, or an empty record.
+
+    Empty for a column the schema does not describe, and for a type GTFS states
+    no format for - `Email` excepted, whose pattern the schema owns and marks as
+    its own. A caller can read the result without checking first.
+    """
+    return FIELD_TYPES.get(gtfs_type or "", {})
+
 
 def field_info(table: str, column: str) -> dict[str, Any]:
     """What the schema says about one column, or an empty record.

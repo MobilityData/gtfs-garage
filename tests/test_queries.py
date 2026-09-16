@@ -38,6 +38,48 @@ class TestTableSummaries:
     def test_related_is_always_a_list_even_for_ordinary_columns(self, feed: GtfsFeed):
         assert column_for(feed, "routes", "route_short_name")["related"] == []
 
+    def test_answers_a_feed_scope_condition_against_the_feed(self, feed: GtfsFeed):
+        """The fixture has one agency, so the answer is "not required here" -
+        and the evidence is what shows the check ran rather than defaulted."""
+        agency_id = column_for(feed, "routes", "agency_id")
+        assert agency_id["condition_scope"] == "feed"
+        assert agency_id["condition_outcome"] == {"holds": False, "evidence": "agency.txt has 1 row"}
+        # The rule is kept beside the answer: a reader who doubts the answer
+        # needs to see what produced it.
+        assert "more than one agency" in agency_id["condition"]
+
+    def test_claims_no_answer_for_a_condition_that_varies_by_row(self, feed: GtfsFeed):
+        arrival = column_for(feed, "stop_times", "arrival_time")
+        assert arrival["condition_scope"] == "row_context"
+        assert arrival["condition_outcome"] is None
+
+    def test_leaves_a_per_row_condition_to_the_row(self, feed: GtfsFeed):
+        short_name = column_for(feed, "routes", "route_short_name")
+        assert short_name["condition_scope"] == "row"
+        assert short_name["condition_outcome"] is None
+
+    def test_says_nothing_about_a_field_that_is_not_conditional(self, feed: GtfsFeed):
+        route_type = column_for(feed, "routes", "route_type")
+        assert route_type["required"] == "always"
+        assert (route_type["condition_scope"], route_type["condition_outcome"]) == (None, None)
+
+    def test_carries_the_shape_a_value_of_this_type_must_have(self, feed: GtfsFeed):
+        """Flattened from the document's `fieldTypes` onto each column, so the
+        UI applies the schema's rule instead of keeping a copy of it."""
+        url = column_for(feed, "agency", "agency_url")
+        assert url["pattern"] == "^https?://"
+        assert url["type_description"].startswith("A fully qualified URL")
+
+    def test_carries_bounds_for_a_numeric_type(self, feed: GtfsFeed):
+        latitude = column_for(feed, "stops", "stop_lat")
+        assert (latitude["minimum"], latitude["maximum"]) == (-90, 90)
+        assert latitude["pattern"] is None
+
+    def test_says_nothing_about_a_type_gtfs_leaves_open(self, feed: GtfsFeed):
+        name = column_for(feed, "stops", "stop_name")
+        assert (name["pattern"], name["minimum"], name["maximum"]) == (None, None, None)
+        assert name["type_description"].startswith("A string of UTF-8 characters")
+
     def test_flags_enumerated_columns_for_the_picklist(self, feed: GtfsFeed):
         assert column_for(feed, "routes", "route_type")["enum_like"] is True
         assert column_for(feed, "routes", "route_long_name")["enum_like"] is False

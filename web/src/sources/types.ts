@@ -13,6 +13,29 @@ export interface RelatedLink {
   column: string;
 }
 
+/**
+ * What GTFS says an empty value means for a field.
+ *
+ * `code` is one of the field's own enum codes - "0 or empty - Regularly
+ * scheduled pickup" - and is null only where the implied meaning has no code,
+ * as for `fare_attributes.transfers`, whose empty value means unlimited
+ * transfers.
+ */
+export interface ImpliedValue {
+  code: string | null;
+  label: string;
+}
+
+/**
+ * Whether a feed-scope condition holds in the feed now loaded. `evidence` is
+ * what the check counted to decide - "3 agencies" - so the answer can be read
+ * back rather than trusted.
+ */
+export interface ConditionOutcome {
+  holds: boolean;
+  evidence: string;
+}
+
 export interface ColumnInfo {
   name: string;
   /** Set only when the referenced table and column exist in this feed. */
@@ -37,6 +60,29 @@ export interface ColumnInfo {
    * route_long_name is empty." Null otherwise.
    */
   condition: string | null;
+  /**
+   * What decides the condition: "row" where the row settles it, "feed" where
+   * the feed as a whole does, "row_context" where it varies row by row and the
+   * row does not carry what decides it. Null unless the field is conditional.
+   */
+  condition_scope: string | null;
+  /**
+   * The answer for this feed, for a "feed" scope. Null for any other scope, and
+   * null when the check could not run.
+   */
+  condition_outcome: ConditionOutcome | null;
+  /** What an empty value implies, where GTFS defines it. Null otherwise. */
+  when_empty: ImpliedValue | null;
+  /**
+   * What a value of this field's type must look like, from the schema's
+   * `fieldTypes`. The rule is declared there rather than here so there is one
+   * copy of it; all four are null for a type GTFS states no format for.
+   */
+  pattern: string | null;
+  minimum: number | null;
+  maximum: number | null;
+  /** GTFS's own definition of the type, for when a value does not match it. */
+  type_description: string | null;
 }
 
 export interface TableInfo {
@@ -140,7 +186,7 @@ export interface AppConfig {
   version: string;
 }
 
-export type GeoJsonKind = "stops" | "shapes" | "routes";
+export type GeoJsonKind = "stops" | "shapes" | "routes" | "locations";
 
 export interface FeatureCollection {
   type: "FeatureCollection";

@@ -5,7 +5,7 @@
 The GTFS schema used in this project is based on the [official GTFS Schedule Reference](https://gtfs.org/documentation/schedule/reference/).
 This document and the schema files included in this project are **not intended to be the source of truth for the GTFS specification**.
 They are maintained to support this project in formatting and validating GTFS datasets.
-This documentation describes the 31 files defined by GTFS and the 218 fields they contain, including each field's data type, whether it is required, and any references to fields in other files.
+This documentation describes the 32 files defined by GTFS and the 223 fields they contain, including each field's data type, whether it is required, and any references to fields in other files.
 The machine-readable version is [`gtfs-schema.json`](../src/gtfs_garage/data/gtfs-schema.json), which is included in the package. Both this documentation and the JSON schema are generated from [`schema/gtfs.yaml`](../schema/gtfs.yaml).
 
 ## How the files relate
@@ -76,6 +76,9 @@ erDiagram
     location_group_stops
     location_groups {
         ID location_group_id PK
+    }
+    locations {
+        ID id PK
     }
     networks {
         ID network_id PK
@@ -165,6 +168,7 @@ erDiagram
     stop_times }o--|| trips : "trip_id"
     stop_times }o--o| stops : "stop_id"
     stop_times }o--o| location_groups : "location_group_id"
+    stop_times }o--o| locations : "location_id"
     stop_times }o--o| booking_rules : "pickup_booking_rule_id"
     stop_times }o--o| booking_rules : "drop_off_booking_rule_id"
     stops }o--o| stops : "parent_station"
@@ -192,7 +196,7 @@ The agency.txt file.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `agency_id` | ID | Conditional[^unenforced] — Required when the feed contains more than one agency. | primary key |
+| `agency_id` | ID | Conditional[^feed] — Required when the feed contains more than one agency. | primary key |
 | `agency_name` | TEXT | **Required** |  |
 | `agency_url` | URL | **Required** |  |
 | `agency_timezone` | TIMEZONE | **Required** |  |
@@ -237,12 +241,12 @@ The booking_rules.txt file.
 |---|---|---|---|
 | `booking_rule_id` | ID | **Required** | primary key |
 | `booking_type` | ENUM | **Required** | `0` Realtime, `1` Sameday, `2` Priorday |
-| `prior_notice_duration_min` | INTEGER | Conditional — Required for booking_type=1 (same-day booking). Forbidden otherwise. Required for booking_type=1 (same-day booking). Forbidden otherwise. |  |
+| `prior_notice_duration_min` | INTEGER | Conditional — Required for booking_type=1 (same-day booking). Forbidden otherwise. |  |
 | `prior_notice_duration_max` | INTEGER | Optional |  |
 | `prior_notice_start_day` | INTEGER | Optional |  |
-| `prior_notice_start_time` | TIME | Conditional — Required if prior_notice_start_day is defined. Forbidden otherwise. Required if prior_notice_start_day is defined. Forbidden otherwise. |  |
-| `prior_notice_last_day` | INTEGER | Conditional — Required for booking_type=2 (prior-day booking). Forbidden otherwise. Required for booking_type=2 (prior-day booking). Forbidden otherwise. |  |
-| `prior_notice_last_time` | TIME | Conditional — Required if prior_notice_last_day is defined. Forbidden otherwise. Required if prior_notice_last_day is defined. Forbidden otherwise. |  |
+| `prior_notice_start_time` | TIME | Conditional — Required if prior_notice_start_day is defined. Forbidden otherwise. |  |
+| `prior_notice_last_day` | INTEGER | Conditional — Required for booking_type=2 (prior-day booking). Forbidden otherwise. |  |
+| `prior_notice_last_time` | TIME | Conditional — Required if prior_notice_last_day is defined. Forbidden otherwise. |  |
 | `prior_notice_service_id` | TEXT | Optional |  |
 | `message` | TEXT | Optional |  |
 | `pickup_message` | TEXT | Optional |  |
@@ -289,7 +293,7 @@ The fare_attributes.txt file.
 | `currency_type` | CURRENCY_CODE | **Required** |  |
 | `payment_method` | ENUM | **Required** | `0` On Board, `1` Before Boarding |
 | `transfers` | ENUM | **Required** | `0` No Transfer, `1` One Transfer, `2` Two Transfers |
-| `agency_id` | ID | Conditional[^unenforced] — Required when the feed contains more than one agency. | → `agency.agency_id` |
+| `agency_id` | ID | Conditional[^feed] — Required when the feed contains more than one agency. | → `agency.agency_id` |
 | `transfer_duration` | INTEGER | Optional |  |
 
 ### `fare_leg_join_rules.txt`
@@ -362,7 +366,7 @@ The fare_transfer_rules.txt file.
 | `from_leg_group_id` | ID | Optional | primary key; → `fare_leg_rules.leg_group_id` |
 | `to_leg_group_id` | ID | Optional | primary key; → `fare_leg_rules.leg_group_id` |
 | `duration_limit` | INTEGER | Optional | primary key |
-| `duration_limit_type` | ENUM | Conditional — Required if duration_limit is defined. Forbidden if duration_limit is empty. Required if duration_limit is defined. Forbidden if duration_limit is empty. | `0` Departure To Arrival, `1` Departure To Departure, `2` Arrival To Departure, `3` Arrival To Arrival |
+| `duration_limit_type` | ENUM | Conditional — Required if duration_limit is defined. Forbidden if duration_limit is empty. | `0` Departure To Arrival, `1` Departure To Departure, `2` Arrival To Departure, `3` Arrival To Arrival |
 | `fare_transfer_type` | ENUM | **Required** | `0` A Plus Ab, `1` A Plus Ab Plus B, `2` Ab |
 | `transfer_count` | INTEGER | Optional | primary key |
 | `fare_product_id` | ID | Optional | primary key; → `fare_products.fare_product_id` |
@@ -423,6 +427,18 @@ The location_groups.txt file.
 | `location_group_id` | ID | **Required** | primary key |
 | `location_group_name` | TEXT | Optional |  |
 
+### `locations.txt`
+
+The locations.geojson file, as rows. One per Feature, which is what stop_times.location_id references.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | ID | **Required** | primary key |
+| `stop_name` | TEXT | Optional |  |
+| `stop_desc` | TEXT | Optional |  |
+| `geometry_type` | ENUM | **Required** | `Polygon` Polygon, `MultiPolygon` MultiPolygon |
+| `geometry` | TEXT | **Required** |  |
+
 ### `networks.txt`
 
 The networks.txt file.
@@ -478,7 +494,7 @@ The routes.txt file.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `route_id` | ID | **Required** | primary key |
-| `agency_id` | ID | Conditional[^unenforced] — Required when the feed contains more than one agency. | → `agency.agency_id` |
+| `agency_id` | ID | Conditional[^feed] — Required when the feed contains more than one agency. | → `agency.agency_id` |
 | `route_short_name` | TEXT | Conditional — Required if route_long_name is empty. |  |
 | `route_long_name` | TEXT | Conditional — Required if route_short_name is empty. |  |
 | `route_desc` | TEXT | Optional |  |
@@ -520,11 +536,11 @@ The stop_times.txt file.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `trip_id` | ID | **Required** | primary key; → `trips.trip_id` |
-| `arrival_time` | TIME | Conditional[^unenforced] — Required for the first and last stop of a trip, and if timepoint=1. |  |
-| `departure_time` | TIME | Conditional[^unenforced] — Required for the first and last stop of a trip, and if timepoint=1. |  |
-| `stop_id` | ID | Conditional — Required if location_group_id and location_id are empty. | → `stops.stop_id` |
-| `location_group_id` | ID | Optional | → `location_groups.location_group_id` |
-| `location_id` | ID | Optional |  |
+| `arrival_time` | TIME | Conditional[^rowcontext] — Required for the first and last stop of a trip, and if timepoint=1. |  |
+| `departure_time` | TIME | Conditional[^rowcontext] — Required for the first and last stop of a trip, and if timepoint=1. |  |
+| `stop_id` | ID | Conditional — Required if location_group_id and location_id are empty. Forbidden if location_group_id or location_id are defined. | → `stops.stop_id` |
+| `location_group_id` | ID | Conditional — Forbidden if stop_id or location_group_id are defined. | → `location_groups.location_group_id` |
+| `location_id` | ID | Conditional — Forbidden if stop_id or location_group_id are defined. | → `locations.id` |
 | `stop_sequence` | INTEGER | **Required** | primary key |
 | `stop_headsign` | TEXT | Optional |  |
 | `start_pickup_drop_off_window` | TIME | Conditional — Required if location_group_id or location_id is defined. Forbidden if arrival_time or departure_time is defined. |  |
@@ -614,11 +630,13 @@ The trips.txt file.
 | `trip_short_name` | TEXT | Optional |  |
 | `direction_id` | ENUM | Optional | `0` Outbound, `1` Inbound |
 | `block_id` | ID | Optional |  |
-| `shape_id` | ID | Conditional[^unenforced] — Required if the trip has continuous pickup or drop-off behaviour defined. | → `shapes.shape_id` |
+| `shape_id` | ID | Conditional[^rowcontext] — Required if the trip has continuous pickup or drop-off behaviour defined. | → `shapes.shape_id` |
 | `wheelchair_accessible` | ENUM | Optional | `0` Unknown, `1` Accessible, `2` Inaccessible |
 | `bikes_allowed` | ENUM | Optional | `0` Unknown, `1` Allowed, `2` Not Allowed |
 | `cars_allowed` | ENUM | Optional | `0` No Information, `1` Allowed, `2` Not Allowed |
 | `safe_duration_factor` | FLOAT | Optional |  |
 | `safe_duration_offset` | FLOAT | Optional |  |
 
-[^unenforced]: The condition quantifies over the whole file rather than a single row, so the schema states it in words and does not attempt to enforce it.
+[^feed]: Answered by the feed as a whole rather than by any single row, so it can be settled once for a whole column. `gtfs-schema.json` carries the check to run as a `conditionCheck` record - a `kind` naming the sort of question, plus its arguments.
+
+[^rowcontext]: Settled row by row, but not by the row alone - it turns on the row's position among its siblings, or on rows in another file.

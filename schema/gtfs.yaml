@@ -3,8 +3,8 @@
 # One class per CSV file: 31 files, 218 fields. GTFS's facts are carried by
 # LinkML's own constructs wherever LinkML has one:
 #
-#   field type       -> `types` + `range`, with `exact_mappings` naming the
-#                       GTFS field type this corresponds to
+#   field type       -> `types` + `range`. The type's name is the identifier the
+#                       generated document and its consumers key on.
 #   enumerations     -> `enums` + `permissible_values`
 #   primary keys     -> `identifier`, or `unique_keys` where GTFS keys a file
 #                       on more than one column (12 of the 31 files)
@@ -12,19 +12,39 @@
 #   required fields  -> `required`
 #   conditional      -> `rules`, whose description states the condition
 #
-# `annotations` carry the two kinds of fact LinkML cannot express:
+# `annotations` carry the facts LinkML has no construct for:
 #
 #   gtfs_references  - 10 references whose target is not a single-slot key, so
 #                      `range` cannot reach them: the three fare_rules zone
 #                      columns point at stops.zone_id, which is not a key, and
 #                      the rest point at files with composite keys.
-#   gtfs_required    - 6 fields whose requiredness is not a property of a
-#                      single row, and so cannot be a rule. Each states its
-#                      condition in words and is marked
-#                      `gtfs_condition_enforced: false`.
+#   gtfs_condition   - 6 conditions that reach outside the single row a rule is
+#                      evaluated against. `scope` says what each depends on.
+#                      `row_context` varies row by row on something the row does
+#                      not carry. `feed` is answerable once for a whole column,
+#                      and states the `check` that answers it: a `kind` naming
+#                      the sort of question, plus its arguments. `row_count` on
+#                      `file: agency` with `minimum: 2` holds when agency.txt
+#                      has two or more rows.
+#   gtfs_required    - one field, fare_attributes.transfers, whose column GTFS
+#                      requires while allowing its value to be empty.
+#   gtfs_empty_means - the same field, whose empty value means "unlimited
+#                      transfers". `ifabsent` names a value, and there is no
+#                      code for it. Every other field whose empty value GTFS
+#                      defines uses `ifabsent`.
+#
+# locations.geojson is a GeoJSON file rather than a CSV, so it is described
+# twice, for the two questions a reader asks of it:
+#
+#   LocationsGeoJson / Feature / Geometry  - the file's structure, which is what
+#                       validates a locations.geojson against the specification.
+#   locations         - the flat projection of it that the viewer browses, and
+#                       the target of stop_times.location_id.
+#
+# A class is a file of rows unless it is contained: `tree_root`, or the range of
+# an `inlined` slot, means it is part of another structure and is not a table.
 #
 # Not described here:
-#   - locations.geojson, which is not a CSV.
 #   - extended route types (100-1700). GTFS defines them and real feeds use
 #     them, but they are not enumerated, so a reader must render an unknown
 #     code rather than treat it as an error.
@@ -32,104 +52,74 @@ id: https://github.com/MobilityData/gtfs-garage/schema/gtfs
 name: gtfs
 title: General Transit Feed Specification
 license: Apache-2.0
-default_range: Text
+default_range: TEXT
 prefixes:
   linkml: https://w3id.org/linkml/
-  gtfs: https://gtfs.org/documentation/schedule/reference/#field-types-
+  gtfs: https://github.com/MobilityData/gtfs-garage/schema/gtfs/
 default_prefix: gtfs
 imports:
   - linkml:types
 
 types:
-  Id:
+  ID:
     typeof: string
     description: 'An internal ID, not intended to be shown to riders, and is a sequence of any UTF-8 characters. Using only printable ASCII characters is recommended.'
-    exact_mappings:
-    - gtfs:ID
-  Text:
+  TEXT:
     typeof: string
     description: 'A string of UTF-8 characters, which is aimed to be displayed and which must therefore be human readable.'
-    exact_mappings:
-    - gtfs:TEXT
-  Color:
+  COLOR:
     typeof: string
     pattern: ^[0-9A-Fa-f]{6}$
     description: 'A color encoded as a six-digit hexadecimal number. The leading "#" is not included.'
-    exact_mappings:
-    - gtfs:COLOR
-  Date:
+  DATE:
     typeof: string
     pattern: ^\d{8}$
     description: 'Service day in the YYYYMMDD format. Since time within a service day may be above 24:00:00, a service day may contain information for the subsequent day(s).'
-    exact_mappings:
-    - gtfs:DATE
-  Time:
+  TIME:
     typeof: string
     pattern: ^\d{1,2}:\d{2}:\d{2}$
     description: 'Time in the HH:MM:SS format (H:MM:SS is also accepted). For times occurring after midnight on the service day, enter the time as a value greater than 24:00:00.'
-    exact_mappings:
-    - gtfs:TIME
-  Url:
+  URL:
     typeof: string
     pattern: ^https?://
     description: 'A fully qualified URL that includes http:// or https://, and any special characters in the URL must be correctly escaped.'
-    exact_mappings:
-    - gtfs:URL
-  Email:
+  EMAIL:
     typeof: string
+    pattern: '^[^\s@:]+@[^\s@:]+$'
     description: 'An email address.'
-    exact_mappings:
-    - gtfs:EMAIL
-  PhoneNumber:
+  PHONE_NUMBER:
     typeof: string
     description: 'A phone number.'
-    exact_mappings:
-    - gtfs:PHONE_NUMBER
-  LanguageCode:
+  LANGUAGE_CODE:
     typeof: string
     description: 'An IETF BCP 47 language code.'
-    exact_mappings:
-    - gtfs:LANGUAGE_CODE
-  CurrencyCode:
+  CURRENCY_CODE:
     typeof: string
     pattern: ^[A-Z]{3}$
     description: 'An ISO 4217 alphabetical currency code.'
-    exact_mappings:
-    - gtfs:CURRENCY_CODE
-  Timezone:
+  TIMEZONE:
     typeof: string
+    pattern: ^\S+$
     description: 'TZ timezone from the IANA time-zones. Timezone names never contain the space character but may contain an underscore.'
-    exact_mappings:
-    - gtfs:TIMEZONE
-  Latitude:
+  LATITUDE:
     typeof: float
     minimum_value: -90
     maximum_value: 90
     description: 'WGS84 latitude in decimal degrees. The value must be greater than or equal to -90.0 and less than or equal to 90.0.'
-    exact_mappings:
-    - gtfs:LATITUDE
-  Longitude:
+  LONGITUDE:
     typeof: float
     minimum_value: -180
     maximum_value: 180
     description: 'WGS84 longitude in decimal degrees. The value must be greater than or equal to -180.0 and less than or equal to 180.0.'
-    exact_mappings:
-    - gtfs:LONGITUDE
-  Integer:
+  INTEGER:
     typeof: integer
     description: 'An integer.'
-    exact_mappings:
-    - gtfs:INTEGER
-  Float:
+  FLOAT:
     typeof: float
     description: 'A floating point number.'
-    exact_mappings:
-    - gtfs:FLOAT
-  CurrencyAmount:
+  CURRENCY_AMOUNT:
     typeof: decimal
     description: 'A decimal value indicating a currency amount.'
-    exact_mappings:
-    - gtfs:CURRENCY_AMOUNT
 enums:
   AttributionRole:
     permissible_values:
@@ -235,6 +225,16 @@ enums:
         title: A Plus Ab Plus B
       '2':
         title: Ab
+  FeatureType:
+    permissible_values:
+      Feature: {}
+  GeoJsonType:
+    permissible_values:
+      FeatureCollection: {}
+  GeometryType:
+    permissible_values:
+      Polygon: {}
+      MultiPolygon: {}
   IsBidirectional:
     permissible_values:
       '0':
@@ -358,45 +358,50 @@ classes:
     description: The agency.txt file.
     attributes:
       agency_id:
-        range: Id
+        range: ID
         identifier: true
         annotations:
-          gtfs_required: conditional
-          gtfs_condition: Required when the feed contains more than one agency.
-          gtfs_condition_enforced: false
+          gtfs_condition:
+            value: Required when the feed contains more than one agency.
+            annotations:
+              scope: feed
+              check: row_count
+              file: agency
+              minimum: 2
       agency_name:
-        range: Text
+        range: TEXT
         required: true
       agency_url:
-        range: Url
+        range: URL
         required: true
       agency_timezone:
-        range: Timezone
+        range: TIMEZONE
         required: true
       agency_lang:
-        range: LanguageCode
+        range: LANGUAGE_CODE
       agency_phone:
-        range: PhoneNumber
+        range: PHONE_NUMBER
       agency_fare_url:
-        range: Url
+        range: URL
       agency_email:
-        range: Email
+        range: EMAIL
       cemv_support:
         range: CemvSupport
+        ifabsent: string(0)
   areas:
     description: The areas.txt file.
     attributes:
       area_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       area_name:
-        range: Text
+        range: TEXT
   attributions:
     description: The attributions.txt file.
     attributes:
       attribution_id:
-        range: Id
+        range: ID
         identifier: true
       agency_id:
         range: agency
@@ -405,56 +410,59 @@ classes:
       trip_id:
         range: trips
       organization_name:
-        range: Text
+        range: TEXT
         required: true
       is_producer:
         range: AttributionRole
+        ifabsent: string(0)
       is_operator:
         range: AttributionRole
+        ifabsent: string(0)
       is_authority:
         range: AttributionRole
+        ifabsent: string(0)
       attribution_url:
-        range: Url
+        range: URL
       attribution_email:
-        range: Email
+        range: EMAIL
       attribution_phone:
-        range: PhoneNumber
+        range: PHONE_NUMBER
   booking_rules:
     description: The booking_rules.txt file.
     attributes:
       booking_rule_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       booking_type:
         range: BookingType
         required: true
       prior_notice_duration_min:
-        range: Integer
+        range: INTEGER
       prior_notice_duration_max:
-        range: Integer
+        range: INTEGER
       prior_notice_start_day:
-        range: Integer
+        range: INTEGER
       prior_notice_start_time:
-        range: Time
+        range: TIME
       prior_notice_last_day:
-        range: Integer
+        range: INTEGER
       prior_notice_last_time:
-        range: Time
+        range: TIME
       prior_notice_service_id:
-        range: Text
+        range: TEXT
       message:
-        range: Text
+        range: TEXT
       pickup_message:
-        range: Text
+        range: TEXT
       drop_off_message:
-        range: Text
+        range: TEXT
       phone_number:
-        range: PhoneNumber
+        range: PHONE_NUMBER
       info_url:
-        range: Url
+        range: URL
       booking_url:
-        range: Url
+        range: URL
     rules:
     - title: duration_min_required_for_same_day_booking
       description: Required for booking_type=1 (same-day booking). Forbidden otherwise.
@@ -516,7 +524,7 @@ classes:
     description: The calendar.txt file.
     attributes:
       service_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       monday:
@@ -541,10 +549,10 @@ classes:
         range: ServiceAvailability
         required: true
       start_date:
-        range: Date
+        range: DATE
         required: true
       end_date:
-        range: Date
+        range: DATE
         required: true
   calendar_dates:
     description: The calendar_dates.txt file.
@@ -556,7 +564,7 @@ classes:
         - 'As trips.service_id: a service may be defined in either file, and this is linked to calendar.txt
           so a reader can follow it.'
       date:
-        range: Date
+        range: DATE
         required: true
       exception_type:
         range: ExceptionType
@@ -571,14 +579,14 @@ classes:
     description: The fare_attributes.txt file.
     attributes:
       fare_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       price:
-        range: CurrencyAmount
+        range: CURRENCY_AMOUNT
         required: true
       currency_type:
-        range: CurrencyCode
+        range: CURRENCY_CODE
         required: true
       payment_method:
         range: PaymentMethod
@@ -590,22 +598,27 @@ classes:
           So the column must be present while the value need not be.'
         annotations:
           gtfs_required: column_required_value_optional
+          gtfs_empty_means: Unlimited transfers are permitted.
       agency_id:
         range: agency
         annotations:
-          gtfs_required: conditional
-          gtfs_condition: Required when the feed contains more than one agency.
-          gtfs_condition_enforced: false
+          gtfs_condition:
+            value: Required when the feed contains more than one agency.
+            annotations:
+              scope: feed
+              check: row_count
+              file: agency
+              minimum: 2
       transfer_duration:
-        range: Integer
+        range: INTEGER
   fare_leg_join_rules:
     description: The fare_leg_join_rules.txt file.
     attributes:
       from_network_id:
-        range: Id
+        range: ID
         required: true
       to_network_id:
-        range: Id
+        range: ID
         required: true
       from_stop_id:
         range: stops
@@ -636,28 +649,28 @@ classes:
     description: The fare_leg_rules.txt file.
     attributes:
       leg_group_id:
-        range: Id
+        range: ID
       network_id:
-        range: Id
+        range: ID
       from_area_id:
         range: areas
       to_area_id:
         range: areas
       from_timeframe_group_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: timeframes.timeframe_group_id
       to_timeframe_group_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: timeframes.timeframe_group_id
       fare_product_id:
-        range: Id
+        range: ID
         required: true
         annotations:
           gtfs_references: fare_products.fare_product_id
       rule_priority:
-        range: Integer
+        range: INTEGER
     unique_keys:
       primary_key:
         description: The GTFS primary key for this file.
@@ -672,11 +685,11 @@ classes:
     description: The fare_media.txt file.
     attributes:
       fare_media_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       fare_media_name:
-        range: Text
+        range: TEXT
       fare_media_type:
         range: FareMediaType
         required: true
@@ -684,15 +697,15 @@ classes:
     description: The fare_products.txt file.
     attributes:
       fare_product_id:
-        range: Id
+        range: ID
         required: true
       fare_product_name:
-        range: Text
+        range: TEXT
       amount:
-        range: CurrencyAmount
+        range: CURRENCY_AMOUNT
         required: true
       currency:
-        range: CurrencyCode
+        range: CURRENCY_CODE
         required: true
       fare_media_id:
         range: fare_media
@@ -714,15 +727,15 @@ classes:
       route_id:
         range: routes
       origin_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: stops.zone_id
       destination_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: stops.zone_id
       contains_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: stops.zone_id
     unique_keys:
@@ -738,24 +751,24 @@ classes:
     description: The fare_transfer_rules.txt file.
     attributes:
       from_leg_group_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: fare_leg_rules.leg_group_id
       to_leg_group_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: fare_leg_rules.leg_group_id
       duration_limit:
-        range: Integer
+        range: INTEGER
       duration_limit_type:
         range: DurationLimitType
       fare_transfer_type:
         range: FareTransferType
         required: true
       transfer_count:
-        range: Integer
+        range: INTEGER
       fare_product_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: fare_products.fare_product_id
     unique_keys:
@@ -786,26 +799,26 @@ classes:
     description: The feed_info.txt file.
     attributes:
       feed_publisher_name:
-        range: Text
+        range: TEXT
         required: true
       feed_publisher_url:
-        range: Url
+        range: URL
         required: true
       feed_lang:
-        range: LanguageCode
+        range: LANGUAGE_CODE
         required: true
       default_lang:
-        range: LanguageCode
+        range: LANGUAGE_CODE
       feed_start_date:
-        range: Date
+        range: DATE
       feed_end_date:
-        range: Date
+        range: DATE
       feed_version:
-        range: Text
+        range: TEXT
       feed_contact_email:
-        range: Email
+        range: EMAIL
       feed_contact_url:
-        range: Url
+        range: URL
   frequencies:
     description: The frequencies.txt file.
     attributes:
@@ -813,16 +826,17 @@ classes:
         range: trips
         required: true
       start_time:
-        range: Time
+        range: TIME
         required: true
       end_time:
-        range: Time
+        range: TIME
         required: true
       headway_secs:
-        range: Integer
+        range: INTEGER
         required: true
       exact_times:
         range: ExactTimes
+        ifabsent: string(0)
     unique_keys:
       primary_key:
         description: The GTFS primary key for this file.
@@ -833,46 +847,124 @@ classes:
     description: The levels.txt file.
     attributes:
       level_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       level_index:
-        range: Float
+        range: FLOAT
         required: true
       level_name:
-        range: Text
+        range: TEXT
   location_group_stops:
     description: The location_group_stops.txt file.
     attributes:
       location_group_id:
-        range: Id
+        range: ID
         required: true
       stop_id:
-        range: Id
+        range: ID
         required: true
   location_groups:
     description: The location_groups.txt file.
     attributes:
       location_group_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       location_group_name:
-        range: Text
+        range: TEXT
+  locations:
+    description: >-
+      The locations.geojson file, as rows. One per Feature, which is what
+      stop_times.location_id references.
+    attributes:
+      id:
+        range: ID
+        required: true
+        identifier: true
+      stop_name:
+        range: TEXT
+      stop_desc:
+        range: TEXT
+      geometry_type:
+        range: GeometryType
+        required: true
+      geometry:
+        range: TEXT
+        required: true
+        comments:
+        - The Feature's geometry as GeoJSON.
+  LocationsGeoJson:
+    tree_root: true
+    description: The locations.geojson file, as the GeoJSON document it is.
+    attributes:
+      type:
+        range: GeoJsonType
+        required: true
+      features:
+        range: Feature
+        required: true
+        multivalued: true
+        inlined_as_list: true
+  Feature:
+    description: One GeoJSON Feature, describing a zone for pickup or drop-off.
+    attributes:
+      id:
+        range: ID
+        required: true
+        identifier: true
+        comments:
+        - Must be unique across all stops.stop_id, locations.geojson id, and
+          location_groups.location_group_id values.
+      type:
+        range: FeatureType
+        required: true
+      geometry:
+        range: Geometry
+        required: true
+        inlined: true
+      properties:
+        range: FeatureProperties
+        inlined: true
+  Geometry:
+    description: A Feature's geometry. GTFS permits Polygon and MultiPolygon.
+    attributes:
+      type:
+        range: GeometryType
+        required: true
+      coordinates:
+        range: FLOAT
+        required: true
+        array:
+          exact_number_dimensions: 3
+        comments:
+        - >-
+          A Polygon nests three deep and a MultiPolygon four, and the nesting is
+          ragged. No LinkML range describes that: `multivalued` gives a flat
+          list and `linkml:Any` excludes arrays. `array` accepts the coordinates
+          without constraining their depth, which keeps the slot required so a
+          geometry missing its coordinates is still caught.
+  FeatureProperties:
+    description: A Feature's properties.
+    attributes:
+      stop_name:
+        range: TEXT
+      stop_desc:
+        range: TEXT
   networks:
     description: The networks.txt file.
     attributes:
       network_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       network_name:
-        range: Text
+        range: TEXT
   pathways:
     description: The pathways.txt file.
     attributes:
       pathway_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       from_stop_id:
@@ -888,34 +980,34 @@ classes:
         range: IsBidirectional
         required: true
       length:
-        range: Float
+        range: FLOAT
       traversal_time:
-        range: Integer
+        range: INTEGER
       stair_count:
-        range: Integer
+        range: INTEGER
       max_slope:
-        range: Float
+        range: FLOAT
       min_width:
-        range: Float
+        range: FLOAT
       signposted_as:
-        range: Text
+        range: TEXT
       reversed_signposted_as:
-        range: Text
+        range: TEXT
   rider_categories:
     description: The rider_categories.txt file.
     attributes:
       rider_category_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       rider_category_name:
-        range: Text
+        range: TEXT
         required: true
       is_default_fare_category:
         range: IsDefaultFareCategory
         required: true
       eligibility_url:
-        range: Url
+        range: URL
   route_networks:
     description: The route_networks.txt file.
     attributes:
@@ -930,40 +1022,47 @@ classes:
     description: The routes.txt file.
     attributes:
       route_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       agency_id:
         range: agency
         annotations:
-          gtfs_required: conditional
-          gtfs_condition: Required when the feed contains more than one agency.
-          gtfs_condition_enforced: false
+          gtfs_condition:
+            value: Required when the feed contains more than one agency.
+            annotations:
+              scope: feed
+              check: row_count
+              file: agency
+              minimum: 2
       route_short_name:
-        range: Text
+        range: TEXT
       route_long_name:
-        range: Text
+        range: TEXT
       route_desc:
-        range: Text
+        range: TEXT
       route_type:
         range: RouteType
         required: true
       route_url:
-        range: Url
+        range: URL
       route_color:
-        range: Color
+        range: COLOR
       route_text_color:
-        range: Color
+        range: COLOR
       route_sort_order:
-        range: Integer
+        range: INTEGER
       continuous_pickup:
         range: ContinuousPickupDropOff
+        ifabsent: string(1)
       continuous_drop_off:
         range: ContinuousPickupDropOff
+        ifabsent: string(1)
       network_id:
-        range: Id
+        range: ID
       cemv_support:
         range: CemvSupport
+        ifabsent: string(0)
     rules:
     - title: short_name_required_without_long_name
       description: Required if route_long_name is empty.
@@ -989,19 +1088,19 @@ classes:
     description: The shapes.txt file.
     attributes:
       shape_id:
-        range: Id
+        range: ID
         required: true
       shape_pt_lat:
-        range: Latitude
+        range: LATITUDE
         required: true
       shape_pt_lon:
-        range: Longitude
+        range: LONGITUDE
         required: true
       shape_pt_sequence:
-        range: Integer
+        range: INTEGER
         required: true
       shape_dist_traveled:
-        range: Float
+        range: FLOAT
     unique_keys:
       primary_key:
         description: The GTFS primary key for this file.
@@ -1030,44 +1129,51 @@ classes:
         range: trips
         required: true
       arrival_time:
-        range: Time
+        range: TIME
         annotations:
-          gtfs_required: conditional
-          gtfs_condition: Required for the first and last stop of a trip, and if timepoint=1.
-          gtfs_condition_enforced: false
+          gtfs_condition:
+            value: Required for the first and last stop of a trip, and if timepoint=1.
+            annotations:
+              scope: row_context
       departure_time:
-        range: Time
+        range: TIME
         annotations:
-          gtfs_required: conditional
-          gtfs_condition: Required for the first and last stop of a trip, and if timepoint=1.
-          gtfs_condition_enforced: false
+          gtfs_condition:
+            value: Required for the first and last stop of a trip, and if timepoint=1.
+            annotations:
+              scope: row_context
       stop_id:
         range: stops
       location_group_id:
         range: location_groups
       location_id:
-        range: Id
+        range: locations
       stop_sequence:
-        range: Integer
+        range: INTEGER
         required: true
       stop_headsign:
-        range: Text
+        range: TEXT
       start_pickup_drop_off_window:
-        range: Time
+        range: TIME
       end_pickup_drop_off_window:
-        range: Time
+        range: TIME
       pickup_type:
         range: PickupDropOffType
+        ifabsent: string(0)
       drop_off_type:
         range: PickupDropOffType
+        ifabsent: string(0)
       continuous_pickup:
         range: ContinuousPickupDropOff
+        ifabsent: string(1)
       continuous_drop_off:
         range: ContinuousPickupDropOff
+        ifabsent: string(1)
       shape_dist_traveled:
-        range: Float
+        range: FLOAT
       timepoint:
         range: Timepoint
+        ifabsent: string(1)
       pickup_booking_rule_id:
         range: booking_rules
       drop_off_booking_rule_id:
@@ -1091,6 +1197,28 @@ classes:
         slot_conditions:
           stop_id:
             value_presence: PRESENT
+    - title: stop_id_forbidden_with_a_flex_location
+      description: Forbidden if location_group_id or location_id are defined.
+      preconditions:
+        slot_conditions:
+          location_id:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          stop_id:
+            value_presence: ABSENT
+    - title: location_id_forbidden_with_a_stop_or_location_group
+      description: Forbidden if stop_id or location_group_id are defined.
+      preconditions:
+        slot_conditions:
+          stop_id:
+            value_presence: PRESENT
+      postconditions:
+        slot_conditions:
+          location_id:
+            value_presence: ABSENT
+          location_group_id:
+            value_presence: ABSENT
     - title: times_required_at_a_timepoint
       description: Required if timepoint=1 (an exact time).
       preconditions:
@@ -1131,37 +1259,39 @@ classes:
     description: The stops.txt file.
     attributes:
       stop_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       stop_code:
-        range: Text
+        range: TEXT
       stop_name:
-        range: Text
+        range: TEXT
       tts_stop_name:
-        range: Text
+        range: TEXT
       stop_desc:
-        range: Text
+        range: TEXT
       stop_lat:
-        range: Latitude
+        range: LATITUDE
       stop_lon:
-        range: Longitude
+        range: LONGITUDE
       zone_id:
-        range: Id
+        range: ID
       stop_url:
-        range: Url
+        range: URL
       location_type:
         range: LocationType
+        ifabsent: string(0)
       parent_station:
         range: stops
       stop_timezone:
-        range: Timezone
+        range: TIMEZONE
       wheelchair_boarding:
         range: WheelchairAccessibility
+        ifabsent: string(0)
       level_id:
         range: levels
       platform_code:
-        range: Text
+        range: TEXT
       stop_access:
         range: StopAccess
     rules:
@@ -1210,14 +1340,14 @@ classes:
     description: The timeframes.txt file.
     attributes:
       timeframe_group_id:
-        range: Id
+        range: ID
         required: true
       start_time:
-        range: Time
+        range: TIME
       end_time:
-        range: Time
+        range: TIME
       service_id:
-        range: Text
+        range: TEXT
         required: true
     unique_keys:
       primary_key:
@@ -1259,7 +1389,7 @@ classes:
         range: TransferType
         required: true
       min_transfer_time:
-        range: Integer
+        range: INTEGER
       from_trip_id:
         range: trips
       to_trip_id:
@@ -1323,23 +1453,23 @@ classes:
     description: The translations.txt file.
     attributes:
       table_name:
-        range: Text
+        range: TEXT
         required: true
       field_name:
-        range: Text
+        range: TEXT
         required: true
       language:
-        range: LanguageCode
+        range: LANGUAGE_CODE
         required: true
       translation:
-        range: Text
+        range: TEXT
         required: true
       record_id:
-        range: Text
+        range: TEXT
       record_sub_id:
-        range: Text
+        range: TEXT
       field_value:
-        range: Text
+        range: TEXT
     unique_keys:
       primary_key:
         description: The GTFS primary key for this file.
@@ -1387,7 +1517,7 @@ classes:
     description: The trips.txt file.
     attributes:
       trip_id:
-        range: Id
+        range: ID
         required: true
         identifier: true
       route_id:
@@ -1400,27 +1530,31 @@ classes:
         - GTFS lets a service be defined in calendar.txt or in calendar_dates.txt, so this references
           either. It is linked to calendar.txt so a reader can follow it.
       trip_headsign:
-        range: Text
+        range: TEXT
       trip_short_name:
-        range: Text
+        range: TEXT
       direction_id:
         range: DirectionId
       block_id:
-        range: Id
+        range: ID
       shape_id:
-        range: Id
+        range: ID
         annotations:
           gtfs_references: shapes.shape_id
-          gtfs_required: conditional
-          gtfs_condition: Required if the trip has continuous pickup or drop-off behaviour defined.
-          gtfs_condition_enforced: false
+          gtfs_condition:
+            value: Required if the trip has continuous pickup or drop-off behaviour defined.
+            annotations:
+              scope: row_context
       wheelchair_accessible:
         range: WheelchairAccessibility
+        ifabsent: string(0)
       bikes_allowed:
         range: BikesAllowed
+        ifabsent: string(0)
       cars_allowed:
         range: CarsAllowed
+        ifabsent: string(0)
       safe_duration_factor:
-        range: Float
+        range: FLOAT
       safe_duration_offset:
-        range: Float
+        range: FLOAT

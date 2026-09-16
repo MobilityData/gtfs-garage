@@ -1,5 +1,66 @@
 {
-  "$comment": "GTFS relational and field semantics, shared by the Python backend (core/schema.py) and any JavaScript/TypeScript consumer. Keyed by table, then by field, so per-field facts have somewhere to live. GENERATED from schema/gtfs.yaml by scripts/build_schema_json.py - edit that, not this. Keys are camelCase so this reads naturally from TypeScript.",
+  "$comment": "GTFS relational and field semantics, shared by the Python backend (core/schema.py) and any JavaScript/TypeScript consumer. Keyed by table, then by field, so per-field facts have somewhere to live. A field's \"type\" names an entry in \"fieldTypes\", which carries what a value of that type must look like. GENERATED from schema/gtfs.yaml by scripts/build_schema_json.py - edit that, not this. Keys are camelCase so this reads naturally from TypeScript.",
+  "fieldTypes": {
+    "COLOR": {
+      "description": "A color encoded as a six-digit hexadecimal number. The leading \"#\" is not included.",
+      "pattern": "^[0-9A-Fa-f]{6}$"
+    },
+    "CURRENCY_AMOUNT": {
+      "description": "A decimal value indicating a currency amount."
+    },
+    "CURRENCY_CODE": {
+      "description": "An ISO 4217 alphabetical currency code.",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "DATE": {
+      "description": "Service day in the YYYYMMDD format. Since time within a service day may be above 24:00:00, a service day may contain information for the subsequent day(s).",
+      "pattern": "^\\d{8}$"
+    },
+    "EMAIL": {
+      "description": "An email address.",
+      "pattern": "^[^\\s@:]+@[^\\s@:]+$"
+    },
+    "FLOAT": {
+      "description": "A floating point number."
+    },
+    "ID": {
+      "description": "An internal ID, not intended to be shown to riders, and is a sequence of any UTF-8 characters. Using only printable ASCII characters is recommended."
+    },
+    "INTEGER": {
+      "description": "An integer."
+    },
+    "LANGUAGE_CODE": {
+      "description": "An IETF BCP 47 language code."
+    },
+    "LATITUDE": {
+      "description": "WGS84 latitude in decimal degrees. The value must be greater than or equal to -90.0 and less than or equal to 90.0.",
+      "minimum": -90,
+      "maximum": 90
+    },
+    "LONGITUDE": {
+      "description": "WGS84 longitude in decimal degrees. The value must be greater than or equal to -180.0 and less than or equal to 180.0.",
+      "minimum": -180,
+      "maximum": 180
+    },
+    "PHONE_NUMBER": {
+      "description": "A phone number."
+    },
+    "TEXT": {
+      "description": "A string of UTF-8 characters, which is aimed to be displayed and which must therefore be human readable."
+    },
+    "TIME": {
+      "description": "Time in the HH:MM:SS format (H:MM:SS is also accepted). For times occurring after midnight on the service day, enter the time as a value greater than 24:00:00.",
+      "pattern": "^\\d{1,2}:\\d{2}:\\d{2}$"
+    },
+    "TIMEZONE": {
+      "description": "TZ timezone from the IANA time-zones. Timezone names never contain the space character but may contain an underscore.",
+      "pattern": "^\\S+$"
+    },
+    "URL": {
+      "description": "A fully qualified URL that includes http:// or https://, and any special characters in the URL must be correctly escaped.",
+      "pattern": "^https?://"
+    }
+  },
   "tables": {
     "agency": {
       "fields": {
@@ -7,7 +68,12 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required when the feed contains more than one agency.",
-          "conditionEnforced": false,
+          "conditionScope": "feed",
+          "conditionCheck": {
+            "kind": "row_count",
+            "file": "agency",
+            "minimum": 2
+          },
           "primaryKey": true
         },
         "agency_name": {
@@ -40,6 +106,10 @@
             "0": "No Information",
             "1": "Supported",
             "2": "Not Supported"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "No Information"
           }
         }
       }
@@ -92,6 +162,10 @@
           "values": {
             "0": "Not Assigned",
             "1": "Assigned"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Not Assigned"
           }
         },
         "is_operator": {
@@ -99,6 +173,10 @@
           "values": {
             "0": "Not Assigned",
             "1": "Assigned"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Not Assigned"
           }
         },
         "is_authority": {
@@ -106,6 +184,10 @@
           "values": {
             "0": "Not Assigned",
             "1": "Assigned"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Not Assigned"
           }
         },
         "attribution_url": {
@@ -138,7 +220,8 @@
         "prior_notice_duration_min": {
           "type": "INTEGER",
           "required": "conditional",
-          "condition": "Required for booking_type=1 (same-day booking). Forbidden otherwise. Required for booking_type=1 (same-day booking). Forbidden otherwise."
+          "condition": "Required for booking_type=1 (same-day booking). Forbidden otherwise.",
+          "conditionScope": "row"
         },
         "prior_notice_duration_max": {
           "type": "INTEGER"
@@ -149,17 +232,20 @@
         "prior_notice_start_time": {
           "type": "TIME",
           "required": "conditional",
-          "condition": "Required if prior_notice_start_day is defined. Forbidden otherwise. Required if prior_notice_start_day is defined. Forbidden otherwise."
+          "condition": "Required if prior_notice_start_day is defined. Forbidden otherwise.",
+          "conditionScope": "row"
         },
         "prior_notice_last_day": {
           "type": "INTEGER",
           "required": "conditional",
-          "condition": "Required for booking_type=2 (prior-day booking). Forbidden otherwise. Required for booking_type=2 (prior-day booking). Forbidden otherwise."
+          "condition": "Required for booking_type=2 (prior-day booking). Forbidden otherwise.",
+          "conditionScope": "row"
         },
         "prior_notice_last_time": {
           "type": "TIME",
           "required": "conditional",
-          "condition": "Required if prior_notice_last_day is defined. Forbidden otherwise. Required if prior_notice_last_day is defined. Forbidden otherwise."
+          "condition": "Required if prior_notice_last_day is defined. Forbidden otherwise.",
+          "conditionScope": "row"
         },
         "prior_notice_service_id": {
           "type": "TEXT"
@@ -313,13 +399,21 @@
             "0": "No Transfer",
             "1": "One Transfer",
             "2": "Two Transfers"
+          },
+          "whenEmpty": {
+            "label": "Unlimited transfers are permitted."
           }
         },
         "agency_id": {
           "type": "ID",
           "required": "conditional",
           "condition": "Required when the feed contains more than one agency.",
-          "conditionEnforced": false,
+          "conditionScope": "feed",
+          "conditionCheck": {
+            "kind": "row_count",
+            "file": "agency",
+            "minimum": 2
+          },
           "references": {
             "table": "agency",
             "field": "agency_id"
@@ -344,6 +438,7 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required if to_stop_id is defined.",
+          "conditionScope": "row",
           "references": {
             "table": "stops",
             "field": "stop_id"
@@ -353,6 +448,7 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required if from_stop_id is defined.",
+          "conditionScope": "row",
           "references": {
             "table": "stops",
             "field": "stop_id"
@@ -544,7 +640,8 @@
         "duration_limit_type": {
           "type": "ENUM",
           "required": "conditional",
-          "condition": "Required if duration_limit is defined. Forbidden if duration_limit is empty. Required if duration_limit is defined. Forbidden if duration_limit is empty.",
+          "condition": "Required if duration_limit is defined. Forbidden if duration_limit is empty.",
+          "conditionScope": "row",
           "values": {
             "0": "Departure To Arrival",
             "1": "Departure To Departure",
@@ -638,6 +735,10 @@
           "values": {
             "0": "Frequency Based",
             "1": "Schedule Based"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Frequency Based"
           }
         }
       }
@@ -679,6 +780,33 @@
         },
         "location_group_name": {
           "type": "TEXT"
+        }
+      }
+    },
+    "locations": {
+      "fields": {
+        "id": {
+          "type": "ID",
+          "required": "always",
+          "primaryKey": true
+        },
+        "stop_name": {
+          "type": "TEXT"
+        },
+        "stop_desc": {
+          "type": "TEXT"
+        },
+        "geometry_type": {
+          "type": "ENUM",
+          "required": "always",
+          "values": {
+            "Polygon": "Polygon",
+            "MultiPolygon": "MultiPolygon"
+          }
+        },
+        "geometry": {
+          "type": "TEXT",
+          "required": "always"
         }
       }
     },
@@ -817,7 +945,12 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required when the feed contains more than one agency.",
-          "conditionEnforced": false,
+          "conditionScope": "feed",
+          "conditionCheck": {
+            "kind": "row_count",
+            "file": "agency",
+            "minimum": 2
+          },
           "references": {
             "table": "agency",
             "field": "agency_id"
@@ -826,12 +959,14 @@
         "route_short_name": {
           "type": "TEXT",
           "required": "conditional",
-          "condition": "Required if route_long_name is empty."
+          "condition": "Required if route_long_name is empty.",
+          "conditionScope": "row"
         },
         "route_long_name": {
           "type": "TEXT",
           "required": "conditional",
-          "condition": "Required if route_short_name is empty."
+          "condition": "Required if route_short_name is empty.",
+          "conditionScope": "row"
         },
         "route_desc": {
           "type": "TEXT"
@@ -871,6 +1006,10 @@
             "1": "Not Available",
             "2": "Must Phone",
             "3": "On Request To Driver"
+          },
+          "whenEmpty": {
+            "code": "1",
+            "label": "Not Available"
           }
         },
         "continuous_drop_off": {
@@ -880,6 +1019,10 @@
             "1": "Not Available",
             "2": "Must Phone",
             "3": "On Request To Driver"
+          },
+          "whenEmpty": {
+            "code": "1",
+            "label": "Not Available"
           }
         },
         "network_id": {
@@ -891,6 +1034,10 @@
             "0": "No Information",
             "1": "Supported",
             "2": "Not Supported"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "No Information"
           }
         }
       }
@@ -957,18 +1104,19 @@
           "type": "TIME",
           "required": "conditional",
           "condition": "Required for the first and last stop of a trip, and if timepoint=1.",
-          "conditionEnforced": false
+          "conditionScope": "row_context"
         },
         "departure_time": {
           "type": "TIME",
           "required": "conditional",
           "condition": "Required for the first and last stop of a trip, and if timepoint=1.",
-          "conditionEnforced": false
+          "conditionScope": "row_context"
         },
         "stop_id": {
           "type": "ID",
           "required": "conditional",
-          "condition": "Required if location_group_id and location_id are empty.",
+          "condition": "Required if location_group_id and location_id are empty. Forbidden if location_group_id or location_id are defined.",
+          "conditionScope": "row",
           "references": {
             "table": "stops",
             "field": "stop_id"
@@ -976,13 +1124,23 @@
         },
         "location_group_id": {
           "type": "ID",
+          "required": "conditional",
+          "condition": "Forbidden if stop_id or location_group_id are defined.",
+          "conditionScope": "row",
           "references": {
             "table": "location_groups",
             "field": "location_group_id"
           }
         },
         "location_id": {
-          "type": "ID"
+          "type": "ID",
+          "required": "conditional",
+          "condition": "Forbidden if stop_id or location_group_id are defined.",
+          "conditionScope": "row",
+          "references": {
+            "table": "locations",
+            "field": "id"
+          }
         },
         "stop_sequence": {
           "type": "INTEGER",
@@ -995,12 +1153,14 @@
         "start_pickup_drop_off_window": {
           "type": "TIME",
           "required": "conditional",
-          "condition": "Required if location_group_id or location_id is defined. Forbidden if arrival_time or departure_time is defined."
+          "condition": "Required if location_group_id or location_id is defined. Forbidden if arrival_time or departure_time is defined.",
+          "conditionScope": "row"
         },
         "end_pickup_drop_off_window": {
           "type": "TIME",
           "required": "conditional",
-          "condition": "Required if location_group_id or location_id is defined. Forbidden if arrival_time or departure_time is defined."
+          "condition": "Required if location_group_id or location_id is defined. Forbidden if arrival_time or departure_time is defined.",
+          "conditionScope": "row"
         },
         "pickup_type": {
           "type": "ENUM",
@@ -1009,6 +1169,10 @@
             "1": "Not Available",
             "2": "Must Phone",
             "3": "On Request To Driver"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Regular"
           }
         },
         "drop_off_type": {
@@ -1018,6 +1182,10 @@
             "1": "Not Available",
             "2": "Must Phone",
             "3": "On Request To Driver"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Regular"
           }
         },
         "continuous_pickup": {
@@ -1027,6 +1195,10 @@
             "1": "Not Available",
             "2": "Must Phone",
             "3": "On Request To Driver"
+          },
+          "whenEmpty": {
+            "code": "1",
+            "label": "Not Available"
           }
         },
         "continuous_drop_off": {
@@ -1036,6 +1208,10 @@
             "1": "Not Available",
             "2": "Must Phone",
             "3": "On Request To Driver"
+          },
+          "whenEmpty": {
+            "code": "1",
+            "label": "Not Available"
           }
         },
         "shape_dist_traveled": {
@@ -1046,6 +1222,10 @@
           "values": {
             "0": "Approximate",
             "1": "Exact"
+          },
+          "whenEmpty": {
+            "code": "1",
+            "label": "Exact"
           }
         },
         "pickup_booking_rule_id": {
@@ -1077,7 +1257,8 @@
         "stop_name": {
           "type": "TEXT",
           "required": "conditional",
-          "condition": "Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for 3 (generic node) and 4 (boarding area)."
+          "condition": "Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for 3 (generic node) and 4 (boarding area).",
+          "conditionScope": "row"
         },
         "tts_stop_name": {
           "type": "TEXT"
@@ -1088,12 +1269,14 @@
         "stop_lat": {
           "type": "LATITUDE",
           "required": "conditional",
-          "condition": "Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for 3 (generic node) and 4 (boarding area)."
+          "condition": "Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for 3 (generic node) and 4 (boarding area).",
+          "conditionScope": "row"
         },
         "stop_lon": {
           "type": "LONGITUDE",
           "required": "conditional",
-          "condition": "Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for 3 (generic node) and 4 (boarding area)."
+          "condition": "Required for location_type 0 (stop), 1 (station) and 2 (entrance/exit). Optional for 3 (generic node) and 4 (boarding area).",
+          "conditionScope": "row"
         },
         "zone_id": {
           "type": "ID"
@@ -1109,12 +1292,17 @@
             "2": "Entrance",
             "3": "Generic Node",
             "4": "Boarding Area"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Stop"
           }
         },
         "parent_station": {
           "type": "ID",
           "required": "conditional",
           "condition": "Required for location_type 2 (entrance/exit), 3 (generic node) and 4 (boarding area). Forbidden for location_type 1: a station is itself the parent.",
+          "conditionScope": "row",
           "references": {
             "table": "stops",
             "field": "stop_id"
@@ -1129,6 +1317,10 @@
             "0": "Unknown",
             "1": "Accessible",
             "2": "Inaccessible"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Unknown"
           }
         },
         "level_id": {
@@ -1161,12 +1353,14 @@
           "type": "TIME",
           "required": "conditional",
           "condition": "Required if end_time is defined.",
+          "conditionScope": "row",
           "primaryKey": true
         },
         "end_time": {
           "type": "TIME",
           "required": "conditional",
           "condition": "Required if start_time is defined.",
+          "conditionScope": "row",
           "primaryKey": true
         },
         "service_id": {
@@ -1182,6 +1376,7 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required unless transfer_type is 4 or 5, which identify the transfer by trip.",
+          "conditionScope": "row",
           "primaryKey": true,
           "references": {
             "table": "stops",
@@ -1192,6 +1387,7 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required unless transfer_type is 4 or 5, which identify the transfer by trip.",
+          "conditionScope": "row",
           "primaryKey": true,
           "references": {
             "table": "stops",
@@ -1213,12 +1409,14 @@
         "min_transfer_time": {
           "type": "INTEGER",
           "required": "conditional",
-          "condition": "Required if transfer_type=2 (a minimum time is needed)."
+          "condition": "Required if transfer_type=2 (a minimum time is needed).",
+          "conditionScope": "row"
         },
         "from_trip_id": {
           "type": "ID",
           "required": "conditional",
           "condition": "Required if transfer_type is 4 or 5 (in-seat transfers).",
+          "conditionScope": "row",
           "primaryKey": true,
           "references": {
             "table": "trips",
@@ -1229,6 +1427,7 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required if transfer_type is 4 or 5 (in-seat transfers).",
+          "conditionScope": "row",
           "primaryKey": true,
           "references": {
             "table": "trips",
@@ -1278,18 +1477,21 @@
           "type": "TEXT",
           "required": "conditional",
           "condition": "Required if field_value is empty.",
+          "conditionScope": "row",
           "primaryKey": true
         },
         "record_sub_id": {
           "type": "TEXT",
           "required": "conditional",
           "condition": "Required if table_name is stop_times and record_id is defined.",
+          "conditionScope": "row",
           "primaryKey": true
         },
         "field_value": {
           "type": "TEXT",
           "required": "conditional",
           "condition": "Required if record_id is empty.",
+          "conditionScope": "row",
           "primaryKey": true
         }
       }
@@ -1337,7 +1539,7 @@
           "type": "ID",
           "required": "conditional",
           "condition": "Required if the trip has continuous pickup or drop-off behaviour defined.",
-          "conditionEnforced": false,
+          "conditionScope": "row_context",
           "references": {
             "table": "shapes",
             "field": "shape_id"
@@ -1349,6 +1551,10 @@
             "0": "Unknown",
             "1": "Accessible",
             "2": "Inaccessible"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Unknown"
           }
         },
         "bikes_allowed": {
@@ -1357,6 +1563,10 @@
             "0": "Unknown",
             "1": "Allowed",
             "2": "Not Allowed"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "Unknown"
           }
         },
         "cars_allowed": {
@@ -1365,6 +1575,10 @@
             "0": "No Information",
             "1": "Allowed",
             "2": "Not Allowed"
+          },
+          "whenEmpty": {
+            "code": "0",
+            "label": "No Information"
           }
         },
         "safe_duration_factor": {
@@ -1391,6 +1605,7 @@
     "fare_media_type",
     "fare_transfer_type",
     "friday",
+    "geometry_type",
     "is_authority",
     "is_bidirectional",
     "is_default_fare_category",
