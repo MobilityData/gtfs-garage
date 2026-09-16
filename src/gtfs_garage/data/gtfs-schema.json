@@ -27,7 +27,8 @@
       "description": "An internal ID, not intended to be shown to riders, and is a sequence of any UTF-8 characters. Using only printable ASCII characters is recommended."
     },
     "INTEGER": {
-      "description": "An integer."
+      "description": "An integer.",
+      "pattern": "^[+-]?\\d+$"
     },
     "LANGUAGE_CODE": {
       "description": "An IETF BCP 47 language code."

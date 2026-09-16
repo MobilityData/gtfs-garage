@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 from gtfs_garage.server import app as app_module
 from gtfs_garage.server.app import create_app
 
+from .conftest import FIXTURE_DIR
+
 
 @pytest.fixture()
 def client(feed_dir: Path):
@@ -116,6 +118,26 @@ class TestGeoJson:
         # it in one piece.
         response = client.get("/api/geojson/stops", params={"stop_ids": "ST1"})
         assert len(response.json()["features"]) == 1
+
+    def test_several_stops_come_back_from_repeated_parameters(self, client: TestClient):
+        response = client.get("/api/geojson/stops", params=[("stop_ids", "ST1"), ("stop_ids", "ST2")])
+        returned = {f["properties"]["stop_id"] for f in response.json()["features"]}
+        assert returned == {"ST1", "ST2"}
+
+    def test_an_id_containing_a_comma_is_one_id(self, client: TestClient, tmp_path: Path):
+        """A GTFS id is any UTF-8 string, so a comma in one is legal. Joining
+        ids on a comma split it into two that matched nothing."""
+        import shutil
+
+        directory = tmp_path / "comma-id"
+        shutil.copytree(FIXTURE_DIR, directory)
+        stops = directory / "stops.txt"
+        stops.write_text(stops.read_text(encoding="utf-8") + '"ST,9",Comma Stop,45.52,-73.58,0,,0\n', encoding="utf-8")
+        client.post("/api/load", params={"path": str(directory)})
+
+        response = client.get("/api/geojson/stops", params={"stop_ids": "ST,9"})
+        returned = [f["properties"]["stop_id"] for f in response.json()["features"]]
+        assert returned == ["ST,9"]
 
     def test_shapes_are_line_strings(self, client: TestClient):
         _, features = read_stream(client, "/api/geojson/shapes")

@@ -149,6 +149,28 @@ describe("coordinates", () => {
     expect(rendered.kind).toBe("plain");
   });
 
+  /**
+   * `INTEGER` had no pattern, so the generic numeric check accepted anything
+   * Number() could parse - 1.5 rendered as a valid integer in all 15 of GTFS's
+   * integer fields. The rule now comes from the schema.
+   */
+  it.each(["1.5", ".5", "2e3", "1.0"])("flags %o in an integer field", (value) => {
+    expect(renderValue(value, column("INTEGER")).malformed).toBeTruthy();
+  });
+
+  it.each(["5", "-3", "0", "+7"])("accepts %o in an integer field", (value) => {
+    const rendered = renderValue(value, column("INTEGER"));
+    expect(rendered.malformed).toBeUndefined();
+    expect(rendered.kind).toBe("numeric");
+  });
+
+  it("still accepts a decimal where GTFS allows one", () => {
+    // FLOAT and CURRENCY_AMOUNT carry no pattern, because "a floating point
+    // number" does not forbid one.
+    expect(renderValue("1.5", column("FLOAT")).kind).toBe("numeric");
+    expect(renderValue("1.5", column("CURRENCY_AMOUNT")).kind).toBe("numeric");
+  });
+
   it("rejects a longitude outside the world", () => {
     expect(renderValue("181", column("LONGITUDE")).malformed).toBeTruthy();
     expect(renderValue("-180", column("LONGITUDE")).kind).toBe("numeric");

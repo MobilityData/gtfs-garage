@@ -470,6 +470,7 @@ def test_exactly_these_types_carry_a_constraint():
         "LATITUDE",  # "greater than or equal to -90.0 and less than or equal to 90.0"
         "LONGITUDE",  # "greater than or equal to -180.0 and less than or equal to 180.0"
         "EMAIL",
+        "INTEGER",
     }
 
 
@@ -488,10 +489,21 @@ def test_every_constraint_accepts_what_its_own_description_describes():
         ("URL", "https://example.org"),
         ("CURRENCY_CODE", "EUR"),
         ("TIMEZONE", "America/Argentina/Buenos_Aires"),  # underscores are allowed
+        ("INTEGER", "5"),
+        ("INTEGER", "-3"),
+        ("INTEGER", "0"),
     ]:
         assert re.match(types[type_name]["pattern"], value), f"{type_name} rejects {value!r}"
 
-    for type_name, value in [("COLOR", "#FFFFFF"), ("DATE", "2026-08-22"), ("TIMEZONE", "America/New York")]:
+    for type_name, value in [
+        ("COLOR", "#FFFFFF"),
+        ("DATE", "2026-08-22"),
+        ("TIMEZONE", "America/New York"),
+        # An integer has no fractional part, so these are not integers however
+        # readily Number() parses them.
+        ("INTEGER", "1.5"),
+        ("INTEGER", "2e3"),
+    ]:
         assert not re.match(types[type_name]["pattern"], value), f"{type_name} accepts {value!r}"
 
 

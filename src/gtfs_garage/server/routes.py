@@ -30,7 +30,7 @@ from gtfs_garage.server.models import (
     PageResponse,
     TablesResponse,
 )
-from gtfs_garage.server.state import FeedRegistry, NoFeedLoadedError
+from gtfs_garage.server.state import FeedRecord, FeedRegistry, NoFeedLoadedError
 
 router = APIRouter(prefix="/api")
 
@@ -56,13 +56,15 @@ def _reading(request: Request) -> Iterator[GtfsFeed]:
         raise HTTPException(status_code=409, detail="No GTFS feed loaded yet.")
 
 
-def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
+def _load_metrics(record: FeedRecord) -> dict[str, Any]:
     """Sizes and timings for the load that produced the feed being served.
 
     Read after `table_summaries`, not before: the per-file counting times are
     filled in by that pass, which is the only point a CSV is really read.
+
+    Takes the record rather than the registry, so it reports the load that
+    produced the feed in hand even if another has landed since.
     """
-    record = registry.last_load
     stats = record.feed_stats
     acquire = record.acquire
     return {
@@ -95,14 +97,19 @@ def _load_metrics(registry: FeedRegistry) -> dict[str, Any]:
 
 
 def _tables_payload(registry: FeedRegistry) -> dict[str, Any]:
-    feed = registry.current()
-    summaries = table_summaries(feed)
-    return {
-        "source": registry.source,
-        "tables": summaries,
-        "missing": missing_files(feed),
-        "metrics": _load_metrics(registry),
-    }
+    # Under the reader guard, and from one snapshot: a load replacing the feed
+    # midway would otherwise close the connection this is still reading, or
+    # report one feed's tables beside another load's metrics.
+    #
+    # `tables` stays before `metrics` because dict values are evaluated in
+    # order and `table_summaries` is the pass that fills the counting times in.
+    with registry.serving() as served:
+        return {
+            "source": served.source,
+            "tables": table_summaries(served.feed),
+            "missing": missing_files(served.feed),
+            "metrics": _load_metrics(served.load),
+        }
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -213,10 +220,6 @@ def get_distinct_values(
         raise HTTPException(status_code=404, detail="Unknown table or column")
 
 
-def _split_ids(ids: Optional[str]) -> Optional[list[str]]:
-    return ids.split(",") if ids else None
-
-
 def _ndjson(
     registry: FeedRegistry, count: Callable, batches: Callable, step: Callable | None = None
 ) -> StreamingResponse:
@@ -252,21 +255,21 @@ def _ndjson(
 
 
 @router.get("/geojson/stops")
-def stops_geojson(request: Request, stop_ids: Optional[str] = None):
+def stops_geojson(request: Request, stop_ids: Optional[list[str]] = Query(None)):
     registry = _registry(request)
     if stop_ids:
         # A highlight asks for a handful of ids; small enough to answer whole.
         with registry.reading() as feed:
-            return geojson_builders.stops_geojson(feed.cursor(), _split_ids(stop_ids))
+            return geojson_builders.stops_geojson(feed.cursor(), stop_ids)
     return _ndjson(registry, geojson_builders.count_stops, geojson_builders.iter_stops)
 
 
 @router.get("/geojson/shapes")
-def shapes_geojson(request: Request, shape_ids: Optional[str] = None):
+def shapes_geojson(request: Request, shape_ids: Optional[list[str]] = Query(None)):
     registry = _registry(request)
     if shape_ids:
         with registry.reading() as feed:
-            return geojson_builders.shapes_geojson(feed.cursor(), _split_ids(shape_ids))
+            return geojson_builders.shapes_geojson(feed.cursor(), shape_ids)
     return _ndjson(
         registry,
         geojson_builders.count_shapes,
@@ -276,11 +279,11 @@ def shapes_geojson(request: Request, shape_ids: Optional[str] = None):
 
 
 @router.get("/geojson/locations")
-def locations_geojson(request: Request, location_ids: Optional[str] = None):
+def locations_geojson(request: Request, location_ids: Optional[list[str]] = Query(None)):
     registry = _registry(request)
     if location_ids:
         with registry.reading() as feed:
-            return geojson_builders.locations_geojson(feed.cursor(), _split_ids(location_ids))
+            return geojson_builders.locations_geojson(feed.cursor(), location_ids)
     # No step: zones are never thinned.
     return _ndjson(registry, geojson_builders.count_locations, geojson_builders.iter_locations)
 

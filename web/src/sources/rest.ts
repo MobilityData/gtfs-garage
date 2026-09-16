@@ -78,9 +78,10 @@ export class RestSource implements GtfsSource {
 
   geojson(kind: GeoJsonKind, ids?: string[]): Promise<FeatureCollection> {
     const params = new URLSearchParams();
-    if (ids?.length) {
-      params.set(ID_PARAMS[kind], ids.join(","));
-    }
+    // One parameter per id rather than a delimited list: a GTFS id is any UTF-8
+    // string and may contain a comma, which a delimiter splits into two ids
+    // that match nothing.
+    for (const id of ids ?? []) params.append(ID_PARAMS[kind], id);
     const query = params.toString();
     return fetchJson<FeatureCollection>(
       `${this.baseUrl}/api/geojson/${kind}${query ? `?${query}` : ""}`,
