@@ -100,7 +100,8 @@ def _export(feed_path: str | None, destination: str) -> int:
         feed.close()
 
     total = sum(f.stat().st_size for f in written)
-    print(f"wrote {len(written)} tables to {destination} ({total / 1_000_000:.1f} MB)")
+    tables = [f for f in written if f.suffix == ".parquet"]
+    print(f"wrote {len(tables)} tables and a manifest to {destination} ({total / 1_000_000:.1f} MB)")
     return 0
 
 

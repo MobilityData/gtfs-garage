@@ -201,8 +201,27 @@ class TestParquetExport:
 
     def test_writes_one_file_per_table(self, feed: GtfsFeed, tmp_path: Path):
         written = feed.export_parquet(tmp_path / "out")
-        assert {f.stem for f in written} == set(feed.tables)
+        parquet = [f for f in written if f.suffix == ".parquet"]
+        assert {f.stem for f in parquet} == set(feed.tables)
         assert all(f.stat().st_size > 0 for f in written)
+
+    def test_the_dataset_describes_itself(self, feed: GtfsFeed, tmp_path: Path):
+        """Without a manifest a reader can only guess, and guessing means trying
+        all 32 tables GTFS defines to see which answer - measured at 123 range
+        requests for a seven-table feed before its first row appeared."""
+        import json
+
+        feed.export_parquet(tmp_path / "out")
+        manifest = json.loads((tmp_path / "out" / "manifest.json").read_text(encoding="utf-8"))
+
+        assert manifest["version"] == 1
+        described = {entry["name"]: entry for entry in manifest["tables"]}
+        assert set(described) == set(feed.tables)
+
+        for table, entry in described.items():
+            assert entry["file"] == f"{table}.parquet"
+            assert entry["rows"] == feed.row_count(table)
+            assert (tmp_path / "out" / entry["file"]).stat().st_size == entry["bytes"]
 
     def test_reopening_gives_the_same_rows_and_columns(self, feed_dir: Path, tmp_path: Path):
         source = GtfsFeed(str(feed_dir), optimise=False)

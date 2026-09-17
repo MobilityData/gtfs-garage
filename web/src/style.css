@@ -196,6 +196,18 @@
   border-radius: 4px;
 }
 
+/* The waiting states, before there is a dataset to browse. Centred in whatever
+   box the host gave the viewer, so it does not look like an empty table. */
+.gtfs-viewer [data-el="dataset-status"] {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.gtfs-viewer [data-el="dataset-status"] .is-error { color: #b42318; }
+
 .gtfs-viewer [data-el="table-scroll"] {
   flex: 1;
   overflow: auto;

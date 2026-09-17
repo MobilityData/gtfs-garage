@@ -19,6 +19,7 @@ export default defineConfig({
     lib: {
       entry: {
         mount: "src/mount.ts",
+        dataset: "src/mount-dataset.ts",
         map: "src/map-part.ts",
         parquet: "src/sources/parquet.ts",
         react: "src/react.tsx",

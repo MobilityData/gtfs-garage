@@ -52,6 +52,10 @@
       "types": "./dist/mount.d.ts",
       "import": "./dist/mount.js"
     },
+    "./dataset": {
+      "types": "./dist/mount-dataset.d.ts",
+      "import": "./dist/dataset.js"
+    },
     "./map": {
       "types": "./dist/map-part.d.ts",
       "import": "./dist/map.js"

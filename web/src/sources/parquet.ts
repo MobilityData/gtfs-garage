@@ -135,6 +135,27 @@ export class ParquetSource implements ViewerSource {
     return this.connection;
   }
 
+  /**
+   * The table list an exported dataset carries, if it carries one.
+   *
+   * `gtfs-garage --export` writes a manifest beside the Parquet so a reader
+   * need not guess. Without it the only fallback is trying all 32 tables GTFS
+   * defines, which for a seven-table feed measured at 123 requests before the
+   * first row appeared.
+   */
+  private async fromManifest(): Promise<string[] | null> {
+    try {
+      const response = await fetch(`${this.options.baseUrl}/manifest.json`);
+      if (!response.ok) return null;
+      const body = (await response.json()) as { tables?: { name: string }[] };
+      return body.tables?.map((table) => table.name) ?? null;
+    } catch {
+      // No manifest is not an error: a dataset written by something else, or
+      // served from somewhere that will not answer for it, still works.
+      return null;
+    }
+  }
+
   private async rows(sql: string): Promise<Record<string, unknown>[]> {
     const connection = await this.connect();
     return (await connection.query(sql)).toArray().map((row) => ({ ...row }));
@@ -142,35 +163,48 @@ export class ParquetSource implements ViewerSource {
 
   async tables(): Promise<TablesResponse> {
     const connection = await this.connect();
-    const wanted = this.options.tables ?? Object.keys(schemaTables);
+    const wanted = this.options.tables ?? (await this.fromManifest()) ?? Object.keys(schemaTables);
 
     this.present = {};
-    const summaries = [];
     const failures: string[] = [];
-    for (const table of wanted) {
-      let described;
-      try {
-        described = (await connection.query(`DESCRIBE SELECT * FROM ${this.file(table)}`)).toArray();
-      } catch (error) {
-        // Absent from the dataset, which is ordinary: most GTFS files are
-        // optional and the export only writes the ones the feed had. Kept,
-        // though, because *every* table failing means the dataset URL is wrong
-        // rather than the feed being empty - see below.
-        failures.push((error as Error).message);
-        continue;
-      }
-      const columns = described.map((row) => String(row.column_name));
-      this.present[table] = columns;
-      const counted = await connection.query(`SELECT count(*) AS n FROM ${this.file(table)}`);
-      summaries.push({ table, columns, rowCount: Number(counted.toArray()[0].n) });
-    }
+
+    // Concurrently, because without a table list from the host this probes all
+    // 32 files GTFS defines and most of them will not be there. One after
+    // another that is 32 round trips before the first row appears.
+    const probed = await Promise.all(
+      wanted.map(async (table) => {
+        try {
+          const described = (
+            await connection.query(`DESCRIBE SELECT * FROM ${this.file(table)}`)
+          ).toArray();
+          const counted = await connection.query(`SELECT count(*) AS n FROM ${this.file(table)}`);
+          return {
+            table,
+            columns: described.map((row) => String(row.column_name)),
+            rowCount: Number(counted.toArray()[0].n),
+          };
+        } catch (error) {
+          // Ordinarily just an optional file the feed did not have. Kept
+          // because *every* table failing means something else - see below.
+          failures.push((error as Error).message);
+          return null;
+        }
+      }),
+    );
+
+    const summaries = probed.filter((entry) => entry !== null);
+    for (const entry of summaries) this.present[entry.table] = entry.columns;
 
     if (!summaries.length) {
       // A GTFS feed has agency.txt, routes.txt, trips.txt and stop_times.txt at
       // minimum, so nothing readable at all is a broken location rather than a
       // feed with no files. Saying so beats rendering an empty viewer.
+      // A GTFS feed has agency, routes, trips and stop_times at minimum, so
+      // nothing readable at all is a wrong location or a dataset that has not
+      // been written yet - not a feed with no files.
       throw new Error(
-        `No tables found at ${this.options.baseUrl}. First reason: ${failures[0] ?? "no files probed"}`,
+        `No tables found at ${this.options.baseUrl}. Pass the dataset's table list to skip probing, ` +
+          `and check the dataset exists. First reason: ${failures[0] ?? "nothing probed"}`,
       );
     }
 

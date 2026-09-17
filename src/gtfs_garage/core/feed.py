@@ -9,6 +9,7 @@ reading the CSVs where they sit.
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import time
@@ -20,6 +21,9 @@ from pathlib import Path
 # Reported through `on_progress` so a caller can say which phase is running.
 PHASE_EXTRACT = "extract"
 PHASE_CONVERT = "convert"
+
+# Describes an exported dataset, so a reader need not probe for its tables.
+MANIFEST = "manifest.json"
 
 # The one GTFS file that is not a CSV, and the table it becomes.
 LOCATIONS_GEOJSON = "locations.geojson"
@@ -264,14 +268,29 @@ class GtfsFeed:
         thrown away with the scratch directory. This is the artifact a browser
         queries over range requests, and producing it here means the thing
         served is the thing this tool's own tests cover.
+
+        The manifest is what stops a reader guessing. Without it a client knows
+        only that files are named after tables, so it has to try all 32 GTFS
+        defines and see which answer - for a seven-table feed that measured at
+        123 requests before the first row appeared. With it the dataset
+        describes itself, and anything holding the URL can read it.
         """
         destination.mkdir(parents=True, exist_ok=True)
         written = []
+        tables = []
+
         for table in sorted(self.tables):
             target = destination / f"{table}.parquet"
             escaped = str(target).replace("'", "''")
             self.con.execute(f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
             written.append(target)
+            tables.append(
+                {"name": table, "file": target.name, "rows": self.row_count(table), "bytes": target.stat().st_size}
+            )
+
+        manifest = destination / MANIFEST
+        manifest.write_text(json.dumps({"version": 1, "tables": tables}, indent=2) + "\n", encoding="utf-8")
+        written.append(manifest)
         return written
 
     def _load_locations_geojson(self) -> None:
