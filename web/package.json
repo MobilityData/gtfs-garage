@@ -1,6 +1,6 @@
 {
-  "name": "@mobilitydata/gtfs-garage-web",
-  "version": "0.1.0",
+  "name": "gtfs-garage-web",
+  "version": "0.0.1",
   "description": "Browse a GTFS feed: a mountable viewer with a table, filters and a map.",
   "license": "Apache-2.0",
   "type": "module",
@@ -90,8 +90,5 @@
     "react-dom": {
       "optional": true
     }
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

@@ -1,4 +1,4 @@
-# @mobilitydata/gtfs-garage-web
+# gtfs-garage-web
 
 Browse a GTFS feed: a table with filters and foreign-key navigation, and a map
 of its stops, shapes and zones. The viewer of
@@ -8,7 +8,7 @@ be mounted in another application.
 ## Install
 
 ```sh
-npm install @mobilitydata/gtfs-garage-web
+npm install gtfs-garage-web
 ```
 
 The map is a separate entry point, and MapLibre an **optional** peer. Install
@@ -28,9 +28,9 @@ not the branch runs, so a flag would still have made MapLibre mandatory.
 ```tsx
 "use client";
 
-import { GtfsGarage } from "@mobilitydata/gtfs-garage-web/react";
-import { mapPart } from "@mobilitydata/gtfs-garage-web/map";
-import "@mobilitydata/gtfs-garage-web/style.css";
+import { GtfsGarage } from "gtfs-garage-web/react";
+import { mapPart } from "gtfs-garage-web/map";
+import "gtfs-garage-web/style.css";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export default function Feed() {
@@ -51,12 +51,12 @@ a box with no height renders an invisible map.
 ## Without React
 
 ```ts
-import { mount } from "@mobilitydata/gtfs-garage-web";
-import "@mobilitydata/gtfs-garage-web/style.css";
+import { mount } from "gtfs-garage-web";
+import "gtfs-garage-web/style.css";
 
 const viewer = await mount(document.querySelector("#feed")!, {
   baseUrl: "https://example.org",
-  // map: mapPart,   from "@mobilitydata/gtfs-garage-web/map"
+  // map: mapPart,   from "gtfs-garage-web/map"
 });
 
 viewer.destroy(); // releases the map, the history subscription and the markup

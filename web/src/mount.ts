@@ -63,8 +63,8 @@ export interface ViewerOptions {
  * map behind its own entry point means it is absent from the module graph
  * rather than merely unreached:
  *
- *     import { mount } from "@mobilitydata/gtfs-garage-web";
- *     import { mapPart } from "@mobilitydata/gtfs-garage-web/map";
+ *     import { mount } from "gtfs-garage-web";
+ *     import { mapPart } from "gtfs-garage-web/map";
  *
  *     mount(root, { map: mapPart });   // omit it and there is no map pane
  */
