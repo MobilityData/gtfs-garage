@@ -4,9 +4,6 @@ name: Release
 # each package's own file is the source of truth, so the two release
 # independently - a UI-only change does not republish the Python package.
 #
-# `build-test.yml`'s `versions` job is what makes this safe: it refuses a pull
-# request that changes a package without bumping it, so a job that skips an
-# already-published version is never hiding a forgotten bump.
 on:
   push:
     branches: [main]
@@ -19,7 +16,6 @@ jobs:
   publish:
     name: Build and publish to PyPI
     runs-on: ubuntu-latest
-    environment: release
     permissions:
       # Trusted publishing: no API token stored in the repository.
       id-token: write
@@ -50,8 +46,6 @@ jobs:
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # The frontend is not in version control, so the published wheel only has
-      # an interface if it is built here first.
       - name: Build the frontend
         if: steps.check.outputs.publish == 'true'
         working-directory: web
@@ -81,11 +75,8 @@ jobs:
   npm:
     name: Build and publish to npm
     runs-on: ubuntu-latest
-    environment: release
     permissions:
-      # Trusted publishing again, this time npm's: the registry verifies this
-      # workflow's OIDC token instead of a stored NPM_TOKEN, and stamps the
-      # package with provenance for it.
+      # Trusted publishing
       id-token: write
     steps:
       - uses: actions/checkout@v7

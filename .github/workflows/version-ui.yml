@@ -1,12 +1,4 @@
 name: Version bumped (UI)
-
-# Runs only when the change alters the published UI package. The path list *is*
-# the rule - no script works it out.
-#
-# `schema/**` and the generated document are here as well as in the Python
-# workflow because `web/src/schema.ts` imports the document and the bundler
-# inlines it: editing the schema changes the published bundle with nothing
-# under `web/` touched.
 on:
   pull_request:
     branches: [main]

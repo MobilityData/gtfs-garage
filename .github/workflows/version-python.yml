@@ -1,8 +1,4 @@
 name: Version bumped (Python)
-
-# Runs only when the change alters the published Python package. `schema/**`
-# appears in both version workflows: the generated document ships in the wheel
-# and is inlined into the UI bundle, so it releases both.
 on:
   pull_request:
     branches: [main]
