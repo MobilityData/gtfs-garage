@@ -181,10 +181,8 @@ export class ParquetSource implements ViewerSource {
   /**
    * The table list an exported dataset carries, if it carries one.
    *
-   * `gtfs-garage --export` writes a manifest beside the Parquet so a reader
-   * need not guess. Without it the only fallback is trying all 32 tables GTFS
-   * defines, which for a seven-table feed measured at 123 requests before the
-   * first row appeared.
+   * `gtfs-garage --export` writes it beside the Parquet. Absent, the only
+   * fallback is probing every table GTFS defines.
    */
   private async fromManifest(): Promise<Manifest | null> {
     const started = performance.now();
@@ -247,9 +245,8 @@ export class ParquetSource implements ViewerSource {
     this.present = {};
     const failures: string[] = [];
 
-    // Concurrently, because without a table list from the host this probes all
-    // 32 files GTFS defines and most of them will not be there. One after
-    // another that is 32 round trips before the first row appears.
+    // Concurrently: without a table list this probes every file GTFS defines
+    // and most will not be there.
     const probed = await Promise.all(
       wanted.map(async (table) => {
         try {
@@ -276,8 +273,8 @@ export class ParquetSource implements ViewerSource {
 
     if (!summaries.length) {
       // A GTFS feed has agency.txt, routes.txt, trips.txt and stop_times.txt at
-      // minimum, so nothing readable at all is a broken location rather than a
-      // feed with no files. Saying so beats rendering an empty viewer.
+      // minimum, so nothing readable at all means a wrong location or a
+      // dataset not yet written - not a feed with no files.
       // A GTFS feed has agency, routes, trips and stop_times at minimum, so
       // nothing readable at all is a wrong location or a dataset that has not
       // been written yet - not a feed with no files.

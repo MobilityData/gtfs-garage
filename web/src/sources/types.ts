@@ -137,9 +137,9 @@ export interface LoadMetrics {
   phases?: { label: string; ms: number; note?: string }[];
   /**
    * The fields below describe a server load, and are absent for a source that
-   * did not perform one. A browser reading Parquet never downloaded, unzipped
-   * or converted anything, and a zero here would claim the work took no time
-   * rather than that it never happened - which is what `phases` exists for.
+   * did not perform one. A browser reading Parquet never downloads, unzips or
+   * converts, and a zero would say that work took no time instead of that it
+   * did not happen. Such a source reports `phases` above.
    */
   kind?: "path" | "upload" | "folder" | "download";
   /** Downloading or receiving the upload; null for a local path. */

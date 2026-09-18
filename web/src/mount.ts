@@ -138,9 +138,8 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   /**
    * Supplied only when there is a map.
    *
-   * Their absence is what removes the row buttons and the column that holds
-   * them: a viewer mounted without the map part previously still drew 📍 and
-   * 🧭 on every row, and clicking one did nothing.
+   * Their absence removes the row buttons and the column that holds them; see
+   * `rowActions`.
    */
   const highlights = map
     ? (() => {

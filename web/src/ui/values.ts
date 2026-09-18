@@ -14,9 +14,8 @@
  *    to rendering rather than to loading.
  *
  * 2. **A feed is untrusted input.** Only `http:`, `https:` and `mailto:` ever
- *    become a link; anything else is text. Before this module, no feed value
- *    was ever used as an `href`, so links are a new attack surface and
- *    `javascript:` in a URL field must not survive it.
+ *    become a link; anything else is text. A feed value reaching an `href` is
+ *    an attack surface, so `javascript:` in a URL field must not survive it.
  */
 
 import type { ColumnInfo } from "../sources/types";
@@ -199,10 +198,9 @@ function decide(value: string, column: ColumnInfo): Rendered {
     case "FLOAT":
     case "CURRENCY_AMOUNT":
       return asNumber(value, expectation(column), column);
-    // TIME has a pattern and so is checked above, but is deliberately not
-    // reformatted: GTFS times legitimately exceed 24:00:00 for trips running
-    // past midnight, and a formatter that "corrected" 25:30:00 would be worse
-    // than none.
+    // TIME is checked by its pattern above but never reformatted: GTFS times
+    // legitimately exceed 24:00:00 for trips running past midnight, so
+    // 25:30:00 is correct as written.
     default:
       return plain(value);
   }

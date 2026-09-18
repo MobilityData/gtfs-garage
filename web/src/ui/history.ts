@@ -94,9 +94,9 @@ export function browserHistory(): HistoryPort {
 /**
  * A back stack the viewer keeps to itself, for an embedded one.
  *
- * Nothing here touches the URL or `window`, which is the point: the host stays
- * in charge of its own address bar, and can still mirror the view there by
- * listening for view changes if it wants to.
+ * Nothing here touches the URL or `window`, so the host keeps control of its
+ * own address bar, and can still mirror the view there by listening for view
+ * changes.
  */
 export function memoryHistory(initial: View | null = null): HistoryPort {
   const stack: HistoryEntry[] = [];

@@ -151,9 +151,8 @@ class GtfsFeed:
             raise GtfsLoadError(f"Path does not exist: {self.source_path}")
 
         if self.source_path.is_dir():
-            # A directory of Parquet is what `export_parquet` writes and what a
-            # browser reads over range requests. Opening one skips extracting
-            # and converting entirely, which is the whole point of producing it.
+            # A directory of Parquet, as `export_parquet` writes. Already
+            # converted, so extracting and converting are both skipped.
             if not any(self.source_path.glob("*.txt")) and any(self.source_path.glob("*.parquet")):
                 self._parquet_source = True
                 self.stats.source_bytes = sum(f.stat().st_size for f in self.source_path.glob("*.parquet"))
@@ -267,16 +266,10 @@ class GtfsFeed:
     def export_parquet(self, destination: Path) -> list[Path]:
         """Write every table as Parquet into `destination`, and return the files.
 
-        The same conversion `_convert_to_parquet` performs, kept rather than
-        thrown away with the scratch directory. This is the artifact a browser
-        queries over range requests, and producing it here means the thing
-        served is the thing this tool's own tests cover.
-
-        The manifest is what stops a reader guessing. Without it a client knows
-        only that files are named after tables, so it has to try all 32 GTFS
-        defines and see which answer - for a seven-table feed that measured at
-        123 requests before the first row appeared. With it the dataset
-        describes itself, and anything holding the URL can read it.
+        One `{table}.parquet` per table plus a `manifest.json` naming them, so a
+        reader need not know which files to expect. The sizes it records cannot
+        be recovered afterwards: conversion deletes the CSVs, and a zip member's
+        compressed size exists only in the archive's directory.
         """
         destination.mkdir(parents=True, exist_ok=True)
         stats_by_table = {f.table: f for f in self.stats.files}

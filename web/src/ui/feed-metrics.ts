@@ -102,10 +102,9 @@ export interface FileRow {
   stored: string;
   /**
    * What this file cost: converting it, or counting it when the feed was left
-   * as CSV. One number rather than two, because the two the report used to show
-   * were measured against different storage - the header read happens on the
-   * CSV before conversion and the row count on the Parquet after it - so
-   * reading them side by side told you nothing.
+   * as CSV. One number, not both: the header read happens on the CSV before
+   * conversion and the row count on the Parquet after it, so they are measured
+   * against different storage and do not compare.
    */
   costMs: string;
   rows: string;
@@ -113,7 +112,7 @@ export interface FileRow {
 }
 
 /**
- * Largest file first: the point of the report is to name the file that
+ * Largest file first, so the report names the file that
  * dominated the load, and on a real feed that is almost always stop_times.txt.
  */
 export function fileRows(metrics: LoadMetrics): FileRow[] {

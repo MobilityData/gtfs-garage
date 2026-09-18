@@ -73,9 +73,9 @@ export class MapController {
       center: [0, 20],
       zoom: 1,
       attributionControl: { compact: true },
-      // `buildStyle` composes the style from the basemap and this viewer's own
-      // layers and is covered by layers.test.ts; it is typed as a plain record
-      // rather than against MapLibre, which until now was an untyped global.
+      // `buildStyle` composes the basemap with this viewer's own layers and is
+      // covered by layers.test.ts; it is typed as a plain record, not against
+      // MapLibre.
       style: style as MapLibre.StyleSpecification,
     });
     this.map.addControl(new this.maplibregl.NavigationControl(), "top-right");

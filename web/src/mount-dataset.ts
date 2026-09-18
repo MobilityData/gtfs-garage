@@ -72,10 +72,9 @@ export async function mountDataset(root: Element, options: DatasetOptions): Prom
   let asked = false;
 
   const settle = async (source: ViewerSource) => {
-    // Nothing is drawn into a root this mount no longer owns. `mount` replaces
-    // the root's contents and its `destroy` clears them again, so a late
-    // arrival here would wipe whichever viewer is actually on screen - which
-    // showed up as "Missing element table-scroll" from the live one.
+    // Nothing is drawn into a root this mount no longer owns: `mount` replaces
+    // the root's contents and its `destroy` clears them, so a late arrival
+    // would wipe whichever viewer is on screen.
     if (destroyed || owner.get(root) !== claim) return void source.close?.();
 
     // This wrapper asked the provider for the source, so this wrapper closes

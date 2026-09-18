@@ -255,9 +255,8 @@ export class TableView {
     }
 
     if (rendered.implied) {
-      // Muted, because it is not what the producer wrote. An inspection tool
-      // that let an implied value pass for a real one would be worse than one
-      // that showed nothing.
+      // Muted: it is not what the producer wrote, and must not read as if it
+      // were.
       cell.classList.add("value-implied");
       cell.title = rendered.implied;
     }
