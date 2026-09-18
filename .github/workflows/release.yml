@@ -6,7 +6,9 @@ name: Release
 #
 on:
   push:
-    branches: [main]
+    # TEMPORARY: fix_npm_release is here to exercise the npm trusted-publishing
+    # path before it reaches main. Drop it from this list once that is proven.
+    branches: [main, fix_npm_release]
   workflow_dispatch:
 
 permissions:
@@ -16,6 +18,9 @@ jobs:
   publish:
     name: Build and publish to PyPI
     runs-on: ubuntu-latest
+    # TEMPORARY: keeps a branch test from ever touching PyPI. Remove alongside
+    # the fix_npm_release trigger above.
+    if: github.ref == 'refs/heads/main'
     permissions:
       # Trusted publishing: no API token stored in the repository.
       id-token: write
@@ -133,7 +138,13 @@ jobs:
             test -s "$file" || { echo "::error::$file is missing or empty"; exit 1; }
           done
 
+      # npm's OIDC exchange is best-effort and never throws: every failure path
+      # returns silently via log.verbose, so a misconfigured trusted publisher
+      # surfaces only as ENEEDAUTH further down. --loglevel=verbose is what makes
+      # the actual reason visible.
       - name: Publish
         if: steps.check.outputs.publish == 'true'
         working-directory: web
-        run: npm publish
+        run: |
+          npm --version
+          npm publish --loglevel=verbose
