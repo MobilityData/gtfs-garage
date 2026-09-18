@@ -26,6 +26,17 @@ export interface DatasetOptions extends ViewerOptions {
   description?: string;
 }
 
+/**
+ * Which mount currently owns a root.
+ *
+ * React mounts every effect twice in development, and `mountDataset` resolves a
+ * tick after the cleanup that discards the first one. That teardown therefore
+ * lands *after* the second mount has drawn into the same node, and clearing the
+ * root unconditionally would wipe the live viewer and leave an empty box. A
+ * mount only tears down the root it still owns.
+ */
+const owner = new WeakMap<Element, object>();
+
 /** The waiting states, drawn in the viewer's own colours rather than a host's. */
 function statusPanel(root: Element): (text: string, tone?: "normal" | "error") => void {
   root.classList.add("gtfs-viewer");
@@ -49,18 +60,33 @@ export async function mountDataset(root: Element, options: DatasetOptions): Prom
   const { dataset, pollMs = DEFAULT_POLL_MS, description = "the dataset", ...viewer } = options;
 
   const say = statusPanel(root);
+  const claim = {};
+  owner.set(root, claim);
   const controller = new AbortController();
   const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   let destroyed = false;
   let mounted: Viewer | undefined;
+  /** The source obtained from the provider, which this wrapper must release. */
+  let opened: ViewerSource | undefined;
   let asked = false;
 
   const settle = async (source: ViewerSource) => {
-    const opened = await mount(root, { ...viewer, source });
-    // The host may have given up while the viewer was opening.
-    if (destroyed) opened.destroy();
-    else mounted = opened;
+    // Nothing is drawn into a root this mount no longer owns. `mount` replaces
+    // the root's contents and its `destroy` clears them again, so a late
+    // arrival here would wipe whichever viewer is actually on screen - which
+    // showed up as "Missing element table-scroll" from the live one.
+    if (destroyed || owner.get(root) !== claim) return void source.close?.();
+
+    // This wrapper asked the provider for the source, so this wrapper closes
+    // it. Nothing else can: the host never sees it.
+    opened = source;
+    const viewerHandle = await mount(root, { ...viewer, source });
+
+    // The host may have given up, or another mount taken the root, while the
+    // viewer was opening.
+    if (destroyed || owner.get(root) !== claim) viewerHandle.destroy();
+    else mounted = viewerHandle;
   };
 
   const follow = async () => {
@@ -104,6 +130,13 @@ export async function mountDataset(root: Element, options: DatasetOptions): Prom
       destroyed = true;
       controller.abort();
       mounted?.destroy();
+      // Fire and forget: a caller tearing down a component cannot await, and a
+      // failure to release a worker is not something it could act on.
+      void opened?.close?.();
+      // A later mount has taken the root over: it is drawing there now, so
+      // this one leaves the DOM alone and only stops its own polling.
+      if (owner.get(root) !== claim) return;
+      owner.delete(root);
       root.replaceChildren();
       root.classList.remove("gtfs-viewer");
     },

@@ -214,14 +214,52 @@ class TestParquetExport:
         feed.export_parquet(tmp_path / "out")
         manifest = json.loads((tmp_path / "out" / "manifest.json").read_text(encoding="utf-8"))
 
-        assert manifest["version"] == 1
+        assert manifest["version"] == 2
         described = {entry["name"]: entry for entry in manifest["tables"]}
         assert set(described) == set(feed.tables)
 
         for table, entry in described.items():
             assert entry["file"] == f"{table}.parquet"
             assert entry["rows"] == feed.row_count(table)
-            assert (tmp_path / "out" / entry["file"]).stat().st_size == entry["bytes"]
+            assert entry["columns"] == len(feed.tables[table])
+            assert (tmp_path / "out" / entry["file"]).stat().st_size == entry["parquet_bytes"]
+
+    def test_records_what_the_files_weighed_before_conversion(self, feed_zip: Path, tmp_path: Path):
+        """The sizes the load report shows, which conversion destroys.
+
+        A zip member's compressed size exists only in the archive's directory,
+        and the CSVs themselves are gone once converted - so if the export does
+        not record these, the Zipped and Size columns can never come back. The
+        fixture here is the zip rather than the folder because a folder leaves
+        `compressed_bytes` null, which would let this pass while every real
+        dataset showed a dash.
+        """
+        import json
+
+        source = GtfsFeed(str(feed_zip), optimise=False)
+        try:
+            source.export_parquet(tmp_path / "out")
+        finally:
+            source.close()
+
+        manifest = json.loads((tmp_path / "out" / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["source"]["kind"] == "zip"
+        assert manifest["source"]["bytes"] > 0
+
+        for entry in manifest["tables"]:
+            assert entry["bytes"] > 0, f"{entry['name']} has no source size"
+            assert entry["compressed_bytes"] > 0, f"{entry['name']} has no zipped size"
+            assert entry["compressed_bytes"] < entry["bytes"], "a zipped file should be smaller"
+
+    def test_the_totals_add_up(self, feed: GtfsFeed, tmp_path: Path):
+        import json
+
+        feed.export_parquet(tmp_path / "out")
+        manifest = json.loads((tmp_path / "out" / "manifest.json").read_text(encoding="utf-8"))
+
+        tables = manifest["tables"]
+        assert manifest["totals"]["stored_bytes"] == sum(t["parquet_bytes"] for t in tables)
+        assert manifest["totals"]["uncompressed_bytes"] == sum(t["bytes"] for t in tables)
 
     def test_reopening_gives_the_same_rows_and_columns(self, feed_dir: Path, tmp_path: Path):
         source = GtfsFeed(str(feed_dir), optimise=False)

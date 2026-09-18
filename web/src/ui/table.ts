@@ -39,13 +39,67 @@ export function describeRelated(related: RelatedLink[]): RelatedButton[] {
   }));
 }
 
-export interface TableCallbacks {
-  onNavigate: (table: string, filters: Filter[]) => void;
-  onPage: (page: number) => void;
+/**
+ * Showing a row on the map.
+ *
+ * Every one is optional, and absent means the viewer has no map: a host that
+ * mounts without the map part gets no map buttons rather than buttons that do
+ * nothing. Granular rather than one flag because they already differ - a route
+ * is only highlightable once its shapes are known.
+ */
+export interface HighlightCallbacks {
   onHighlightStop: (stopId: string) => void;
   onHighlightShape: (shapeId: string) => void;
   onHighlightRoute: (routeId: string) => void;
   onHighlightLocation: (locationId: string) => void;
+}
+
+export interface TableCallbacks extends Partial<HighlightCallbacks> {
+  onNavigate: (table: string, filters: Filter[]) => void;
+  onPage: (page: number) => void;
+}
+
+export interface RowAction {
+  label: string;
+  title: string;
+  run: () => void;
+}
+
+/**
+ * Which map buttons a row should carry.
+ *
+ * Pure, so the rules are testable without a document - the same split the rest
+ * of this package uses, where `values.ts` decides and `table.ts` draws. A row
+ * offers an action only when it has the id for it *and* something can act on
+ * it.
+ */
+export function rowActions(
+  values: Record<string, string | null>,
+  context: { table: string; hasRouteShapes: boolean },
+  callbacks: Partial<HighlightCallbacks>,
+): RowAction[] {
+  const actions: RowAction[] = [];
+  const { onHighlightStop, onHighlightShape, onHighlightRoute, onHighlightLocation } = callbacks;
+
+  if (values.stop_id && onHighlightStop) {
+    const stopId = values.stop_id;
+    actions.push({ label: "📍", title: "Show this stop on the map", run: () => onHighlightStop(stopId) });
+  }
+  if (values.shape_id && onHighlightShape) {
+    const shapeId = values.shape_id;
+    actions.push({ label: "🧭", title: "Show this shape on the map", run: () => onHighlightShape(shapeId) });
+  }
+  if (values.route_id && context.hasRouteShapes && onHighlightRoute) {
+    const routeId = values.route_id;
+    actions.push({ label: "🚌", title: "Show this route on the map", run: () => onHighlightRoute(routeId) });
+  }
+  // Keyed on the table rather than the column: "id" is too generic a name to
+  // treat as a zone wherever it appears.
+  if (values.id && context.table === "locations" && onHighlightLocation) {
+    const locationId = values.id;
+    actions.push({ label: "🗺️", title: "Show this zone on the map", run: () => onHighlightLocation(locationId) });
+  }
+  return actions;
 }
 
 export class TableView {
@@ -91,7 +145,7 @@ export class TableView {
 
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
-    headRow.appendChild(document.createElement("th"));
+    if (this.hasActions) headRow.appendChild(document.createElement("th"));
     for (const column of page.columns) {
       const cell = document.createElement("th");
       cell.textContent = column;
@@ -122,9 +176,11 @@ export class TableView {
     const values: Record<string, string | null> = {};
     columns.forEach((column, index) => (values[column] = row[index]));
 
-    const actions = document.createElement("td");
-    actions.appendChild(this.buildRowActions(values));
-    tr.appendChild(actions);
+    if (this.hasActions) {
+      const actions = document.createElement("td");
+      actions.appendChild(this.buildRowActions(values));
+      tr.appendChild(actions);
+    }
 
     columns.forEach((column, index) => {
       tr.appendChild(this.buildCell(column, row[index]));
@@ -215,31 +271,25 @@ export class TableView {
     cell.textContent = rendered.text;
   }
 
+  /**
+   * Whether any row could ever carry an action.
+   *
+   * Decides the column, not the button: with no map there is nothing to put in
+   * it, and an always-empty leading column is worse than no column at all.
+   */
+  private get hasActions(): boolean {
+    const { onHighlightStop, onHighlightShape, onHighlightRoute, onHighlightLocation } = this.callbacks;
+    return Boolean(onHighlightStop || onHighlightShape || onHighlightRoute || onHighlightLocation);
+  }
+
   private buildRowActions(values: Record<string, string | null>): HTMLElement {
     const wrap = document.createElement("span");
-    const add = (label: string, title: string, onClick: () => void) => {
-      const btn = button(label, title, onClick);
+    const context = { table: this.state.view.table, hasRouteShapes: this.state.routeShapes.size > 0 };
+
+    for (const action of rowActions(values, context, this.callbacks)) {
+      const btn = button(action.label, action.title, action.run);
       btn.className = "map-btn";
       wrap.appendChild(btn);
-    };
-
-    if (values.stop_id) {
-      const stopId = values.stop_id;
-      add("📍", "Show this stop on the map", () => this.callbacks.onHighlightStop(stopId));
-    }
-    if (values.shape_id) {
-      const shapeId = values.shape_id;
-      add("🧭", "Show this shape on the map", () => this.callbacks.onHighlightShape(shapeId));
-    }
-    if (values.route_id && this.state.routeShapes.size) {
-      const routeId = values.route_id;
-      add("🚌", "Show this route on the map", () => this.callbacks.onHighlightRoute(routeId));
-    }
-    // Keyed on the table rather than the column: "id" is too generic a name to
-    // treat as a zone wherever it appears.
-    if (values.id && this.state.view.table === "locations") {
-      const locationId = values.id;
-      add("🗺️", "Show this zone on the map", () => this.callbacks.onHighlightLocation(locationId));
     }
     return wrap;
   }

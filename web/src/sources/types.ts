@@ -126,17 +126,31 @@ export interface FileMetrics {
 
 /** Server-side sizes and timings for the feed currently loaded. */
 export interface LoadMetrics {
-  /** How the feed reached the server. */
-  kind: "path" | "upload" | "folder" | "download";
+  /**
+   * Phases this source actually performed, in order.
+   *
+   * A source that is not a server load describes its own work rather than
+   * leaving the fields below to be filled with zeroes: a browser reading
+   * Parquet never downloaded or unzipped anything, and saying it took 0 ms to
+   * do so would be a claim about work that did not happen.
+   */
+  phases?: { label: string; ms: number; note?: string }[];
+  /**
+   * The fields below describe a server load, and are absent for a source that
+   * did not perform one. A browser reading Parquet never downloaded, unzipped
+   * or converted anything, and a zero here would claim the work took no time
+   * rather than that it never happened - which is what `phases` exists for.
+   */
+  kind?: "path" | "upload" | "folder" | "download";
   /** Downloading or receiving the upload; null for a local path. */
-  acquire_ms: number | null;
-  acquire_bytes: number | null;
+  acquire_ms?: number | null;
+  acquire_bytes?: number | null;
   /** Unzipping; null when the source was already-extracted files. */
-  extract_ms: number | null;
-  register_ms: number;
+  extract_ms?: number | null;
+  register_ms?: number;
   /** Converting to Parquet; null when opened with --no-parquet. */
-  convert_ms: number | null;
-  count_ms: number;
+  convert_ms?: number | null;
+  count_ms?: number;
   /** The phases above added together. */
   total_ms: number;
   /** The zip's size, or the sum of the .txt files in a folder. */
@@ -244,6 +258,16 @@ export interface ViewerSource extends GtfsSource {
     signal?: AbortSignal,
   ): Promise<void>;
   config?(): Promise<AppConfig>;
+  /**
+   * Release whatever the source is holding.
+   *
+   * A REST source holds nothing; one querying Parquet holds a WebAssembly
+   * instance and a worker, and browsers allow only a handful. Whoever created
+   * the source calls this - so `mountDataset` closes the source its provider
+   * handed it, while `mount` leaves a caller-supplied one alone, because the
+   * caller may be reusing it.
+   */
+  close?(): Promise<void>;
 }
 
 export interface GtfsSource {

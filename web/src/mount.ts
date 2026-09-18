@@ -135,23 +135,34 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
     navigator.go({ table: state.view.table, filters, page: 1 }),
   );
 
-  const highlight = async (kind: "stops" | "shapes" | "locations", id: string, point = false) => {
-    // Without the map part there is nothing to show it on. The row buttons are
-    // still drawn, because whether a row has a stop is a property of the row.
-    if (!map) return;
-    await map.highlight(await source.geojson(kind, [id]), { point });
-  };
+  /**
+   * Supplied only when there is a map.
+   *
+   * Their absence is what removes the row buttons and the column that holds
+   * them: a viewer mounted without the map part previously still drew 📍 and
+   * 🧭 on every row, and clicking one did nothing.
+   */
+  const highlights = map
+    ? (() => {
+        const show = async (kind: "stops" | "shapes" | "locations", id: string, point = false) => {
+          await map.highlight(await source.geojson(kind, [id]), { point });
+        };
+        return {
+          onHighlightStop: (stopId: string) => void show("stops", stopId, true),
+          onHighlightShape: (shapeId: string) => void show("shapes", shapeId),
+          onHighlightRoute: (routeId: string) => {
+            const shapeId = state.routeShapes.get(routeId);
+            if (shapeId) void show("shapes", shapeId);
+          },
+          onHighlightLocation: (locationId: string) => void show("locations", locationId),
+        };
+      })()
+    : {};
 
   const tableView = new TableView(dom, state, {
     onNavigate: (table, filters) => navigator.selectTable(table, filters),
     onPage: (page) => navigator.go({ ...navigator.current(), page }),
-    onHighlightStop: (stopId) => void highlight("stops", stopId, true),
-    onHighlightShape: (shapeId) => void highlight("shapes", shapeId),
-    onHighlightRoute: (routeId) => {
-      const shapeId = state.routeShapes.get(routeId);
-      if (shapeId) void highlight("shapes", shapeId);
-    },
-    onHighlightLocation: (locationId) => void highlight("locations", locationId),
+    ...highlights,
   });
 
   // A display preference, so it redraws the page in place rather than going

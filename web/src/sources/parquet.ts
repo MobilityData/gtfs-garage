@@ -14,6 +14,8 @@
 
 import type {
   FeatureCollection,
+  FileMetrics,
+  LoadMetrics,
   Filter,
   GeoJsonKind,
   ViewerSource,
@@ -22,6 +24,40 @@ import type {
   ValueCount,
 } from "./types";
 import { columnInfo, missingFiles, schemaTables } from "../schema";
+
+/** The dataset's own description of itself, written by `gtfs-garage --export`. */
+interface Manifest {
+  version?: number;
+  source?: { kind: string; bytes: number };
+  totals?: { uncompressed_bytes: number; stored_bytes: number };
+  tables?: {
+    name: string;
+    file?: string;
+    rows?: number;
+    columns?: number;
+    bytes?: number | null;
+    compressed_bytes?: number | null;
+    parquet_bytes?: number;
+  }[];
+}
+
+/**
+ * Bytes actually fetched from the dataset, as the browser saw them.
+ *
+ * DuckDB fetches through its own path, so this is the only place the
+ * transferred size is visible - and the honest number, since range requests
+ * mean far less travels than the files weigh. Cross-origin entries report zero
+ * unless the server sends `Timing-Allow-Origin`, so nothing is shown rather
+ * than a zero that would read as "nothing was transferred".
+ */
+function transferred(baseUrl: string): string | undefined {
+  if (typeof performance?.getEntriesByType !== "function") return undefined;
+  const bytes = performance
+    .getEntriesByType("resource")
+    .filter((entry) => entry.name.includes(baseUrl))
+    .reduce((total, entry) => total + ((entry as PerformanceResourceTiming).transferSize || 0), 0);
+  return bytes > 0 ? `${Math.round(bytes / 1024)} kB fetched` : undefined;
+}
 
 type Connection = {
   query(sql: string): Promise<{ toArray(): Record<string, unknown>[] }>;
@@ -83,6 +119,9 @@ export class ParquetSource implements ViewerSource {
   private connection: Connection | null = null;
   private terminate: (() => Promise<void>) | null = null;
   private present: Record<string, string[]> = {};
+  private startupMs = 0;
+  private manifestMs: number | null = null;
+  private firstQueryMs = 0;
 
   constructor(private readonly options: ParquetSourceOptions) {}
 
@@ -114,6 +153,7 @@ export class ParquetSource implements ViewerSource {
    */
   private async connect(): Promise<Connection> {
     if (this.connection) return this.connection;
+    const started = performance.now();
 
     const duckdb = await import("@duckdb/duckdb-wasm");
     const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
@@ -132,6 +172,9 @@ export class ParquetSource implements ViewerSource {
 
     this.terminate = () => database.terminate();
     this.connection = (await database.connect()) as unknown as Connection;
+    // Megabytes of wasm and a worker: the dominant cost of opening a dataset,
+    // and the one a reader waits on.
+    this.startupMs = performance.now() - started;
     return this.connection;
   }
 
@@ -143,17 +186,49 @@ export class ParquetSource implements ViewerSource {
    * defines, which for a seven-table feed measured at 123 requests before the
    * first row appeared.
    */
-  private async fromManifest(): Promise<string[] | null> {
+  private async fromManifest(): Promise<Manifest | null> {
+    const started = performance.now();
     try {
       const response = await fetch(`${this.options.baseUrl}/manifest.json`);
       if (!response.ok) return null;
-      const body = (await response.json()) as { tables?: { name: string }[] };
-      return body.tables?.map((table) => table.name) ?? null;
+      const body = (await response.json()) as Manifest;
+      this.manifestMs = performance.now() - started;
+      // Version 1 recorded only a table list, and its `bytes` meant the Parquet
+      // size rather than the source's - so its sizes are left out rather than
+      // shown under headings that would misdescribe them.
+      return (body.version ?? 1) >= 2 ? body : { version: 1, tables: body.tables };
     } catch {
       // No manifest is not an error: a dataset written by something else, or
       // served from somewhere that will not answer for it, still works.
       return null;
     }
+  }
+
+  /**
+   * What the dataset cost to open *here*.
+   *
+   * The server's load report describes a download, an unzip and a conversion.
+   * None of that happens in a browser reading Parquet: the cost is starting
+   * DuckDB, fetching the manifest, and the first queries. Reporting the
+   * conversion's timings instead would describe work this reader did not do.
+   */
+  private metrics(files: FileMetrics[], manifest: Manifest | null): LoadMetrics {
+    const phases = [
+      { label: "Start DuckDB", ms: this.startupMs, note: transferred(this.options.baseUrl) },
+      ...(this.manifestMs === null ? [] : [{ label: "Read the manifest", ms: this.manifestMs }]),
+      { label: "First query", ms: this.firstQueryMs },
+    ];
+
+    const stored = files.reduce((total, file) => total + (file.parquet_bytes ?? 0), 0);
+    return {
+      phases,
+      // No `kind` and no zeroed timings: every server-load field is left out,
+      // because none of that work happened here.
+      total_ms: this.startupMs + (this.manifestMs ?? 0) + this.firstQueryMs,
+      total_bytes: manifest?.totals?.uncompressed_bytes ?? stored,
+      stored_bytes: stored,
+      files,
+    };
   }
 
   private async rows(sql: string): Promise<Record<string, unknown>[]> {
@@ -162,8 +237,12 @@ export class ParquetSource implements ViewerSource {
   }
 
   async tables(): Promise<TablesResponse> {
+    const startedAt = performance.now();
     const connection = await this.connect();
-    const wanted = this.options.tables ?? (await this.fromManifest()) ?? Object.keys(schemaTables);
+
+    const manifest = this.options.tables ? null : await this.fromManifest();
+    const wanted =
+      this.options.tables ?? manifest?.tables?.map((table) => table.name) ?? Object.keys(schemaTables);
 
     this.present = {};
     const failures: string[] = [];
@@ -208,7 +287,29 @@ export class ParquetSource implements ViewerSource {
       );
     }
 
+    this.firstQueryMs = performance.now() - startedAt - this.startupMs - (this.manifestMs ?? 0);
+
+    // The per-file rows come from the manifest, which recorded what each file
+    // weighed before conversion - sizes the dataset no longer carries.
+    const described = new Map((manifest?.tables ?? []).map((table) => [table.name, table]));
+    const files: FileMetrics[] = summaries.map((entry) => {
+      const facts = described.get(entry.table);
+      return {
+        name: facts?.file ?? `${entry.table}.parquet`,
+        table: entry.table,
+        bytes: facts?.bytes ?? facts?.parquet_bytes ?? 0,
+        compressed_bytes: facts?.compressed_bytes ?? null,
+        register_ms: 0,
+        convert_ms: null,
+        parquet_bytes: facts?.parquet_bytes ?? null,
+        count_ms: null,
+        row_count: entry.rowCount,
+        columns: entry.columns.length,
+      };
+    });
+
     return {
+      metrics: this.metrics(files, manifest),
       source: this.options.name ?? this.options.baseUrl,
       tables: summaries.map(({ table, columns, rowCount }) => ({
         name: table,
@@ -217,7 +318,6 @@ export class ParquetSource implements ViewerSource {
         forbidden: null,
       })),
       missing: missingFiles(this.present),
-      // No load to report: nothing was downloaded, unzipped or converted.
     };
   }
 

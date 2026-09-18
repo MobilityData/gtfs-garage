@@ -13,7 +13,7 @@
     "types": "tsc -p tsconfig.lib.json"
   },
   "devDependencies": {
-    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
     "@types/node": "^22.20.2",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
@@ -72,7 +72,7 @@
     "./package.json": "./package.json"
   },
   "peerDependencies": {
-    "@duckdb/duckdb-wasm": "^1.29.0",
+    "@duckdb/duckdb-wasm": "^1.32.0",
     "maplibre-gl": "^5.0.0",
     "react": "^18 || ^19",
     "react-dom": "^18 || ^19"

@@ -16,7 +16,10 @@ import time
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+
+from gtfs_garage import __version__
 
 # Reported through `on_progress` so a caller can say which phase is running.
 PHASE_EXTRACT = "extract"
@@ -276,6 +279,7 @@ class GtfsFeed:
         describes itself, and anything holding the URL can read it.
         """
         destination.mkdir(parents=True, exist_ok=True)
+        stats_by_table = {f.table: f for f in self.stats.files}
         written = []
         tables = []
 
@@ -284,14 +288,53 @@ class GtfsFeed:
             escaped = str(target).replace("'", "''")
             self.con.execute(f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
             written.append(target)
+
+            source = stats_by_table.get(table)
             tables.append(
-                {"name": table, "file": target.name, "rows": self.row_count(table), "bytes": target.stat().st_size}
+                {
+                    "name": table,
+                    "file": target.name,
+                    "rows": self.row_count(table),
+                    "columns": len(self.tables[table]),
+                    # What the file weighed before conversion, and inside the
+                    # archive it arrived in. Neither can be recovered later:
+                    # conversion deletes the CSVs, and a zip member's compressed
+                    # size only exists in the archive's directory.
+                    "bytes": source.bytes if source else None,
+                    "compressed_bytes": source.compressed_bytes if source else None,
+                    "parquet_bytes": target.stat().st_size,
+                }
             )
 
         manifest = destination / MANIFEST
-        manifest.write_text(json.dumps({"version": 1, "tables": tables}, indent=2) + "\n", encoding="utf-8")
+        manifest.write_text(json.dumps(self._manifest(tables), indent=2) + "\n", encoding="utf-8")
         written.append(manifest)
         return written
+
+    def _manifest(self, tables: list[dict]) -> dict:
+        """What the dataset is, for a reader that will never see the source.
+
+        Version 2 added the sizes the load report shows. Version 1 carried only
+        a table list, and its `bytes` meant the Parquet size rather than the
+        source's - so a reader has to know which it is holding.
+        """
+        sized = [t for t in tables if t["bytes"] is not None]
+        return {
+            "version": 2,
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "gtfs_garage": __version__,
+            "source": {"kind": self._source_kind(), "bytes": self.stats.source_bytes},
+            "totals": {
+                "uncompressed_bytes": sum(t["bytes"] for t in sized),
+                "stored_bytes": sum(t["parquet_bytes"] for t in tables),
+            },
+            "tables": tables,
+        }
+
+    def _source_kind(self) -> str:
+        if self._parquet_source:
+            return "parquet"
+        return "zip" if self.source_path.suffix.lower() == ".zip" else "folder"
 
     def _load_locations_geojson(self) -> None:
         """Register locations.geojson, the one GTFS file that is not a CSV.
