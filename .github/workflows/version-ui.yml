@@ -1,0 +1,50 @@
+name: Version bumped (UI)
+
+# Runs only when the change alters the published UI package. The path list *is*
+# the rule - no script works it out.
+#
+# `schema/**` and the generated document are here as well as in the Python
+# workflow because `web/src/schema.ts` imports the document and the bundler
+# inlines it: editing the schema changes the published bundle with nothing
+# under `web/` touched.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/src/**"
+      - "!web/src/**/*.test.ts"
+      - "!web/src/**/*.test.tsx"
+      - "web/package.json"
+      - "web/vite.config.ts"
+      - "web/vite.lib.config.ts"
+      - "web/tsconfig*.json"
+      - "schema/**"
+      - "src/gtfs_garage/data/gtfs-schema.json"
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: web/package.json version is bumped
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare with the base branch
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin "$BASE"
+
+          before=$(git show "origin/$BASE:web/package.json" | jq -r .version)
+          after=$(jq -r .version web/package.json)
+
+          if [ "$before" = "$after" ]; then
+            echo "::error file=web/package.json::this change affects the published UI package; bump the version (still $after)"
+            exit 1
+          fi
+          echo "$before -> $after"
