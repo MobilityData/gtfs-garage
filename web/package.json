@@ -1,6 +1,6 @@
 {
   "name": "gtfs-garage-web",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Browse a GTFS feed: a mountable viewer with a table, filters and a map.",
   "license": "Apache-2.0",
   "type": "module",

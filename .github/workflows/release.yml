@@ -133,7 +133,13 @@ jobs:
             test -s "$file" || { echo "::error::$file is missing or empty"; exit 1; }
           done
 
+      # npm's OIDC exchange is best-effort and never throws: every failure path
+      # returns silently via log.verbose, so a misconfigured trusted publisher
+      # surfaces only as ENEEDAUTH further down. --loglevel=verbose is what makes
+      # the actual reason visible.
       - name: Publish
         if: steps.check.outputs.publish == 'true'
         working-directory: web
-        run: npm publish
+        run: |
+          npm --version
+          npm publish --loglevel=verbose
