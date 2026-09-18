@@ -1,6 +1,7 @@
+import type MapLibre from "maplibre-gl";
+
 import type { Dom } from "../dom";
-import type { RestSource } from "../sources/rest";
-import type { FeatureCollection, GeoJsonKind } from "../sources/types";
+import type { FeatureCollection, GeoJsonKind, ViewerSource } from "../sources/types";
 import type { AppState } from "../state";
 import { resolveBasemap } from "./basemap";
 import { bboxOf } from "./geo";
@@ -22,21 +23,32 @@ const LAYER_NOUNS: Record<GeoJsonKind, string> = {
   locations: "zones",
 };
 
-/** MapLibre is loaded from a CDN script tag, so it arrives as a global. */
-declare const maplibregl: any;
 
 export class MapController {
   private readonly map: any;
   private readonly ready: Promise<void>;
 
-  /** A vector basemap has to be fetched before the map is constructed. */
+  /**
+   * A vector basemap has to be fetched before the map is constructed, and
+   * MapLibre itself is fetched here rather than imported at the top of the
+   * file.
+   *
+   * That is what keeps it optional. A host that mounts the viewer without the
+   * map part never reaches this method, so its bundler never follows the
+   * import and none of MapLibre's ~1 MB is downloaded. A static import would
+   * make it a cost every consumer pays whether or not they show a map.
+   */
   static async create(
     dom: Dom,
     state: AppState,
-    source: RestSource,
+    source: ViewerSource,
     basemap?: string | null,
   ): Promise<MapController> {
-    return new MapController(dom, state, source, await buildStyle(resolveBasemap(basemap)));
+    const [maplibregl, style] = await Promise.all([
+      import("maplibre-gl").then((module) => module.default),
+      buildStyle(resolveBasemap(basemap)),
+    ]);
+    return new MapController(maplibregl, dom, state, source, style);
   }
 
   /** Cancels an in-flight refresh when a new feed arrives mid-draw. */
@@ -48,9 +60,10 @@ export class MapController {
   private readonly simplifiedLayers = new Map<GeoJsonKind, number>();
 
   private constructor(
+    private readonly maplibregl: typeof MapLibre,
     private readonly dom: Dom,
     private readonly state: AppState,
-    private readonly source: RestSource,
+    private readonly source: ViewerSource,
     style: Record<string, unknown>,
   ) {
     this.map = new maplibregl.Map({
@@ -60,14 +73,17 @@ export class MapController {
       center: [0, 20],
       zoom: 1,
       attributionControl: { compact: true },
-      style,
+      // `buildStyle` composes the basemap with this viewer's own layers and is
+      // covered by layers.test.ts; it is typed as a plain record, not against
+      // MapLibre.
+      style: style as MapLibre.StyleSpecification,
     });
-    this.map.addControl(new maplibregl.NavigationControl(), "top-right");
-    this.map.addControl(new maplibregl.ScaleControl());
+    this.map.addControl(new this.maplibregl.NavigationControl(), "top-right");
+    this.map.addControl(new this.maplibregl.ScaleControl());
 
     this.map.on("click", "stops", (event: any) => {
       const properties = event.features[0].properties;
-      new maplibregl.Popup()
+      new this.maplibregl.Popup()
         .setLngLat(event.lngLat)
         .setHTML(`<strong>${properties.stop_name ?? ""}</strong><br>${properties.stop_id}`)
         .addTo(this.map);
@@ -253,5 +269,17 @@ export class MapController {
 
   async clear(): Promise<void> {
     for (const id of SOURCE_IDS) await this.setSourceData(id, EMPTY_FEATURE_COLLECTION);
+  }
+
+  /**
+   * Give up the map and everything holding it.
+   *
+   * An embedded viewer is unmounted and remounted by its host - React does it
+   * twice on every mount in development - and a MapLibre instance left behind
+   * keeps a WebGL context, which browsers allow only a handful of.
+   */
+  destroy(): void {
+    this.drawing?.abort();
+    this.map.remove();
   }
 }

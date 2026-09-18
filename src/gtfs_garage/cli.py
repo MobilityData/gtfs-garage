@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 import threading
 import webbrowser
 
 import uvicorn
 
 from gtfs_garage import __version__
-from gtfs_garage.core.feed import GtfsLoadError
+from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
 from gtfs_garage.server.app import (
     BASEMAP_ENV_VAR,
     BUILD_COMMAND,
@@ -68,12 +69,47 @@ def build_parser() -> argparse.ArgumentParser:
             "extracted feed stays on disk in full"
         ),
     )
+    parser.add_argument(
+        "--export",
+        metavar="DIR",
+        help=(
+            "convert the feed to Parquet in DIR and exit instead of serving. "
+            "One file per table, every column text, which is what a browser "
+            "reads over range requests"
+        ),
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
 
 
+def _export(feed_path: str | None, destination: str) -> int:
+    """Write the feed out as Parquet, the artifact a browser can query."""
+    if not feed_path:
+        print("error: --export needs a feed to convert", file=sys.stderr)
+        return 1
+
+    try:
+        feed = GtfsFeed(feed_path, optimise=False)
+    except GtfsLoadError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        written = feed.export_parquet(Path(destination))
+    finally:
+        feed.close()
+
+    total = sum(f.stat().st_size for f in written)
+    tables = [f for f in written if f.suffix == ".parquet"]
+    print(f"wrote {len(tables)} tables and a manifest to {destination} ({total / 1_000_000:.1f} MB)")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.export:
+        return _export(args.feed, args.export)
 
     try:
         app = create_app(args.feed, args.basemap, optimise=not args.no_parquet)

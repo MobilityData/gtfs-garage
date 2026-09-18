@@ -154,3 +154,49 @@ describe("fileRows", () => {
     expect(fileRows(partial)[0].costMs).toBe("—");
   });
 });
+const SERVER: LoadMetrics = {
+  kind: "download",
+  acquire_ms: 6200,
+  acquire_bytes: 4_500_000,
+  extract_ms: 1100,
+  register_ms: 14,
+  convert_ms: 6000,
+  count_ms: 90,
+  total_ms: 13_404,
+  total_bytes: 4_500_000,
+  stored_bytes: 220_000,
+  files: [],
+};
+
+/**
+ * The panel asks what the feed cost to open. For a server load that is a
+ * download, an unzip and a conversion; for a browser reading Parquet none of
+ * those happened, and reporting them as zero would claim work that did not.
+ */
+describe("phaseRows", () => {
+  it("describes a server load from its fields", () => {
+    const labels = phaseRows(SERVER).map(([label]) => label);
+    expect(labels).toEqual(["Download", "Unzip", "Read headers", "Convert to Parquet", "Count rows"]);
+  });
+
+  it("takes a source that described its own work at its word", () => {
+    const rows = phaseRows({
+      ...SERVER,
+      phases: [
+        { label: "Start DuckDB", ms: 420, note: "74 kB fetched" },
+        { label: "First query", ms: 38 },
+      ],
+    });
+    expect(rows).toEqual([
+      ["Start DuckDB", "420 ms · 74 kB fetched"],
+      ["First query", "38 ms"],
+    ]);
+  });
+
+  it("never mixes the two", () => {
+    // The server fields are still present above; a source that supplied phases
+    // must not also get Unzip and Convert rows it never performed.
+    const labels = phaseRows({ ...SERVER, phases: [{ label: "Start DuckDB", ms: 1 }] }).map(([l]) => l);
+    expect(labels).toEqual(["Start DuckDB"]);
+  });
+});

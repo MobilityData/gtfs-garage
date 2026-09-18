@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { RelatedLink } from "../sources/types";
-import { describeRelated } from "./table";
+import { describeRelated, type HighlightCallbacks, rowActions } from "./table";
 
 /** What the server sends for a stop_id, taken from the real GTFS schema. */
 const STOP_LINKS: RelatedLink[] = [
@@ -52,5 +52,67 @@ describe("describeRelated", () => {
 
   it("handles a table with no reverse links", () => {
     expect(describeRelated([])).toEqual([]);
+  });
+});
+
+
+/**
+ * A viewer mounted without the map part has nothing to show a row on, and used
+ * to draw 📍 and 🧭 on every row anyway - buttons that did nothing when
+ * clicked. A callback's absence is what says so.
+ */
+describe("rowActions", () => {
+  const ALL: HighlightCallbacks = {
+    onHighlightStop: () => {},
+    onHighlightShape: () => {},
+    onHighlightRoute: () => {},
+    onHighlightLocation: () => {},
+  };
+  const context = { table: "stops", hasRouteShapes: true };
+  const labels = (
+    values: Record<string, string | null>,
+    callbacks: Partial<HighlightCallbacks> = ALL,
+    ctx = context,
+  ) => rowActions(values, ctx, callbacks).map((a) => a.label);
+
+  it("offers nothing at all when there is no map", () => {
+    expect(labels({ stop_id: "ST1", shape_id: "SH1", route_id: "R1" }, {})).toEqual([]);
+  });
+
+  it("offers a stop when something can show one", () => {
+    expect(labels({ stop_id: "ST1" })).toEqual(["📍"]);
+  });
+
+  it("offers only what the row has ids for", () => {
+    expect(labels({ shape_id: "SH1" })).toEqual(["🧭"]);
+    expect(labels({})).toEqual([]);
+  });
+
+  it("drops just the one kind a host cannot show", () => {
+    // Granular rather than one flag: a caller may support some and not others.
+    const { onHighlightStop: _omitted, ...rest } = ALL;
+    expect(labels({ stop_id: "ST1", shape_id: "SH1" }, rest)).toEqual(["🧭"]);
+  });
+
+  it("waits for a route's shapes before offering it", () => {
+    // A route is drawn through its shape, so there is nothing to show until
+    // the shape ids are known.
+    expect(labels({ route_id: "R1" }, ALL, { table: "routes", hasRouteShapes: false })).toEqual([]);
+    expect(labels({ route_id: "R1" }, ALL, { table: "routes", hasRouteShapes: true })).toEqual(["🚌"]);
+  });
+
+  it("treats a bare id as a zone only in the locations table", () => {
+    expect(labels({ id: "zone-north" }, ALL, { table: "locations", hasRouteShapes: false })).toEqual(["🗺️"]);
+    expect(labels({ id: "anything" }, ALL, { table: "areas", hasRouteShapes: false })).toEqual([]);
+  });
+
+  it("runs the callback the row was built for", () => {
+    const seen: string[] = [];
+    const actions = rowActions({ stop_id: "ST1" }, context, {
+      ...ALL,
+      onHighlightStop: (id) => seen.push(id),
+    });
+    actions[0].run();
+    expect(seen).toEqual(["ST1"]);
   });
 });

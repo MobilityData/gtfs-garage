@@ -13,7 +13,7 @@ import type { FileMetrics, LoadMetrics } from "../sources/types";
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 /** How the feed reached the server, in words for the report. */
-const KIND_LABELS: Record<LoadMetrics["kind"], string> = {
+const KIND_LABELS: Record<NonNullable<LoadMetrics["kind"]>, string> = {
   path: "Local path",
   upload: "Upload",
   folder: "Folder upload",
@@ -54,7 +54,9 @@ export function summaryLine(metrics: LoadMetrics, clientMs?: number): string {
   const parts = [
     `${metrics.files.length} ${metrics.files.length === 1 ? "file" : "files"}`,
     formatBytes(dataBytes(metrics)),
-    `${formatMs(metrics.total_ms)} server`,
+    // Only a server load is time spent on a server. A source that described its
+    // own phases spent that time here, in this browser.
+    metrics.phases ? formatMs(metrics.total_ms) : `${formatMs(metrics.total_ms)} server`,
   ];
   if (clientMs !== undefined) parts.push(`${formatMs(clientMs)} round trip`);
   return parts.join(" · ");
@@ -62,21 +64,31 @@ export function summaryLine(metrics: LoadMetrics, clientMs?: number): string {
 
 /** The phases that actually happened, in the order they happened. */
 export function phaseRows(metrics: LoadMetrics): Array<[string, string]> {
+  // A source that described its own work is taken at its word. The fields
+  // below belong to a server load, and a source that did not perform one
+  // cannot fill them without inventing numbers.
+  if (metrics.phases) {
+    return metrics.phases.map(({ label, ms, note }) => [label, note ? `${formatMs(ms)} · ${note}` : formatMs(ms)]);
+  }
+
+  // Each row appears only if the load reported that phase. A field that is
+  // absent means the work did not happen, which is different from taking no
+  // time - so nothing is shown rather than a zero.
   const rows: Array<[string, string]> = [];
-  if (metrics.acquire_ms !== null) {
-    const bytes = metrics.acquire_bytes === null ? "" : ` · ${formatBytes(metrics.acquire_bytes)}`;
+  if (metrics.acquire_ms != null && metrics.kind) {
+    const bytes = metrics.acquire_bytes == null ? "" : ` · ${formatBytes(metrics.acquire_bytes)}`;
     rows.push([KIND_LABELS[metrics.kind], `${formatMs(metrics.acquire_ms)}${bytes}`]);
   }
-  if (metrics.extract_ms !== null) {
+  if (metrics.extract_ms != null) {
     rows.push(["Unzip", `${formatMs(metrics.extract_ms)} · ${formatBytes(metrics.total_bytes)} archive`]);
   }
-  rows.push(["Read headers", formatMs(metrics.register_ms)]);
-  if (metrics.convert_ms !== null) {
+  if (metrics.register_ms != null) rows.push(["Read headers", formatMs(metrics.register_ms)]);
+  if (metrics.convert_ms != null) {
     // Worth showing what the conversion bought, not just what it cost.
     const stored = metrics.stored_bytes === null ? "" : ` · ${formatBytes(metrics.stored_bytes)} stored`;
     rows.push(["Convert to Parquet", `${formatMs(metrics.convert_ms)}${stored}`]);
   }
-  rows.push(["Count rows", formatMs(metrics.count_ms)]);
+  if (metrics.count_ms != null) rows.push(["Count rows", formatMs(metrics.count_ms)]);
   return rows;
 }
 
@@ -90,10 +102,9 @@ export interface FileRow {
   stored: string;
   /**
    * What this file cost: converting it, or counting it when the feed was left
-   * as CSV. One number rather than two, because the two the report used to show
-   * were measured against different storage - the header read happens on the
-   * CSV before conversion and the row count on the Parquet after it - so
-   * reading them side by side told you nothing.
+   * as CSV. One number, not both: the header read happens on the CSV before
+   * conversion and the row count on the Parquet after it, so they are measured
+   * against different storage and do not compare.
    */
   costMs: string;
   rows: string;
@@ -101,7 +112,7 @@ export interface FileRow {
 }
 
 /**
- * Largest file first: the point of the report is to name the file that
+ * Largest file first, so the report names the file that
  * dominated the load, and on a real feed that is almost always stop_times.txt.
  */
 export function fileRows(metrics: LoadMetrics): FileRow[] {
@@ -144,7 +155,12 @@ interface Column {
  * set is built per report rather than held as a constant.
  */
 function fileColumns(metrics: LoadMetrics): Column[] {
-  const cost: Column = converted(metrics)
+  // Both remaining choices time a server's work on each file. A source that
+  // described its own phases did neither, so the column is dropped rather than
+  // filled with dashes.
+  const cost: Column | null = metrics.phases
+    ? null
+    : converted(metrics)
     ? {
         label: "Convert",
         title: "Time to rewrite this file as Parquet, which is what every query then reads.",
@@ -163,7 +179,7 @@ function fileColumns(metrics: LoadMetrics): Column[] {
     { label: "Stored", title: "Size as Parquet, which is what queries read", value: (row) => row.stored },
     { label: "Rows", value: (row) => row.rows },
     { label: "Cols", value: (row) => String(row.columns) },
-    cost,
+    ...(cost ? [cost] : []),
   ];
 }
 

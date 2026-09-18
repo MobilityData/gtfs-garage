@@ -1,0 +1,37 @@
+name: Version bumped (Python)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/gtfs_garage/**"
+      - "pyproject.toml"
+      - "schema/**"
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: __version__ is bumped
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare with the base branch
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin "$BASE"
+
+          read_version() { sed -n 's/^__version__ = "\(.*\)"$/\1/p'; }
+          before=$(git show "origin/$BASE:src/gtfs_garage/__init__.py" | read_version)
+          after=$(read_version < src/gtfs_garage/__init__.py)
+
+          if [ "$before" = "$after" ]; then
+            echo "::error file=src/gtfs_garage/__init__.py::this change affects the published Python package; bump __version__ (still $after)"
+            exit 1
+          fi
+          echo "$before -> $after"

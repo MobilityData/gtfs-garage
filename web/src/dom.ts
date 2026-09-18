@@ -4,9 +4,8 @@
  * Element lookup scoped to one viewer.
  *
  * Every lookup goes through a root rather than `document`, so two viewers can
- * exist on one page without reaching into each other's markup. That is what a
- * host embedding this needs: the UI used to resolve 37 fixed ids against the
- * whole document, which silently assumed it was the only thing on the page.
+ * exist on one page without reaching into each other's markup, and a viewer
+ * embedded in a host cannot match the host's own elements.
  */
 export interface Dom {
   el<T extends HTMLElement = HTMLElement>(name: string): T;

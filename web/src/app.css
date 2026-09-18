@@ -1,0 +1,16 @@
+/*
+ * The standalone application's own page, not the viewer's.
+ *
+ * Only main.ts imports this. A host embedding the viewer decides its own page
+ * layout and gives the viewer whatever box it likes; style.css never reaches
+ * outside `.gtfs-viewer`, and these two rules would.
+ */
+body {
+  margin: 0;
+  height: 100vh;
+  color-scheme: light;
+}
+
+#gtfs-garage {
+  height: 100%;
+}

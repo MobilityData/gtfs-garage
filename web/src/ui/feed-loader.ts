@@ -121,9 +121,8 @@ export class FeedLoader {
   /**
    * Poll the server for the load's phase until it is told to stop.
    *
-   * Only answerable at all because the load runs in a worker thread; while it
-   * sat on the event loop no other request could be served, which is why a big
-   * feed looked like a hung page.
+   * Only answerable because the load runs in a worker thread: on the event
+   * loop it would block every other request, including this poll.
    */
   private pollProgress(description: string): () => void {
     let stopped = false;

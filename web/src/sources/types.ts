@@ -8,6 +8,8 @@
  * without the UI knowing the difference.
  */
 
+import type { NdjsonMessage } from "./ndjson";
+
 export interface RelatedLink {
   table: string;
   column: string;
@@ -124,17 +126,31 @@ export interface FileMetrics {
 
 /** Server-side sizes and timings for the feed currently loaded. */
 export interface LoadMetrics {
-  /** How the feed reached the server. */
-  kind: "path" | "upload" | "folder" | "download";
+  /**
+   * Phases this source actually performed, in order.
+   *
+   * A source that is not a server load describes its own work rather than
+   * leaving the fields below to be filled with zeroes: a browser reading
+   * Parquet never downloaded or unzipped anything, and saying it took 0 ms to
+   * do so would be a claim about work that did not happen.
+   */
+  phases?: { label: string; ms: number; note?: string }[];
+  /**
+   * The fields below describe a server load, and are absent for a source that
+   * did not perform one. A browser reading Parquet never downloads, unzips or
+   * converts, and a zero would say that work took no time instead of that it
+   * did not happen. Such a source reports `phases` above.
+   */
+  kind?: "path" | "upload" | "folder" | "download";
   /** Downloading or receiving the upload; null for a local path. */
-  acquire_ms: number | null;
-  acquire_bytes: number | null;
+  acquire_ms?: number | null;
+  acquire_bytes?: number | null;
   /** Unzipping; null when the source was already-extracted files. */
-  extract_ms: number | null;
-  register_ms: number;
+  extract_ms?: number | null;
+  register_ms?: number;
   /** Converting to Parquet; null when opened with --no-parquet. */
-  convert_ms: number | null;
-  count_ms: number;
+  convert_ms?: number | null;
+  count_ms?: number;
   /** The phases above added together. */
   total_ms: number;
   /** The zip's size, or the sum of the .txt files in a folder. */
@@ -169,7 +185,11 @@ export interface TablesResponse {
   source: string;
   tables: TableInfo[];
   missing: MissingFile[];
-  metrics: LoadMetrics;
+  /**
+   * What the feed cost to open. Absent for a source with no load to report -
+   * a browser reading Parquet did not download, unzip or convert anything.
+   */
+  metrics?: LoadMetrics;
 }
 
 /** Row values are strings or null: every column is read as text. */
@@ -220,6 +240,34 @@ export interface GeoFeature {
   type: "Feature";
   geometry: { type: string; coordinates: unknown } | null;
   properties: Record<string, string>;
+}
+
+/**
+ * What a whole viewer needs, which is more than a table needs.
+ *
+ * `GtfsSource` answers the table. The map additionally streams, because a large
+ * feed's shapes arrive over seconds and are drawn as they land rather than all
+ * at the end - so a host supplying its own source implements this, not just
+ * `GtfsSource`. `config` is optional: it exists on the REST source, where the
+ * basemap is a server setting, and a host that passes `basemap` needs neither.
+ */
+export interface ViewerSource extends GtfsSource {
+  geojsonStream(
+    kind: GeoJsonKind,
+    onMessage: (message: NdjsonMessage) => void,
+    signal?: AbortSignal,
+  ): Promise<void>;
+  config?(): Promise<AppConfig>;
+  /**
+   * Release whatever the source is holding.
+   *
+   * A REST source holds nothing; one querying Parquet holds a WebAssembly
+   * instance and a worker, and browsers allow only a handful. Whoever created
+   * the source calls this - so `mountDataset` closes the source its provider
+   * handed it, while `mount` leaves a caller-supplied one alone, because the
+   * caller may be reusing it.
+   */
+  close?(): Promise<void>;
 }
 
 export interface GtfsSource {

@@ -9,17 +9,24 @@ reading the CSVs where they sit.
 
 from __future__ import annotations
 
+import json
 import shutil
 import tempfile
 import time
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+
+from gtfs_garage import __version__
 
 # Reported through `on_progress` so a caller can say which phase is running.
 PHASE_EXTRACT = "extract"
 PHASE_CONVERT = "convert"
+
+# Describes an exported dataset, so a reader need not probe for its tables.
+MANIFEST = "manifest.json"
 
 # The one GTFS file that is not a CSV, and the table it becomes.
 LOCATIONS_GEOJSON = "locations.geojson"
@@ -116,14 +123,18 @@ class GtfsFeed:
         self.stats = FeedStats()
         # Populated from the archive before extraction; empty for a folder.
         self._compressed_sizes: dict[str, int] = {}
+        # Set by `_resolve_data_dir`, which runs next, when the source has
+        # already been converted.
+        self._parquet_source = False
         self.data_dir = self._resolve_data_dir()
         self.con = duckdb.connect(database=":memory:")
         self.tables: dict[str, list[str]] = {}
         self._load_tables()
         if not self.tables:
             self.close()
-            raise GtfsLoadError(f"No GTFS .txt files found under {self.data_dir}")
-        if optimise:
+            raise GtfsLoadError(f"No GTFS files found under {self.data_dir}")
+        # Nothing to convert when the source is already Parquet.
+        if optimise and not self._parquet_source:
             self._convert_to_parquet()
 
     def _progress(self, phase: str, done: int, total: int, detail: str = "") -> None:
@@ -140,6 +151,13 @@ class GtfsFeed:
             raise GtfsLoadError(f"Path does not exist: {self.source_path}")
 
         if self.source_path.is_dir():
+            # A directory of Parquet, as `export_parquet` writes. Already
+            # converted, so extracting and converting are both skipped.
+            if not any(self.source_path.glob("*.txt")) and any(self.source_path.glob("*.parquet")):
+                self._parquet_source = True
+                self.stats.source_bytes = sum(f.stat().st_size for f in self.source_path.glob("*.parquet"))
+                return self.source_path
+
             data_dir = self.source_path
             if not (self.source_path / "stops.txt").exists():
                 nested = next(self.source_path.rglob("stops.txt"), None)
@@ -176,6 +194,10 @@ class GtfsFeed:
 
     def _load_tables(self) -> None:
         started = time.perf_counter()
+        if self._parquet_source:
+            self._load_parquet_tables()
+            self.stats.register_ms = _elapsed_ms(started)
+            return
         for txt_file in sorted(self.data_dir.glob("*.txt")):
             table_name = txt_file.stem
             escaped_path = str(txt_file).replace("'", "''")
@@ -208,6 +230,104 @@ class GtfsFeed:
             )
         self._load_locations_geojson()
         self.stats.register_ms = _elapsed_ms(started)
+
+    def _load_parquet_tables(self) -> None:
+        """Point a view at each Parquet file, with no conversion to do.
+
+        `export_parquet` wrote these through the same `ALL_VARCHAR` views the
+        CSVs were read with, so every column is already text and the queries
+        behave identically to a feed opened from source.
+        """
+        for parquet_file in sorted(self.data_dir.glob("*.parquet")):
+            table_name = parquet_file.stem
+            escaped_path = str(parquet_file).replace("'", "''")
+            file_started = time.perf_counter()
+            try:
+                self.con.execute(f"""CREATE VIEW "{table_name}" AS SELECT * FROM read_parquet('{escaped_path}')""")
+            except Exception:
+                continue
+            columns = [row[0] for row in self.con.execute(f'DESCRIBE "{table_name}"').fetchall()]
+            self.tables[table_name] = columns
+            size = parquet_file.stat().st_size
+            self.stats.files.append(
+                FileStats(
+                    name=parquet_file.name,
+                    table=table_name,
+                    bytes=size,
+                    # Already converted, so there is no archive it came out of
+                    # and no separate on-disk form to report.
+                    compressed_bytes=None,
+                    parquet_bytes=size,
+                    register_ms=_elapsed_ms(file_started),
+                    columns=len(columns),
+                )
+            )
+
+    def export_parquet(self, destination: Path) -> list[Path]:
+        """Write every table as Parquet into `destination`, and return the files.
+
+        One `{table}.parquet` per table plus a `manifest.json` naming them, so a
+        reader need not know which files to expect. The sizes it records cannot
+        be recovered afterwards: conversion deletes the CSVs, and a zip member's
+        compressed size exists only in the archive's directory.
+        """
+        destination.mkdir(parents=True, exist_ok=True)
+        stats_by_table = {f.table: f for f in self.stats.files}
+        written = []
+        tables = []
+
+        for table in sorted(self.tables):
+            target = destination / f"{table}.parquet"
+            escaped = str(target).replace("'", "''")
+            self.con.execute(f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
+            written.append(target)
+
+            source = stats_by_table.get(table)
+            tables.append(
+                {
+                    "name": table,
+                    "file": target.name,
+                    "rows": self.row_count(table),
+                    "columns": len(self.tables[table]),
+                    # What the file weighed before conversion, and inside the
+                    # archive it arrived in. Neither can be recovered later:
+                    # conversion deletes the CSVs, and a zip member's compressed
+                    # size only exists in the archive's directory.
+                    "bytes": source.bytes if source else None,
+                    "compressed_bytes": source.compressed_bytes if source else None,
+                    "parquet_bytes": target.stat().st_size,
+                }
+            )
+
+        manifest = destination / MANIFEST
+        manifest.write_text(json.dumps(self._manifest(tables), indent=2) + "\n", encoding="utf-8")
+        written.append(manifest)
+        return written
+
+    def _manifest(self, tables: list[dict]) -> dict:
+        """What the dataset is, for a reader that will never see the source.
+
+        Version 2 added the sizes the load report shows. Version 1 carried only
+        a table list, and its `bytes` meant the Parquet size rather than the
+        source's - so a reader has to know which it is holding.
+        """
+        sized = [t for t in tables if t["bytes"] is not None]
+        return {
+            "version": 2,
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "gtfs_garage": __version__,
+            "source": {"kind": self._source_kind(), "bytes": self.stats.source_bytes},
+            "totals": {
+                "uncompressed_bytes": sum(t["bytes"] for t in sized),
+                "stored_bytes": sum(t["parquet_bytes"] for t in tables),
+            },
+            "tables": tables,
+        }
+
+    def _source_kind(self) -> str:
+        if self._parquet_source:
+            return "parquet"
+        return "zip" if self.source_path.suffix.lower() == ".zip" else "folder"
 
     def _load_locations_geojson(self) -> None:
         """Register locations.geojson, the one GTFS file that is not a CSV.

@@ -3,15 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <title>GTFS Garage</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.7.0/dist/maplibre-gl.css" />
 </head>
 <body>
   <!-- The viewer builds its own markup into this root, so the same code can be
        mounted anywhere. See web/src/markup.ts. -->
   <div id="gtfs-garage"></div>
 
-  <!-- MapLibre stays a CDN script for now; bundling it is a separate change. -->
-  <script src="https://unpkg.com/maplibre-gl@5.7.0/dist/maplibre-gl.js"></script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
