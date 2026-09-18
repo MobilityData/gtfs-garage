@@ -6,9 +6,7 @@ name: Release
 #
 on:
   push:
-    # TEMPORARY: fix_npm_release is here to exercise the npm trusted-publishing
-    # path before it reaches main. Drop it from this list once that is proven.
-    branches: [main, fix_npm_release]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -18,9 +16,6 @@ jobs:
   publish:
     name: Build and publish to PyPI
     runs-on: ubuntu-latest
-    # TEMPORARY: keeps a branch test from ever touching PyPI. Remove alongside
-    # the fix_npm_release trigger above.
-    if: github.ref == 'refs/heads/main'
     permissions:
       # Trusted publishing: no API token stored in the repository.
       id-token: write
