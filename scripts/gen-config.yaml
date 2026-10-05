@@ -1,0 +1,6 @@
+# Configuration for scripts/api-gen.sh.
+# Options: https://openapi-generator.tech/docs/generators/python-fastapi/
+additionalProperties:
+  packageName: gtfs_garage_gen
+  # The operation ids in docs/GtfsGarageAPI.yaml are already unprefixed.
+  removeOperationIdPrefix: true

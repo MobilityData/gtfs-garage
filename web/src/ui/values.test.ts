@@ -226,7 +226,7 @@ describe("nothing breaks", () => {
 });
 
 describe("column descriptions", () => {
-  const withRequired = (required: string | null, condition: string | null = null): ColumnInfo =>
+  const withRequired = (required: ColumnInfo["required"], condition: string | null = null): ColumnInfo =>
     columnInfo({ type: "TEXT", required, condition });
 
   it("names the type and that the field is required", () => {

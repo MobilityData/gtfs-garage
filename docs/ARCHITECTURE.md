@@ -5,7 +5,7 @@
 | Layer | Choice | Why |
 |---|---|---|
 | Query engine | [DuckDB](https://duckdb.org) | Reads CSV directly with real SQL, indexes nothing, loads nothing. Opening a feed costs the time to declare a view, not the time to import a database. |
-| API | [FastAPI](https://fastapi.tiangolo.com) + uvicorn | Generates the OpenAPI document that defines the contract the frontend implements. |
+| API | [FastAPI](https://fastapi.tiangolo.com) + uvicorn | Implements the contract declared in `docs/GtfsGarageAPI.yaml`, serving models generated from it. |
 | Frontend | TypeScript, built with [Vite](https://vite.dev), no framework | The UI is a table and a map; a framework would add a dependency the tool does not need, and plain modules keep the door open to shipping it as a custom element. |
 | Map | [MapLibre GL JS](https://maplibre.org) | Same renderer as mobilitydatabase.org, so the two look alike. |
 | Basemap | [OpenFreeMap](https://openfreemap.org) Positron, configurable | Keyless and unmetered, and self-hostable if the map ever has to work offline. |
@@ -21,7 +21,7 @@ gtfs-garage <feed.zip>
                                 │
                                 ├── server/state.py    FeedRegistry: the one loaded feed
                                 ├── server/routes.py   HTTP only: validate, delegate, map errors
-                                └── server/models.py   pydantic = the published contract
+                                └── gtfs_garage_gen/   models generated from the spec
                                             │
                                             ▼
                                   core/  (no web framework)
@@ -39,7 +39,7 @@ it.
 
 ### What is built to be used from outside
 
-Three seams exist for reuse, and each is enforced rather than merely intended -
+Four seams exist for reuse, and each is enforced rather than merely intended -
 which is the only reason to trust them.
 
 **The GTFS description.** `schema/gtfs.yaml` is the source — LinkML, one class
@@ -144,10 +144,53 @@ written against. `RestSource` implements it over this server; any other
 implementation drives the same interface unchanged, which is what makes the
 viewer embeddable somewhere that has no Python server at all.
 
-How a particular project should consume these is that project's decision and is
-documented where that work happens, not here - a description of someone else's
-architecture written from inside this repository goes stale without anyone
-noticing.
+**`docs/GtfsGarageAPI.yaml`** — the HTTP contract, and the only hand-written
+description of it. `scripts/api-gen.sh` generates the server's pydantic models
+(`src/gtfs_garage_gen/`) and the viewer's TypeScript types
+(`web/src/sources/api.gen.ts`) from it, both committed, so a clone runs without
+java or the generator and a spec edit regenerates both at once.
+
+This is the one seam whose direction was reversed rather than merely written
+down. The models used to be hand-written in `server/models.py`, FastAPI derived
+an OpenAPI document from them at runtime, and `types.ts` restated the same
+shapes a third time for the browser — three descriptions of one contract, two of
+them maintained by reading the other. Nothing was published: the document
+existed only while the server was running, so it could not be reviewed, diffed,
+or handed to a team implementing the API. Authoring the document and generating
+both sides leaves one description, and it is the one another project receives.
+
+Enforced, not intended, like the rest: `tests/test_openapi.py` compares the
+document the running app publishes against the authored one in both directions —
+an endpoint served but undeclared fails as loudly as one declared but missing,
+because a host reimplementing the API from the document would never learn about
+the first. It also checks each operation returns the schema the spec names, that
+the committed models were generated from the spec as it now stands, and that an
+exported dataset's `manifest.json` validates against the published
+`DatasetManifest`. That last one exists because `core/` cannot import pydantic,
+so the writer and the document would otherwise agree only by having been edited
+together.
+
+Two choices inside it worth keeping:
+
+**Models, not routers.** The generator writes FastAPI handlers too, and they are
+deliberately unused: its handlers are `async def`, while every endpoint here is
+a plain `def` so a blocking query runs in a worker thread rather than on the
+event loop. The performance guard below asserts exactly that, so a generated
+router would fail it.
+
+**A nullable `$ref` carries no sibling description.** `nullable: true` beside an
+`allOf` generates cleanly; add a `description` next to them and
+openapi-generator mints a private copy of the referenced schema for that one
+field - `ColumnInfoConditionOutcome` beside `ConditionOutcome`, identical and
+separately maintained. The notes are YAML comments for that reason.
+
+How a particular project should consume these is that project's decision, and a
+description of someone else's architecture written from inside this repository
+goes stale without anyone noticing. What is documented here is this side of the
+seam: `docs/INTEGRATION.md` covers mounting the viewer and what a host has to
+serve it, including the two things the API document deliberately leaves open -
+CORS and authentication - because neither has an answer a server that serves the
+page from its own origin ever needed.
 
 ## Request flow
 
@@ -404,8 +447,10 @@ shows an em dash rather than borrowing the other mode's number.
 
 **The metrics are collected in `core/` but published from `server/`.** `core`
 stays framework-free, so `feed.py` accumulates plain dataclasses
-(`FeedStats`, `FileStats`) and `server/models.py` turns them into the pydantic
-shapes the OpenAPI document declares - the same split as everything else here.
+(`FeedStats`, `FileStats`) and `server/routes.py` hands them out as the
+generated pydantic shapes the spec declares - the same split as everything else
+here. It is also why `manifest.json` is written by `core/` as a plain dict and
+checked against the generated model from a test rather than built with it.
 
 **The feed lives on the app instance**, not in a module global, so tests can
 build isolated apps and two servers in one process do not share state. A load

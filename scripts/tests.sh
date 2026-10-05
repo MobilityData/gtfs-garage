@@ -4,6 +4,8 @@
 #
 source "$(dirname -- "$0")/_common.sh"
 ensure_python dev
+# The tests import the generated models, so they have to match the spec.
+ensure_models
 
 COVERAGE_THRESHOLD=80
 

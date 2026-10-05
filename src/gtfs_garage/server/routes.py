@@ -23,13 +23,11 @@ from gtfs_garage.core.queries import (
     missing_files,
     table_summaries,
 )
-from gtfs_garage.server.models import (
-    ConfigResponse,
-    DistinctResponse,
-    LoadProgressResponse,
-    PageResponse,
-    TablesResponse,
-)
+from gtfs_garage_gen.models.config_response import ConfigResponse
+from gtfs_garage_gen.models.distinct_response import DistinctResponse
+from gtfs_garage_gen.models.load_progress import LoadProgress
+from gtfs_garage_gen.models.page_response import PageResponse
+from gtfs_garage_gen.models.tables_response import TablesResponse
 from gtfs_garage.server.state import FeedRecord, FeedRegistry, NoFeedLoadedError
 
 router = APIRouter(prefix="/api")
@@ -162,7 +160,7 @@ def load_feed(
     return payload
 
 
-@router.get("/load/progress", response_model=LoadProgressResponse)
+@router.get("/load/progress", response_model=LoadProgress)
 def load_progress(request: Request) -> dict[str, Any]:
     """Where a running load has got to.
 

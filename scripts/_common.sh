@@ -68,3 +68,52 @@ ensure_python() {
 
     export PATH="$VENV/bin:$PATH"
 }
+
+# Make sure the generated API models match docs/GtfsGarageAPI.yaml.
+#
+# The models are generated from the spec and committed, so a fresh clone has
+# them and needs neither java nor the generator to run the app. This exists for
+# the other case: someone edited the spec. It notices, regenerates, and gets out
+# of the way.
+#
+# The check is against the spec's contents, not its timestamp. A clone gives
+# every file the same checkout time in an arbitrary order, so an mtime
+# comparison would send a fresh checkout off to download a generator it does not
+# need - exactly the setup step this is meant to remove.
+#
+# A regeneration that cannot run is a warning, not a failure. The committed
+# models are still there and still work; someone without java should be able to
+# run the app and be told their models are behind, not stopped.
+ensure_models() {
+    local spec="$REPO_ROOT/docs/GtfsGarageAPI.yaml"
+    local package="$REPO_ROOT/src/gtfs_garage_gen"
+    local stamp="$package/.spec-sha256"
+
+    [ -f "$spec" ] || return 0
+
+    if [ -d "$package/models" ] && [ -f "$stamp" ] \
+        && [ "$(cat "$stamp")" = "$(spec_digest "$spec")" ]; then
+        return 0
+    fi
+
+    if [ ! -d "$package/models" ]; then
+        step "The API models are missing; generating them from the spec"
+        "$REPO_ROOT/scripts/api-gen.sh" \
+            || die "could not generate the API models (java is required)"
+        return 0
+    fi
+
+    step "docs/GtfsGarageAPI.yaml has changed; regenerating the API models"
+    if ! "$REPO_ROOT/scripts/api-gen.sh"; then
+        printf "${YELLOW}warning:${NC} could not regenerate the API models; using the committed ones.\n" >&2
+        printf "         Run scripts/api-gen.sh once java is available.\n" >&2
+    fi
+}
+
+spec_digest() {
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$1" | cut -d" " -f1
+    else
+        sha256sum "$1" | cut -d" " -f1
+    fi
+}
