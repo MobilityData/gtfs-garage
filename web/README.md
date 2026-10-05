@@ -88,8 +88,8 @@ page. The design tokens are declared on that class and are the theming API:
 **[Embedding the viewer](https://github.com/MobilityData/gtfs-garage/blob/main/docs/INTEGRATION.md)**
 — every option, the three ways to supply data, what your server has to provide
 (including CORS and authentication, which the API document deliberately leaves
-to you), the dataset-preparation lifecycle, and a worked adapter for a real
-host's API.
+to you), the dataset-preparation lifecycle, and a worked adapter for driving the
+viewer from an API of your own.
 
 ## Licence
 

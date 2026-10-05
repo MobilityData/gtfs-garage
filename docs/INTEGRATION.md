@@ -16,7 +16,7 @@ generated from it. Nothing below restates it.
 - [Serving the API yourself](#serving-the-api-yourself)
 - [Implementing a source instead](#implementing-a-source-instead)
 - [Datasets that have to be prepared first](#datasets-that-have-to-be-prepared-first)
-- [Worked example: the Mobility Feed API](#worked-example-the-mobility-feed-api)
+- [A worked adapter](#a-worked-adapter)
 
 ## Install
 
@@ -292,23 +292,20 @@ Two things to know before you rely on it:
   reject, so mount it without the map part. Building the layers means porting
   the vertex budget and the thinning that the server does.
 
-## Worked example: the Mobility Feed API
+## A worked adapter
 
-One host's API, not part of the contract — shown because it is the first real
-one and the shape is a reasonable model. The
-[Mobility Feed API](https://mobilitydatabase.org) exposes:
+Most of a `DatasetProvider` is a rename. Suppose your API answers with a status
+document of its own:
 
 ```
-GET  /v1/operations/gtfs_datasets/{id}/parquet   -> ParquetDatasetState
-POST /v1/operations/gtfs_datasets/{id}/parquet   -> starts a conversion
+GET  /datasets/{id}/parquet   -> where it stands
+POST /datasets/{id}/parquet   -> starts a conversion
 ```
 
-`ParquetDatasetState` carries `status` (`absent`, `preparing`, `ready`,
-`failed`), `base_url` when ready, `phase`/`done`/`total`/`detail` while
-preparing, and `message` when failed. It does not repeat the table list:
-`manifest.json` is where that lives, along with the sizes, and the reader
-fetches it itself. Those progress fields are named after `LoadProgress`
-deliberately, so most of the adapter is a rename:
+carrying a `status` of `absent`, `preparing`, `ready` or `failed`, a `base_url`
+once ready, `phase`/`done`/`total`/`detail` while preparing, and a `message` when
+it failed. Name those progress fields after `LoadProgress` and the mapping is
+almost mechanical:
 
 ```ts
 import { ParquetSource } from "gtfs-garage-web/parquet";
@@ -316,7 +313,7 @@ import type { DatasetProvider, DatasetState } from "gtfs-garage-web/dataset";
 
 const provider = (datasetId: string): DatasetProvider => ({
   async status(signal): Promise<DatasetState> {
-    const response = await fetch(`${API}/v1/operations/gtfs_datasets/${datasetId}/parquet`, { signal });
+    const response = await fetch(`${API}/datasets/${datasetId}/parquet`, { signal });
     const state = await response.json();
 
     switch (state.status) {
@@ -327,43 +324,39 @@ const provider = (datasetId: string): DatasetProvider => ({
       case "ready":
         return {
           state: "ready",
-          // No `tables`: the reader reads `{base_url}/manifest.json` for
-          // them, which is also where the sizes are. Passing a list here
-          // would skip the manifest and lose them.
-          source: new ParquetSource({
-            baseUrl: state.base_url,
-            name: state.dataset_stable_id,
-          }),
+          // No `tables`: the reader reads `{base_url}/manifest.json` for them,
+          // which is also where the sizes are. Passing a list here would skip
+          // the manifest and lose them.
+          source: new ParquetSource({ baseUrl: state.base_url, name: datasetId }),
         };
       default:
         return {
           state: "preparing",
-          // `running` is the one field the API does not carry: it answers only
-          // about a dataset that is being prepared, so reaching here is itself
-          // the answer.
+          // `running` is the one field such an API has no reason to carry: it
+          // answers only about a dataset being prepared, so reaching here is
+          // itself the answer.
           progress: { ...state, running: true },
         };
     }
   },
 
   async prepare(signal) {
-    await fetch(`${API}/v1/operations/gtfs_datasets/${datasetId}/parquet`, { method: "POST", signal });
+    await fetch(`${API}/datasets/${datasetId}/parquet`, { method: "POST", signal });
   },
 });
 ```
 
-Three details that generalise:
+Three things to get right on your side, none of them obvious:
 
 - **`absent` is a `200`, not a `404`.** A `404` means the dataset does not
   exist, which is a different thing, and the interface has to tell them apart.
-  Any API driving `mountDataset` needs the same distinction.
-- **The `GET` never starts work; the `POST` does.** That is what makes polling
-  twice a second safe, and it is why `prepare` is a separate call rather than a
-  side effect of asking.
-- **A manifest is the table list, not an extra.** Its builder writes a version 2
-  manifest beside the files, which is why the adapter above passes no `tables`
-  and the load report still shows sizes. A host still on version 1 gets the
-  table list and nothing else: version 1 meant the *Parquet* size by `bytes`
-  where version 2 means the source file's, so the reader branches on `version`
-  and leaves version 1's sizes out rather than showing them under headings that
-  would misdescribe them.
+  Any API driving `mountDataset` needs that distinction.
+- **The `GET` must never start work; the `POST` does.** That is what makes
+  polling twice a second safe, and it is why `prepare` is a separate call rather
+  than a side effect of asking.
+- **A manifest is the table list, not an extra.** Write a version 2 manifest
+  beside the files and the adapter needs no `tables` and the load report still
+  shows sizes. Version 1 carries the table list and nothing else: it meant the
+  *Parquet* size by `bytes` where version 2 means the source file's, so the
+  reader branches on `version` and leaves version 1's sizes out rather than
+  showing them under headings that would misdescribe them.
