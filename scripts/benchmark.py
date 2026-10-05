@@ -53,6 +53,21 @@ def timed(fn):
     return result, time.perf_counter() - started
 
 
+def format_duration(seconds: float) -> str:
+    """A duration with its magnitude still visible.
+
+    Two decimals of a second render everything under 5 ms as "0.00 s", which is
+    most of this benchmark's shorter phases. Below a second, milliseconds.
+
+    Shared with compare_benchmarks.py, which is why it lives here: the benchmark
+    CI job copies only this file and that one into its pinned harness, so a third
+    module would not be there to import.
+    """
+    if abs(seconds) < 1:
+        return f"{seconds * 1000:.1f} ms"
+    return f"{seconds:.2f} s"
+
+
 def measure() -> dict:
     """Open a generated feed, summarise it, page it and build every map layer."""
     with tempfile.TemporaryDirectory() as scratch:
@@ -116,7 +131,7 @@ def as_markdown(result: dict) -> str:
         lines.append(f"| {name} | {value:,} |")
     lines += ["", "| Phase | Time |", "|---|---:|"]
     for name, seconds in result["timing"].items():
-        lines.append(f"| {name} | {seconds:.2f} s |")
+        lines.append(f"| {name} | {format_duration(seconds)} |")
     return "\n".join(lines)
 
 

@@ -25,10 +25,19 @@ import json
 import sys
 from pathlib import Path
 
+from benchmark import format_duration
+
 MARKER = "<!-- gtfs-garage-benchmark -->"
 
 # Below this, a timing difference says more about the runner than the code.
 TIMING_NOISE_PERCENT = 10
+
+# Under this, a phase is too short for a ratio to mean anything: a tenth of a
+# millisecond of scheduling turns into a double-digit percentage, which then
+# reads as the only significant row in the table. Such a phase reports how much
+# it moved instead. The floor is where a change of TIMING_NOISE_PERCENT is a
+# whole millisecond.
+COMPARABLE_FLOOR_SECONDS = 0.01
 
 
 def load(path: str) -> dict | None:
@@ -55,6 +64,22 @@ def format_delta(base: float | None, head: float, unit: str = "") -> str:
     return f"{change:+.1f}%"
 
 
+def format_timing_delta(base: float | None, head: float) -> str:
+    """How a phase moved, in whichever terms survive its own size.
+
+    A percentage needs a base big enough to divide by, and a base of zero cannot
+    be divided by at all. Below the floor the absolute difference is the answer,
+    and it carries its unit.
+    """
+    if base is None:
+        return "-"
+    if base == head:
+        return "="
+    if base < COMPARABLE_FLOOR_SECONDS:
+        return f"{(head - base) * 1000:+.1f} ms"
+    return f"{percent(base, head):+.1f}%"
+
+
 def exact_table(base: dict | None, head: dict) -> tuple[list[str], list[str]]:
     """The exact table, and the names of whatever moved."""
     base_exact = (base or {}).get("exact", {})
@@ -76,8 +101,8 @@ def timing_table(base: dict | None, head: dict) -> list[str]:
     lines = ["| Phase | Base | This PR | Change |", "|---|---:|---:|---:|"]
     for name, seconds in head["timing"].items():
         before = base_timing.get(name)
-        shown_before = f"{before:.2f} s" if before is not None else "-"
-        lines.append(f"| {name} | {shown_before} | {seconds:.2f} s | {format_delta(before, seconds)} |")
+        shown_before = format_duration(before) if before is not None else "-"
+        lines.append(f"| {name} | {shown_before} | {format_duration(seconds)} | {format_timing_delta(before, seconds)} |")
     return lines
 
 
@@ -122,6 +147,10 @@ def report(base: dict | None, head: dict) -> str:
         "",
         f"Timings move with the runner. Treat anything under about {TIMING_NOISE_PERCENT}% as noise; "
         "the exact metrics above are what a change can be read from.",
+        "",
+        f"A phase shorter than {COMPARABLE_FLOOR_SECONDS * 1000:.0f} ms shows how much it moved rather than "
+        "by what proportion, because a ratio of two such numbers measures the runner's scheduling and "
+        "nothing else. Those rows are not evidence either way.",
         "</details>",
     ]
     return "\n".join(lines)

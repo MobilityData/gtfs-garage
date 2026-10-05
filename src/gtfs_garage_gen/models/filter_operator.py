@@ -29,7 +29,7 @@ except ImportError:
 
 class FilterOperator(str, Enum):
     """
-    How a filter compares. The semantics are not obvious and a reimplementation that differs will look right and behave wrongly:  - `eq` / `ne` - equality. **An empty value is rewritten** to `is_empty` /   `is_not_empty`, because an empty field loads as NULL and `= ''` would   match nothing - which is how the \"(empty)\" picklist entry came to   report a count and return no rows. - `contains` - case-insensitive substring. - `in` - the value is a comma-separated list, trimmed, with empties   dropped. If nothing remains the filter is skipped entirely. - `is_empty` / `is_not_empty` - NULL **or** the empty string, both.  A filter naming a column the table does not have, or an operator not listed here, is ignored rather than refused. 
+    How a filter compares. The semantics are not obvious and a reimplementation that differs will look right and behave wrongly:  - `eq` / `ne` - equality. **An empty value is rewritten** to `is_empty` /   `is_not_empty`, because an empty field loads as NULL and `= ''` would   match nothing. Get this wrong and the \"(empty)\" entry in a picklist   reports a count and then returns no rows. - `contains` - case-insensitive substring. - `in` - the value is a comma-separated list, trimmed, with empties   dropped. If nothing remains the filter is skipped entirely. - `is_empty` / `is_not_empty` - NULL **or** the empty string, both.  A filter naming a column the table does not have, or an operator not listed here, is ignored rather than refused. 
     """
 
     """
