@@ -281,9 +281,13 @@ What the host serving those files must provide:
 
 Two things to know before you rely on it:
 
-- **Pass `tables` if you can.** Without a table list *and* without a manifest,
-  the reader has no choice but to probe every table GTFS defines — 123 range
-  requests for a seven-table feed before its first row appears.
+- **Publish the manifest, and then pass nothing.** `tables` and `manifest.json`
+  answer the same question, and `tables` wins: pass it and the manifest is never
+  fetched, so the sizes it carries go missing from the load report. It is there
+  for a dataset that has no manifest — written by something else, or served from
+  somewhere that will not answer for it. With neither, the reader has no choice
+  but to probe every table GTFS defines, 123 range requests for a seven-table
+  feed before its first row appears.
 - **`ParquetSource` cannot draw a map yet.** `geojson` and `geojsonStream` both
   reject, so mount it without the map part. Building the layers means porting
   the vertex budget and the thinning that the server does.
@@ -300,9 +304,11 @@ POST /v1/operations/gtfs_datasets/{id}/parquet   -> starts a conversion
 ```
 
 `ParquetDatasetState` carries `status` (`absent`, `preparing`, `ready`,
-`failed`), `base_url` and `tables` when ready, `phase`/`done`/`total`/`detail`
-while preparing, and `message` when failed. Those progress fields are named
-after `LoadProgress` deliberately, so most of the adapter is a rename:
+`failed`), `base_url` when ready, `phase`/`done`/`total`/`detail` while
+preparing, and `message` when failed. It does not repeat the table list:
+`manifest.json` is where that lives, along with the sizes, and the reader
+fetches it itself. Those progress fields are named after `LoadProgress`
+deliberately, so most of the adapter is a rename:
 
 ```ts
 import { ParquetSource } from "gtfs-garage-web/parquet";
@@ -321,12 +327,12 @@ const provider = (datasetId: string): DatasetProvider => ({
       case "ready":
         return {
           state: "ready",
-          // Passing the table list is what spares the reader probing for
-          // every GTFS file in turn.
+          // No `tables`: the reader reads `{base_url}/manifest.json` for
+          // them, which is also where the sizes are. Passing a list here
+          // would skip the manifest and lose them.
           source: new ParquetSource({
             baseUrl: state.base_url,
             name: state.dataset_stable_id,
-            tables: state.tables.map((table) => table.name),
           }),
         };
       default:
@@ -354,7 +360,10 @@ Three details that generalise:
 - **The `GET` never starts work; the `POST` does.** That is what makes polling
   twice a second safe, and it is why `prepare` is a separate call rather than a
   side effect of asking.
-- **Its manifest is version 1.** Version 1 recorded only a table list and meant
-  the *Parquet* size by `bytes`, where version 2 means the source file's. The
-  reader branches on `version` and leaves version 1's sizes out rather than
-  showing them under headings that would misdescribe them.
+- **A manifest is the table list, not an extra.** Its builder writes a version 2
+  manifest beside the files, which is why the adapter above passes no `tables`
+  and the load report still shows sizes. A host still on version 1 gets the
+  table list and nothing else: version 1 meant the *Parquet* size by `bytes`
+  where version 2 means the source file's, so the reader branches on `version`
+  and leaves version 1's sizes out rather than showing them under headings that
+  would misdescribe them.
