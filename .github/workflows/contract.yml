@@ -1,0 +1,73 @@
+name: API contract
+
+# src/gtfs_garage_gen/ and web/src/sources/api.gen.ts are generated from
+# docs/GtfsGarageAPI.yaml and committed, so they can go stale or be hand-edited.
+# This regenerates and compares.
+#
+# Its own workflow rather than a job in build-test.yml, and path-filtered: it
+# downloads an openapi-generator jar, which is not worth doing on a pull request
+# that touches neither the spec nor the generated code.
+#
+# The generated paths are in the filter deliberately. A hand-edit changes only
+# those, and that is exactly the case the stamp in tests/test_openapi.py cannot
+# catch - so a filter watching the spec alone would miss the one thing this
+# workflow exists for.
+#
+# The two lists are duplicated because GitHub Actions does not support YAML
+# anchors. Keep them in step.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/GtfsGarageAPI.yaml"
+      - "src/gtfs_garage_gen/**"
+      - "web/src/sources/api.gen.ts"
+      - "scripts/api-gen.sh"
+      - "scripts/check-api.sh"
+      - "scripts/gen-config.yaml"
+      - "scripts/setup-openapi-generator.sh"
+      - "scripts/_common.sh"
+      - ".github/workflows/contract.yml"
+  pull_request:
+    paths:
+      - "docs/GtfsGarageAPI.yaml"
+      - "src/gtfs_garage_gen/**"
+      - "web/src/sources/api.gen.ts"
+      - "scripts/api-gen.sh"
+      - "scripts/check-api.sh"
+      - "scripts/gen-config.yaml"
+      - "scripts/setup-openapi-generator.sh"
+      - "scripts/_common.sh"
+      - ".github/workflows/contract.yml"
+  workflow_dispatch:
+
+env:
+  java_version: "17"
+  node_version: "22"
+
+jobs:
+  generated:
+    name: The committed models match the spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.java_version }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.node_version }}
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+
+      # openapi-typescript is a frontend devDependency, so the viewer's half of
+      # the contract cannot be regenerated without this.
+      - name: Install the frontend dependencies
+        working-directory: web
+        run: yarn install --frozen-lockfile
+
+      - name: Regenerate and compare
+        run: scripts/check-api.sh

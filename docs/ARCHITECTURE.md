@@ -39,19 +39,19 @@ it.
 
 ### What is built to be used from outside
 
-Four seams exist for reuse, and each is enforced rather than merely intended -
+The seams below exist for reuse, and each is enforced rather than merely intended -
 which is the only reason to trust them.
 
 **The GTFS description.** `schema/gtfs.yaml` is the source — LinkML, one class
-per file. It describes all 31 CSV files plus `locations.geojson`, 223 fields in
-total, and its field names and presence agree exactly with `google/transit`'s
-published reference.
+per file. It describes every CSV file GTFS defines plus `locations.geojson`,
+and its field names and presence agree exactly with `google/transit`'s published
+reference. `docs/SCHEMA.md` counts them, from the schema itself.
 
 GTFS's facts are carried by LinkML's own constructs: field types are `types`
 with a `range` naming one of GTFS's field types, enumerations
 are `enums`, foreign keys are a `range` pointing at the referenced class,
-primary keys are `identifier` or — for the 12 files GTFS keys on more than one
-column — `unique_keys`, and conditional requirement is 26 `rules`.
+primary keys are `identifier` or — where GTFS keys a file on more than one
+column — `unique_keys`, and conditional requirement is `rules`.
 
 `locations.geojson` is a GeoJSON document rather than a CSV, so it is described
 twice: `LocationsGeoJson` / `Feature` / `Geometry` are its structure, and
@@ -63,10 +63,10 @@ anything being marked up for its benefit.
 
 Some conditions reach outside the single row a rule is evaluated against —
 "required when the feed has more than one agency" is a question about
-`agency.txt`, not about the row in front of you. Those six fields are
-annotations rather than rules, and each states a `conditionScope` naming what
-settles it. `row_context` means it varies row by row on something the row does
-not carry, such as whether a `stop_time` is its trip's first or last.
+`agency.txt`, not about the row in front of you. Those fields are annotations
+rather than rules, and each states a `conditionScope` naming what settles it.
+`row_context` means it varies row by row on something the row does not carry,
+such as whether a `stop_time` is its trip's first or last.
 
 **`feed` means one answer covers the whole column, so the viewer gives it.**
 `table_summaries` runs the field's check once against the loaded feed, and the
@@ -95,8 +95,8 @@ requires of this feed, not whether the feed complies, which is
 `gtfs-validator`'s job.
 
 **What a value must look like is published too, under `fieldTypes`.** GTFS's
-sixteen field types are stated once each, with the reference's own description
-and, where GTFS spells out a format, a `pattern` or a `minimum`/`maximum`:
+field types are stated once each, with the reference's own description and,
+where GTFS spells out a format, a `pattern` or a `minimum`/`maximum`:
 
 ```json
 "COLOR": {"description": "A color encoded as a six-digit hexadecimal number…",
@@ -150,27 +150,28 @@ description of it. `scripts/api-gen.sh` generates the server's pydantic models
 (`web/src/sources/api.gen.ts`) from it, both committed, so a clone runs without
 java or the generator and a spec edit regenerates both at once.
 
-This is the one seam whose direction was reversed rather than merely written
-down. The models used to be hand-written in `server/models.py`, FastAPI derived
-an OpenAPI document from them at runtime, and `types.ts` restated the same
-shapes a third time for the browser — three descriptions of one contract, two of
-them maintained by reading the other. Nothing was published: the document
-existed only while the server was running, so it could not be reviewed, diffed,
-or handed to a team implementing the API. Authoring the document and generating
-both sides leaves one description, and it is the one another project receives.
+The direction is spec-to-code because the reverse produced three descriptions of
+one contract and published none of them: pydantic models written by hand, an
+OpenAPI document FastAPI derived from them at runtime, and a third restatement
+in TypeScript for the browser. The document existed only while the server was
+running, so it could not be reviewed, diffed, or handed to a team implementing
+the API — which is the one thing another project actually needs from it.
 
-Enforced, not intended, like the rest: `tests/test_openapi.py` compares the
-document the running app publishes against the authored one in both directions —
-an endpoint served but undeclared fails as loudly as one declared but missing,
-because a host reimplementing the API from the document would never learn about
-the first. It also checks each operation returns the schema the spec names, that
-the committed models were generated from the spec as it now stands, and that an
-exported dataset's `manifest.json` validates against the published
-`DatasetManifest`. That last one exists because `core/` cannot import pydantic,
-so the writer and the document would otherwise agree only by having been edited
+Two checks, answering different questions. `tests/test_openapi.py` runs in the
+ordinary suite and needs no java: it compares the document the running app
+publishes against the authored one in both directions — an endpoint served but
+undeclared fails as loudly as one declared but missing, because a host
+reimplementing the API from the document would never learn about the first — and
+it checks each operation returns the schema the spec names, and that the spec
+has not moved since the last generation. What a hash of the input cannot show is
+whether the committed files are the generator's own output, so
+`scripts/check-api.sh` regenerates and diffs, and the `contract` workflow runs it
+on any pull request touching the spec or either generated tree.
+
+A third test holds an exported dataset's `manifest.json` to the published
+`DatasetManifest`. That one exists because `core/` cannot import pydantic, so
+the writer and the document would otherwise agree only by having been edited
 together.
-
-Two choices inside it worth keeping:
 
 **Models, not routers.** The generator writes FastAPI handlers too, and they are
 deliberately unused: its handlers are `async def`, while every endpoint here is
@@ -231,11 +232,12 @@ knowing: `column = ''` matches nothing, so the filter layer rewrites `= (empty)`
 into `IS NULL OR = ''`. Skipping that made the "(empty)" picklist entry return
 zero rows despite reporting a count.
 
-**An empty field can still carry a value.** GTFS defines what empty means for 19
-fields — "0 or empty - Regularly scheduled pickup" — so the schema records it
-(LinkML's `ifabsent`) and the table draws it *muted and italic*, with the rule on
-hover. The observable behaviour: a blank cell in one of those columns shows the
-implied value in grey, a value the feed actually contains is shown in black, and
+**An empty field can still carry a value.** GTFS defines what empty means for a
+handful of fields — "0 or empty - Regularly scheduled pickup" — so the schema
+records it (LinkML's `ifabsent`) and the table draws it *muted and italic*, with
+the rule on hover. The observable behaviour: a blank cell in one of those
+columns shows the implied value in grey, a value the feed actually contains is
+shown in black, and
 **the raw-values toggle hides the implied one**, because raw means the characters
 the file holds and here it holds none. The implied code is not always `0`: a
 blank `pickup_type` means 0 and a blank `continuous_pickup` beside it means 1,

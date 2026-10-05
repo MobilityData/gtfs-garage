@@ -6,8 +6,7 @@ info:
     The contract between a GTFS Garage viewer and whatever feeds it.
 
     This document is the source of truth. The server's pydantic models and the
-    viewer's TypeScript types are both generated from it, so there is one
-    description of the contract rather than two that agree by hand.
+    viewer's TypeScript types are both generated from it.
 
     A host embedding `gtfs-garage-web` has three options, and only the second
     needs this document in full:

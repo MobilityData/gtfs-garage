@@ -102,12 +102,16 @@ def test_responses_use_the_model_the_spec_names(spec: dict, served: dict):
 
 
 def test_the_generated_models_match_the_spec():
-    """The committed models are the ones this spec produces.
+    """The spec has not moved since the models were generated.
 
     Generated-and-committed can drift: edit the YAML, forget to regenerate, and
-    the document and the code disagree while both look fine. The stamp is
-    written by scripts/api-gen.sh from the spec's contents, so this compares the
-    spec against the one the models were built from.
+    the document and the code disagree while both look fine. The stamp is a
+    digest of the spec, written by scripts/api-gen.sh, so this compares the spec
+    against the one the models were built from.
+
+    It says nothing about what was committed - a hand-edited model passes.
+    scripts/check-api.sh regenerates and diffs, which is the claim this cannot
+    make; it needs java, which is why the cheap half lives here.
     """
     stamp = GENERATED_PACKAGE / ".spec-sha256"
     assert stamp.is_file(), "no generation stamp; run scripts/api-gen.sh"

@@ -144,8 +144,7 @@ Only `POST /api/load` is optional: it exists so the standalone application can
 open a feed you choose, and an embedded viewer is built without the dialog that
 calls it.
 
-Four things the document cannot tell you, which are the ones integrations
-actually trip over:
+What the document cannot tell you, which is where integrations actually trip up:
 
 **CORS is yours.** A GTFS Garage server serves the viewer from its own origin
 and adds no CORS middleware at all. If your API is on a different origin from

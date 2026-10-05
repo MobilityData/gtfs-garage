@@ -3,15 +3,20 @@
 # Generate both sides of the API contract from docs/GtfsGarageAPI.yaml.
 #
 # Usage:
-#   api-gen.sh
+#   api-gen.sh [--out DIR]
 #
 # Writes the server's pydantic models to src/gtfs_garage_gen/ and the viewer's
 # TypeScript types to web/src/sources/api.gen.ts. Both are committed, so a clone
 # needs none of this to run the app - scripts/_common.sh regenerates only when
 # the spec has actually changed.
 #
+# --out DIR writes to DIR/gtfs_garage_gen/ and DIR/api.gen.ts instead, leaving
+# the repository alone. That is how scripts/check-api.sh compares the committed
+# output against a fresh one without keeping a second copy of this logic.
+#
 # Edit the YAML, run this, commit all three. tests/test_openapi.py checks the
-# server still serves what the spec declares.
+# server still serves what the spec declares, and scripts/check-api.sh checks
+# the committed output is what this produces.
 #
 # Models only, not routers. The generator writes FastAPI handlers too, and they
 # are deliberately unused: its handlers are `async def`, while every endpoint
@@ -27,14 +32,30 @@ SPEC="$REPO_ROOT/docs/GtfsGarageAPI.yaml"
 CONFIG="$REPO_ROOT/scripts/gen-config.yaml"
 CLI="$REPO_ROOT/scripts/bin/openapitools/openapi-generator-cli"
 PACKAGE="gtfs_garage_gen"
-TARGET="$REPO_ROOT/src/$PACKAGE"
-TS_TARGET="$REPO_ROOT/web/src/sources/api.gen.ts"
 # Generated into a scratch tree and copied in, rather than straight over the
-# repository. The generator writes a pyproject.toml, a Dockerfile and a README
+# destination. The generator writes a pyproject.toml, a Dockerfile and a README
 # beside its output; staging them keeps that out of the project, and means the
 # files that do land are the generator's own and unedited - which is the only
 # reason to trust a regeneration.
 STAGING="$REPO_ROOT/build/api-gen"
+
+OUT=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+    --out) [ $# -ge 2 ] || die "--out needs a directory"; OUT="$2"; shift 2 ;;
+    *) die "unknown option $1" ;;
+    esac
+done
+
+if [ -n "$OUT" ]; then
+    mkdir -p "$OUT"
+    OUT="$(cd -- "$OUT" >/dev/null 2>&1 && pwd -P)"
+    TARGET="$OUT/$PACKAGE"
+    TS_TARGET="$OUT/api.gen.ts"
+else
+    TARGET="$REPO_ROOT/src/$PACKAGE"
+    TS_TARGET="$REPO_ROOT/web/src/sources/api.gen.ts"
+fi
 
 [ -f "$SPEC" ] || die "no spec at $SPEC"
 command -v java >/dev/null 2>&1 || die "java is required to run openapi-generator"
@@ -79,20 +100,31 @@ PY
 
 # Best effort. A contributor working only on the Python side has no yarn and no
 # node_modules, and should not be stopped by a frontend artifact that is already
-# committed.
+# committed and that they have no way to rebuild.
 if command -v yarn >/dev/null 2>&1 && [ -d "$REPO_ROOT/web/node_modules" ]; then
     step "Generating the viewer types"
-    (cd "$REPO_ROOT/web" && yarn --silent gen:api) \
+    (cd "$REPO_ROOT/web" && yarn --silent openapi-typescript "$SPEC" -o "$TS_TARGET" >/dev/null) \
         || die "could not generate $TS_TARGET"
+    COMPLETE=true
 else
-    printf "${YELLOW}note:${NC} skipping web/src/sources/api.gen.ts - yarn or web/node_modules is missing.\n" >&2
-    printf "      Run 'yarn install && yarn gen:api' in web/ to refresh it.\n" >&2
+    COMPLETE=false
 fi
 
 # ------------------------------------------------------------------- stamp
 
 # What ensure_models compares against, so an untouched spec never sends anyone
 # looking for java.
-spec_digest "$SPEC" > "$TARGET/.spec-sha256"
-
-step "Done. $(find "$TARGET/models" -name '*.py' ! -name '__init__.py' | wc -l | tr -d ' ') models in src/$PACKAGE/models/"
+#
+# Written only when both sides were generated. Stamping a half-regenerated tree
+# would assert that the viewer's types match a spec they have not been built
+# from, and the assertion would be believed: it is the one check that runs
+# without java, so it is the one most likely to be the only check that runs.
+if [ "$COMPLETE" = true ]; then
+    spec_digest "$SPEC" > "$TARGET/.spec-sha256"
+    step "Done. $(find "$TARGET/models" -name '*.py' ! -name '__init__.py' | wc -l | tr -d ' ') models, and the viewer types"
+else
+    rm -f "$TARGET/.spec-sha256"
+    printf "${YELLOW}note:${NC} generated the models, but not the viewer types - yarn or web/node_modules is missing.\n" >&2
+    printf "      The tree is half-regenerated, so it is left unstamped and the tests will say so.\n" >&2
+    printf "      Run 'yarn install' in web/, then scripts/api-gen.sh again.\n" >&2
+fi

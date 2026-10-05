@@ -3,10 +3,8 @@
  *
  * The response shapes are generated from `docs/GtfsGarageAPI.yaml`, which is the
  * contract itself - the server's pydantic models come from the same document.
- * They were previously written out here by hand and kept in step with
- * `server/models.py` by reading both, which is a thing nobody does reliably.
- * Aliased rather than used through `components["schemas"][…]` so that every
- * import across the viewer reads the same as it always has.
+ * Aliased here rather than reached through `components["schemas"][…]`, so that
+ * the rest of the viewer names a type the way it reads.
  *
  * What stays hand-written below is the part no HTTP document can describe: the
  * interfaces a source implements. `RestSource` talks to a GTFS Garage server and
