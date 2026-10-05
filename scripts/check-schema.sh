@@ -20,7 +20,7 @@ PY
 echo "==> checking the packaged document is in sync"
 # Compared against the file's own current content rather than against git, so
 # this says the same thing in CI and in a working tree with other edits.
-fresh="$(mktemp -t gtfs-schema)"
+fresh="$(mktemp "${TMPDIR:-/tmp}/gtfs-schema.XXXXXX")"
 trap 'rm -f "$fresh"' EXIT
 python scripts/build_schema_json.py --out "$fresh" >/dev/null
 

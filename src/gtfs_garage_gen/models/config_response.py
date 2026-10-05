@@ -33,7 +33,7 @@ class ConfigResponse(BaseModel):
     Settings the interface reads at startup.
     """ # noqa: E501
     basemap: StrictStr = Field(description="A preset name (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template containing `{z}/{x}/{y}`, or a vector style URL. The viewer resolves it.")
-    version: StrictStr
+    version: StrictStr = Field(description="The version of GTFS Garage serving this API.")
     __properties: ClassVar[List[str]] = ["basemap", "version"]
 
     model_config = {

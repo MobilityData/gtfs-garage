@@ -440,7 +440,8 @@ components:
           example: openfreemap
         version:
           type: string
-          example: 0.2.0
+          description: The version of GTFS Garage serving this API.
+          example: 1.4.2
 
     RelatedLink:
       type: object
@@ -1111,7 +1112,7 @@ components:
         gtfs_garage:
           type: string
           description: The version that wrote it.
-          example: 0.2.0
+          example: 1.4.2
         source:
           type: object
           required: [kind, bytes]

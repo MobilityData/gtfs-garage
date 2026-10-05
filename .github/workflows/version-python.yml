@@ -4,6 +4,10 @@ on:
     branches: [main]
     paths:
       - "src/gtfs_garage/**"
+      # Generated from docs/GtfsGarageAPI.yaml, and shipped in the wheel beside
+      # gtfs_garage, so a change confined to it still changes what is published.
+      - "src/gtfs_garage_gen/**"
+      - "docs/GtfsGarageAPI.yaml"
       - "pyproject.toml"
       - "schema/**"
 

@@ -246,7 +246,10 @@ export interface components {
              * @example openfreemap
              */
             basemap: string;
-            /** @example 0.2.0 */
+            /**
+             * @description The version of GTFS Garage serving this API.
+             * @example 1.4.2
+             */
             version: string;
         };
         /** @description A table that points back at the current row's id. */
@@ -657,7 +660,7 @@ export interface components {
             generated_at?: string;
             /**
              * @description The version that wrote it.
-             * @example 0.2.0
+             * @example 1.4.2
              */
             gtfs_garage?: string;
             source?: {

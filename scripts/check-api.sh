@@ -18,7 +18,7 @@ source "$(dirname -- "$0")/_common.sh"
 
 command -v java >/dev/null 2>&1 || die "java is required to run openapi-generator"
 
-fresh="$(mktemp -d -t gtfs-garage-api)"
+fresh="$(mktemp -d "${TMPDIR:-/tmp}/gtfs-garage-api.XXXXXX")"
 trap 'rm -rf "$fresh"' EXIT
 
 echo "==> regenerating from docs/GtfsGarageAPI.yaml"
