@@ -151,10 +151,15 @@ and adds no CORS middleware at all. If your API is on a different origin from
 the page, it must send the usual headers itself, or sit behind a proxy that
 makes it same-origin.
 
-**There is no authentication hook.** `RestSource` never sets a request header —
-no `Authorization`, no cookies, no custom `fetch`. If your API needs a bearer
-token you cannot reach it by setting `baseUrl`; implement a source instead (see
-below), which is a dozen lines and puts the whole request in your hands.
+**There is no authentication hook.** `RestSource` calls `fetch` with no headers
+and no `credentials` option, which decides what does and does not work. A
+same-origin session cookie is sent, because that is `fetch`'s default — an API
+behind an ordinary session on your own origin needs nothing from you. Anything
+else does not: no `Authorization` header, and no cookie on a cross-origin
+request, which needs `credentials: "include"` on the call and
+`Access-Control-Allow-Credentials` on the response. For a bearer token or a
+credentialed cross-origin API, implement a source instead (see below), which is
+a dozen lines and puts the whole request in your hands.
 
 **Get the filter semantics right.** They are stated in the spec under
 `FilterOperator`, and a reimplementation that differs will look right and behave

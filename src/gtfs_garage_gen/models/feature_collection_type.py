@@ -27,24 +27,19 @@ except ImportError:
     from typing_extensions import Self
 
 
-class FilterOperator(str, Enum):
+class FeatureCollectionType(str, Enum):
     """
-    How a filter compares. The semantics are not obvious and a reimplementation that differs will look right and behave wrongly:  - `eq` / `ne` - equality. **An empty value is rewritten** to `is_empty` /   `is_not_empty`, because an empty field loads as NULL and `= ''` would   match nothing. Get this wrong and the \"(empty)\" entry in a picklist   reports a count and then returns no rows. - `contains` - case-insensitive substring. - `in` - the value is a comma-separated list, trimmed, with empties   dropped. If nothing remains the filter is skipped entirely. - `is_empty` / `is_not_empty` - NULL **or** the empty string, both.  A filter naming a column the table does not have, or an operator not listed here, is ignored rather than refused. 
+    FeatureCollectionType
     """
 
     """
     allowed enum values
     """
-    EQ = 'eq'
-    NE = 'ne'
-    CONTAINS = 'contains'
-    IN = 'in'
-    IS_EMPTY = 'is_empty'
-    IS_NOT_EMPTY = 'is_not_empty'
+    FEATURECOLLECTION = 'FeatureCollection'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
-        """Create an instance of FilterOperator from a JSON string"""
+        """Create an instance of FeatureCollectionType from a JSON string"""
         return cls(json.loads(json_str))
 
 

@@ -27,6 +27,10 @@ on:
       - "scripts/gen-config.yaml"
       - "scripts/setup-openapi-generator.sh"
       - "scripts/_common.sh"
+      # openapi-typescript generates the viewer half, and its version is
+      # pinned here. A dependency-only bump changes the output.
+      - "web/package.json"
+      - "web/yarn.lock"
       - ".github/workflows/contract.yml"
   pull_request:
     paths:
@@ -38,6 +42,10 @@ on:
       - "scripts/gen-config.yaml"
       - "scripts/setup-openapi-generator.sh"
       - "scripts/_common.sh"
+      # openapi-typescript generates the viewer half, and its version is
+      # pinned here. A dependency-only bump changes the output.
+      - "web/package.json"
+      - "web/yarn.lock"
       - ".github/workflows/contract.yml"
   workflow_dispatch:
 

@@ -3,7 +3,7 @@
 """
     GTFS Garage API
 
-    The contract between a GTFS Garage viewer and whatever feeds it.  This document is the source of truth. The server's pydantic models and the viewer's TypeScript types are both generated from it.  A host embedding `gtfs-garage-web` has three options, and only the second needs this document in full:  1. Point the viewer at a GTFS Garage server, which implements everything here. 2. Implement these endpoints on your own backend. The viewer's `RestSource`    then drives it unchanged. 3. Implement the browser-side `ViewerSource` interface instead, which is not    an HTTP contract and is described in `docs/INTEGRATION.md`.  Two things this document deliberately does not settle, because they are the host's to decide and a GTFS Garage server needs neither:  - **CORS.** A GTFS Garage server serves the viewer from its own origin and   adds no CORS middleware. A host serving these endpoints to a page on   another origin must send the usual headers itself. - **Authentication.** Nothing in `RestSource` sets a request header. A   backend behind a bearer token cannot be reached by pointing `baseUrl` at   it; implement `ViewerSource` instead.  See `docs/INTEGRATION.md` for embedding the viewer, and the `DatasetManifest` schema below for the Parquet layout a static host serves. 
+    The contract between a GTFS Garage viewer and whatever feeds it.  This document is the source of truth. The server's pydantic models and the viewer's TypeScript types are both generated from it.  A host embedding `gtfs-garage-web` has three options, and only the second needs this document in full:  1. Point the viewer at a GTFS Garage server, which implements everything here. 2. Implement these endpoints on your own backend. The viewer's `RestSource`    then drives it unchanged. 3. Implement the browser-side `ViewerSource` interface instead, which is not    an HTTP contract and is described in `docs/INTEGRATION.md`.  Two things this document deliberately does not settle, because they are the host's to decide and a GTFS Garage server needs neither:  - **CORS.** A GTFS Garage server serves the viewer from its own origin and   adds no CORS middleware. A host serving these endpoints to a page on   another origin must send the usual headers itself. - **Authentication.** `RestSource` sets no request header and no   `credentials` option, so a same-origin session cookie is sent by   `fetch`'s own default and nothing else is. A bearer token, or a cookie on   a cross-origin request, cannot be reached by pointing `baseUrl` at the   backend; implement `ViewerSource` instead.  See `docs/INTEGRATION.md` for embedding the viewer, and the `DatasetManifest` schema below for the Parquet layout a static host serves. 
 
     The version of the OpenAPI document: 1.0.0
     Contact: api@mobilitydata.org
@@ -21,8 +21,9 @@ import json
 
 
 
-from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from gtfs_garage_gen.models.feature_type import FeatureType
 from gtfs_garage_gen.models.geometry import Geometry
 try:
     from typing import Self
@@ -33,17 +34,10 @@ class Feature(BaseModel):
     """
     A GeoJSON feature. Which properties it carries depends on the layer, and the sets are deliberately minimal - one unread property is a string per stop, and a feed has hundreds of thousands:  - stops: `stop_id`, `stop_name` - shapes: `shape_id` - routes: `shape_id`, `route_id`, `route_short_name`, `route_long_name`,   `route_color`, `route_type` - locations: `location_id`, `stop_name` 
     """ # noqa: E501
-    type: StrictStr
+    type: FeatureType
     geometry: Optional[Geometry]
     properties: Dict[str, StrictStr]
     __properties: ClassVar[List[str]] = ["type", "geometry", "properties"]
-
-    @field_validator('type')
-    def type_validate_enum(cls, value):
-        """Validates the enum"""
-        if value not in ('Feature'):
-            raise ValueError("must be one of enum values ('Feature')")
-        return value
 
     model_config = {
         "populate_by_name": True,

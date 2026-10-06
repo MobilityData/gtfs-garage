@@ -23,9 +23,11 @@ info:
     - **CORS.** A GTFS Garage server serves the viewer from its own origin and
       adds no CORS middleware. A host serving these endpoints to a page on
       another origin must send the usual headers itself.
-    - **Authentication.** Nothing in `RestSource` sets a request header. A
-      backend behind a bearer token cannot be reached by pointing `baseUrl` at
-      it; implement `ViewerSource` instead.
+    - **Authentication.** `RestSource` sets no request header and no
+      `credentials` option, so a same-origin session cookie is sent by
+      `fetch`'s own default and nothing else is. A bearer token, or a cookie on
+      a cross-origin request, cannot be reached by pointing `baseUrl` at the
+      backend; implement `ViewerSource` instead.
 
     See `docs/INTEGRATION.md` for embedding the viewer, and the `DatasetManifest`
     schema below for the Parquet layout a static host serves.
@@ -945,6 +947,29 @@ components:
             Nested arrays of numbers, shaped by `type`. Coordinates are rounded
             to five decimal places, which is about a metre.
 
+    # The four discriminators below are named schemas rather than an inline
+    # `enum` with one value, which is what they read as. openapi-generator emits
+    # an inline single-value enum as `if value not in ('Feature')` - membership
+    # in a string, not in a tuple - so every prefix of the value passes and the
+    # discriminator validates nothing. A named schema generates a real enum
+    # class instead, which is the whole point of publishing them.
+
+    FeatureType:
+      type: string
+      enum: [Feature]
+
+    FeatureCollectionType:
+      type: string
+      enum: [FeatureCollection]
+
+    NdjsonHeaderType:
+      type: string
+      enum: [header]
+
+    NdjsonBatchType:
+      type: string
+      enum: [batch]
+
     Feature:
       type: object
       description: |
@@ -960,8 +985,7 @@ components:
       required: [type, geometry, properties]
       properties:
         type:
-          type: string
-          enum: [Feature]
+          $ref: "#/components/schemas/FeatureType"
         # Null for a feature that has none.
         geometry:
           nullable: true
@@ -977,8 +1001,7 @@ components:
       required: [type, features]
       properties:
         type:
-          type: string
-          enum: [FeatureCollection]
+          $ref: "#/components/schemas/FeatureCollectionType"
         features:
           type: array
           items:
@@ -990,8 +1013,7 @@ components:
       required: [type, total, step]
       properties:
         type:
-          type: string
-          enum: [header]
+          $ref: "#/components/schemas/NdjsonHeaderType"
         total:
           type: integer
           format: int64
@@ -1010,8 +1032,7 @@ components:
       required: [type, features]
       properties:
         type:
-          type: string
-          enum: [batch]
+          $ref: "#/components/schemas/NdjsonBatchType"
         features:
           type: array
           items:

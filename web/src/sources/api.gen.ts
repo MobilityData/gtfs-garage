@@ -543,6 +543,14 @@ export interface components {
             /** @description Nested arrays of numbers, shaped by `type`. Coordinates are rounded to five decimal places, which is about a metre. */
             coordinates: unknown;
         };
+        /** @enum {string} */
+        FeatureType: "Feature";
+        /** @enum {string} */
+        FeatureCollectionType: "FeatureCollection";
+        /** @enum {string} */
+        NdjsonHeaderType: "header";
+        /** @enum {string} */
+        NdjsonBatchType: "batch";
         /**
          * @description A GeoJSON feature. Which properties it carries depends on the layer, and
          *     the sets are deliberately minimal - one unread property is a string per
@@ -555,22 +563,19 @@ export interface components {
          *     - locations: `location_id`, `stop_name`
          */
         Feature: {
-            /** @enum {string} */
-            type: "Feature";
+            type: components["schemas"]["FeatureType"];
             geometry: components["schemas"]["Geometry"] | null;
             properties: {
                 [key: string]: string;
             };
         };
         FeatureCollection: {
-            /** @enum {string} */
-            type: "FeatureCollection";
+            type: components["schemas"]["FeatureCollectionType"];
             features: components["schemas"]["Feature"][];
         };
         /** @description The first line of a streamed layer, before any features. */
         NdjsonHeader: {
-            /** @enum {string} */
-            type: "header";
+            type: components["schemas"]["NdjsonHeaderType"];
             /**
              * Format: int64
              * @description Features the whole layer will contain.
@@ -581,8 +586,7 @@ export interface components {
         };
         /** @description One batch of features. Any number follow the header. */
         NdjsonBatch: {
-            /** @enum {string} */
-            type: "batch";
+            type: components["schemas"]["NdjsonBatchType"];
             features: components["schemas"]["Feature"][];
         };
         /**
