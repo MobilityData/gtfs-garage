@@ -13,25 +13,11 @@ name: API contract
 # catch - so a filter watching the spec alone would miss the one thing this
 # workflow exists for.
 #
-# The two lists are duplicated because GitHub Actions does not support YAML
-# anchors. Keep them in step.
+# Pull requests only. Nothing reaches main except through one, so a push run
+# would re-check, after the merge, exactly what the pull request already
+# checked - and pay for an openapi-generator jar to do it. No manual trigger
+# either: scripts/check-api.sh is the same check and runs locally.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/GtfsGarageAPI.yaml"
-      - "src/gtfs_garage_gen/**"
-      - "web/src/sources/api.gen.ts"
-      - "scripts/api-gen.sh"
-      - "scripts/check-api.sh"
-      - "scripts/gen-config.yaml"
-      - "scripts/setup-openapi-generator.sh"
-      - "scripts/_common.sh"
-      # openapi-typescript generates the viewer half, and its version is
-      # pinned here. A dependency-only bump changes the output.
-      - "web/package.json"
-      - "web/yarn.lock"
-      - ".github/workflows/contract.yml"
   pull_request:
     paths:
       - "docs/GtfsGarageAPI.yaml"
@@ -47,7 +33,6 @@ on:
       - "web/package.json"
       - "web/yarn.lock"
       - ".github/workflows/contract.yml"
-  workflow_dispatch:
 
 env:
   java_version: "17"

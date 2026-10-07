@@ -31,10 +31,12 @@ info:
 
     See `docs/INTEGRATION.md` for embedding the viewer, and the `DatasetManifest`
     schema below for the Parquet layout a static host serves.
+  # No `email`: openapi-generator prints `Contact: <email>` into the header of
+  # all 34 generated model files, and the URL below is the address that is
+  # actually maintained.
   contact:
     name: MobilityData
     url: https://mobilitydata.org/
-    email: api@mobilitydata.org
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
