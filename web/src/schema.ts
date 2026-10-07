@@ -13,9 +13,9 @@ import type { ColumnInfo, MissingFile, RelatedLink } from "./sources/types";
 interface Field {
   type?: string;
   values?: Record<string, string>;
-  required?: string;
+  required?: ColumnInfo["required"];
   condition?: string;
-  conditionScope?: string;
+  conditionScope?: ColumnInfo["condition_scope"];
   primaryKey?: boolean;
   references?: { table: string; field: string };
   whenEmpty?: { code?: string | null; label: string };

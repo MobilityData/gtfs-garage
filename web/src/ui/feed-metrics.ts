@@ -85,7 +85,7 @@ export function phaseRows(metrics: LoadMetrics): Array<[string, string]> {
   if (metrics.register_ms != null) rows.push(["Read headers", formatMs(metrics.register_ms)]);
   if (metrics.convert_ms != null) {
     // Worth showing what the conversion bought, not just what it cost.
-    const stored = metrics.stored_bytes === null ? "" : ` · ${formatBytes(metrics.stored_bytes)} stored`;
+    const stored = metrics.stored_bytes == null ? "" : ` · ${formatBytes(metrics.stored_bytes)} stored`;
     rows.push(["Convert to Parquet", `${formatMs(metrics.convert_ms)}${stored}`]);
   }
   if (metrics.count_ms != null) rows.push(["Count rows", formatMs(metrics.count_ms)]);
@@ -123,24 +123,24 @@ export function fileRows(metrics: LoadMetrics): FileRow[] {
       name: file.name,
       bytes: formatBytes(file.bytes),
       share: total === 0 ? 0 : Math.round((file.bytes / total) * 100),
-      compressed: file.compressed_bytes === null ? "—" : formatBytes(file.compressed_bytes),
-      stored: file.parquet_bytes === null ? "—" : formatBytes(file.parquet_bytes),
+      compressed: file.compressed_bytes == null ? "—" : formatBytes(file.compressed_bytes),
+      stored: file.parquet_bytes == null ? "—" : formatBytes(file.parquet_bytes),
       costMs: formatCost(metrics, file),
-      rows: file.row_count === null ? "—" : file.row_count.toLocaleString(),
+      rows: file.row_count == null ? "—" : file.row_count.toLocaleString(),
       columns: file.columns,
     }));
 }
 
 /** True when the feed was rewritten as Parquet rather than read as CSV. */
 function converted(metrics: LoadMetrics): boolean {
-  return metrics.convert_ms !== null;
+  return metrics.convert_ms != null;
 }
 
 function formatCost(metrics: LoadMetrics, file: FileMetrics): string {
   // A file that would not convert inside an otherwise converted feed keeps its
   // CSV view and so has no conversion time to show.
   const cost = converted(metrics) ? file.convert_ms : file.count_ms;
-  return cost === null ? "—" : formatMs(cost);
+  return cost == null ? "—" : formatMs(cost);
 }
 
 interface Column {

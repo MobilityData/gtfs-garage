@@ -9,19 +9,12 @@ be mounted in another application.
 
 ```sh
 npm install gtfs-garage-web
-```
-
-The map is a separate entry point, and MapLibre an **optional** peer. Install
-it only if you want one:
-
-```sh
 npm install maplibre-gl            # only with the map
 ```
 
-Nothing in the main entry mentions MapLibre, so a viewer without a map neither
-downloads it nor needs it installed to build. That is why the map arrives as an
-import rather than a flag: a bundler resolves `import()` specifiers whether or
-not the branch runs, so a flag would still have made MapLibre mandatory.
+ESM only — a bundler or native ES modules, no `<script>` drop-in. MapLibre is an
+**optional** peer behind its own entry point, so a viewer without a map neither
+downloads it nor needs it installed to build.
 
 ## React
 
@@ -35,14 +28,10 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 export default function Feed() {
   return <GtfsGarage map={mapPart} baseUrl="https://example.org" style={{ height: "80vh" }} />;
-}```
-
-Drop the two `map` imports and the MapLibre stylesheet for a table-only viewer:
-
-```tsx
-<GtfsGarage baseUrl="https://example.org" style={{ height: "80vh" }} />
+}
 ```
 
+Drop the two `map` imports and the MapLibre stylesheet for a table-only viewer.
 `"use client"` is required: the viewer builds DOM and cannot render on a server.
 
 **Give the container a height.** The viewer fills whatever box it is given, and
@@ -62,12 +51,25 @@ const viewer = await mount(document.querySelector("#feed")!, {
 viewer.destroy(); // releases the map, the history subscription and the markup
 ```
 
+## A dataset that is still being prepared
+
+`GtfsGarageDataset` waits for one, and draws the being-prepared, not-prepared
+and failed states itself — so no host writes a progress bar:
+
+```tsx
+import { GtfsGarageDataset } from "gtfs-garage-web/react";
+
+<GtfsGarageDataset dataset={provider} description="mdb-1210" style={{ height: "80vh" }} />
+```
+
 ## Where the data comes from
 
 By default the viewer talks to a GTFS Garage server at `baseUrl`. To drive it
-from your own backend instead, pass a `source` implementing `ViewerSource` —
-`GtfsSource` for the table, plus `geojsonStream` for the map, which draws a
-large feed's shapes as they arrive rather than all at the end.
+from your own backend, either serve the same API — specified in
+[`docs/GtfsGarageAPI.yaml`](https://github.com/MobilityData/gtfs-garage/blob/main/docs/GtfsGarageAPI.yaml)
+— or pass a `source` implementing `ViewerSource`, which is the escape hatch for
+a backend of any other shape, for authentication, or for reading Parquet in the
+browser with no server at all.
 
 ## Styling
 
@@ -80,6 +82,14 @@ page. The design tokens are declared on that class and are the theming API:
   --font: "Inter", sans-serif;
 }
 ```
+
+## Documentation
+
+**[Embedding the viewer](https://github.com/MobilityData/gtfs-garage/blob/main/docs/INTEGRATION.md)**
+— every option, the three ways to supply data, what your server has to provide
+(including CORS and authentication, which the API document deliberately leaves
+to you), the dataset-preparation lifecycle, and a worked adapter for driving the
+viewer from an API of your own.
 
 ## Licence
 

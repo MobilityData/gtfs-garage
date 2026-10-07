@@ -152,6 +152,11 @@ flagged when they move; timings are shown but vary with the runner.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the stack, the layers and why
   they are split the way they are, including which pieces are built to be used
   from outside this repository.
+- [docs/INTEGRATION.md](docs/INTEGRATION.md) — mounting the viewer in another
+  application, and what that application has to serve it.
+- [docs/GtfsGarageAPI.yaml](docs/GtfsGarageAPI.yaml) — the HTTP contract, in
+  OpenAPI. It is the source of truth: the server's models and the viewer's
+  types are both generated from it by `scripts/api-gen.sh`.
 
 ## License
 

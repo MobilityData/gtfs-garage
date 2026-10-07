@@ -25,6 +25,38 @@ import { TableView } from "./ui/table";
 
 export type { ViewerParts } from "./markup";
 export type { GtfsSource, ViewerSource } from "./sources/types";
+/**
+ * The payload types, re-exported so a host implementing `ViewerSource` can name
+ * what its methods return. They are generated from `docs/GtfsGarageAPI.yaml`,
+ * so an implementation written against them is checked against the contract at
+ * compile time - which is the whole point of generating them, and is worth
+ * nothing if they stop at the package boundary.
+ */
+export type {
+  AppConfig,
+  ColumnInfo,
+  ConditionOutcome,
+  DatasetManifest,
+  FeatureCollection,
+  FileCondition,
+  FileMetrics,
+  Filter,
+  FilterOperator,
+  GeoFeature,
+  GeoJsonKind,
+  ImpliedValue,
+  LoadMetrics,
+  LoadProgress,
+  MissingFile,
+  PageResponse,
+  RelatedLink,
+  Row,
+  TableInfo,
+  TablesResponse,
+  ValueCount,
+} from "./sources/types";
+/** `geojsonStream` hands these to its callback, so an implementer names them too. */
+export type { NdjsonMessage } from "./sources/ndjson";
 export { RestSource } from "./sources/rest";
 export { browserHistory, memoryHistory, type HistoryPort } from "./ui/history";
 

@@ -78,6 +78,11 @@ if [ "$SKIP_INSTALL" = false ]; then
     step "Installing the frontend dependencies"
     (cd web && yarn install --silent) || die "yarn install failed"
   fi
+
+  # After the frontend install, because a regeneration writes the viewer's types
+  # too and needs node_modules to do it. The generated code is committed, so on
+  # a fresh clone this is a no-op: it does something only when the spec changed.
+  ensure_models
 else
   # Nothing is installed or checked, so the environment has to already be there.
   [ -x "$VENV/bin/python" ] || die "no Python environment at $VENV (drop --skip-install to create one)"

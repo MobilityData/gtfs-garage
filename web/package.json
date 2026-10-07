@@ -1,6 +1,6 @@
 {
   "name": "gtfs-garage-web",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Browse a GTFS feed: a mountable viewer with a table, filters and a map.",
   "license": "Apache-2.0",
   "type": "module",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "build:lib": "vite build --config vite.lib.config.ts && yarn types",
-    "types": "tsc -p tsconfig.lib.json"
+    "types": "tsc -p tsconfig.lib.json",
+    "gen:api": "openapi-typescript ../docs/GtfsGarageAPI.yaml -o src/sources/api.gen.ts"
   },
   "devDependencies": {
     "@duckdb/duckdb-wasm": "1.32.0",
@@ -18,6 +19,7 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "maplibre-gl": "^5.7.0",
+    "openapi-typescript": "^7.4.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
