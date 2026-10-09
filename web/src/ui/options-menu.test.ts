@@ -7,6 +7,7 @@ import {
   formatAge,
   hasWorkspace,
   reloadBlockedReason,
+  showsWorkspace,
   workspaceSummary,
 } from "./options-menu";
 
@@ -170,14 +171,40 @@ describe("reloadBlockedReason", () => {
   });
 });
 
-describe("hasWorkspace", () => {
-  const port = {
-    workspace: () => Promise.resolve(workspace()),
-    reloadFeed: () => Promise.resolve({}),
-    removeFeed: () => Promise.resolve(workspace()),
-    clearWorkspace: () => Promise.resolve(workspace()),
-  };
+const port = {
+  workspace: () => Promise.resolve(workspace()),
+  reloadFeed: () => Promise.resolve({}),
+  removeFeed: () => Promise.resolve(workspace()),
+  clearWorkspace: () => Promise.resolve(workspace()),
+};
 
+describe("showsWorkspace", () => {
+  const config = (overrides = {}) => ({ basemap: "none", version: "0.4.0", ...overrides });
+
+  it("shows it for a server that says it has a workdir", () => {
+    expect(showsWorkspace(port, config({ workspace: true }))).toBe(true);
+  });
+
+  it("hides it for a backend implementing the same endpoints without one", () => {
+    // `RestSource` always carries the four methods - it is written against the
+    // whole contract - so having them says nothing about what is behind
+    // `baseUrl`. Only the server's own config settles it.
+    expect(showsWorkspace(port, config())).toBe(false);
+    expect(showsWorkspace(port, config({ workspace: false }))).toBe(false);
+  });
+
+  it("trusts a source that has no config to ask", () => {
+    // A host that wrote the four methods by hand meant them.
+    expect(showsWorkspace(port, null)).toBe(true);
+    expect(showsWorkspace(port, undefined)).toBe(true);
+  });
+
+  it("hides it for a source that could not answer anyway", () => {
+    expect(showsWorkspace({}, config({ workspace: true }))).toBe(false);
+  });
+});
+
+describe("hasWorkspace", () => {
   it("recognises a source that can answer for one", () => {
     expect(hasWorkspace(port)).toBe(true);
   });

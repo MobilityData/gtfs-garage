@@ -17,7 +17,6 @@ from gtfs_garage.core.workspace import (
     DEFAULT_KEEP,
     STALE_RUN_SECONDS,
     Workspace,
-    cache_root,
     directory_bytes,
     slug_for,
     sweep_stale_runs,
@@ -187,10 +186,10 @@ class TestModes:
         workspace.close()
         assert workspace.path.exists()
 
-    def test_an_unasked_for_one_lives_under_the_cache_and_goes_with_the_run(self):
+    def test_an_unasked_for_one_lives_under_the_cache_and_goes_with_the_run(self, cache_home: Path):
         workspace = Workspace.resolve()
         assert not workspace.persistent
-        assert cache_root() in workspace.path.parents
+        assert cache_home in workspace.path.parents
         assert workspace.path.name.startswith(f"{os.getpid()}-")
         workspace.close()
         assert not workspace.path.exists()
@@ -238,10 +237,8 @@ class TestSweep:
         (runs / "stray.log").write_text("", encoding="utf-8")
         assert sweep_stale_runs(runs) == []
 
-    def test_starting_a_run_sweeps_the_ones_before_it(self, tmp_path: Path, monkeypatch):
-        monkeypatch.setenv("HOME", str(tmp_path))
-        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / ".cache"))
-        orphan = cache_root() / "runs" / "999999-deadbeef"
+    def test_starting_a_run_sweeps_the_ones_before_it(self, cache_home: Path):
+        orphan = cache_home / "runs" / "999999-deadbeef"
         orphan.mkdir(parents=True)
         workspace = Workspace.resolve()
         assert not orphan.exists()

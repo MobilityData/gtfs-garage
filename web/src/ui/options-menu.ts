@@ -13,7 +13,7 @@
  */
 
 import { button, type Dom } from "../dom";
-import type { LoadMetrics, Workspace, WorkspaceFeed } from "../sources/types";
+import type { AppConfig, LoadMetrics, Workspace, WorkspaceFeed } from "../sources/types";
 import { formatBytes, renderMetrics } from "./feed-metrics";
 
 /** What the source has to provide before the workdir section is worth drawing. */
@@ -38,6 +38,31 @@ export function hasWorkspace(source: unknown): source is WorkspacePort {
     typeof candidate?.removeFeed === "function" &&
     typeof candidate?.clearWorkspace === "function"
   );
+}
+
+/**
+ * Whether to build the workdir section for this source.
+ *
+ * Two questions, and both have to be answered. `RestSource` always carries the
+ * four methods, because it is written against the whole contract - so having
+ * them says nothing about whether the thing at the other end of `baseUrl` is a
+ * GTFS Garage server or somebody's own backend implementing the same spec. The
+ * server declares it instead, in `GET /api/config`, and a backend that does not
+ * answer these paths simply does not set it.
+ *
+ * A source with no `config` at all is taken at its word: a host that wrote the
+ * four methods by hand meant them, and there is nothing to ask.
+ *
+ * Without this the section would be built and then discovered empty by a 404
+ * on every open - working, but by accident, and a failed request each time.
+ */
+export function showsWorkspace(
+  source: unknown,
+  config: AppConfig | null | undefined,
+): source is WorkspacePort {
+  if (!hasWorkspace(source)) return false;
+  if (!config) return true;
+  return config.workspace === true;
 }
 
 const MINUTE = 60_000;

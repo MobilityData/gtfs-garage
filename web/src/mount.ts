@@ -16,7 +16,7 @@ import type { Dom } from "./dom";
 import type { FeatureCollection, TablesResponse, ViewerSource } from "./sources/types";
 import { type AppState, createState, type View } from "./state";
 import { FeedLoader } from "./ui/feed-loader";
-import { hasWorkspace, OptionsMenu } from "./ui/options-menu";
+import { OptionsMenu, showsWorkspace } from "./ui/options-menu";
 import { FilterBar } from "./ui/filters";
 import { type HistoryPort, memoryHistory } from "./ui/history";
 import { initialView, Navigator } from "./ui/navigation";
@@ -137,20 +137,25 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   const dom = createDom(root);
   const state = createState();
 
+  // Read before anything is built: it carries both the basemap the map needs
+  // and whether this server has a workdir for the options menu to show.
+  const config = await source.config?.().catch(() => null);
+
   /**
    * The workdir part of the menu exists only where there is a workdir: a local
-   * server has one, a host's own backend and a browser reading Parquet do not.
-   * The load report is shown either way, since every source describes its load.
+   * server has one; a host's own backend implementing the same endpoints, and a
+   * browser reading Parquet, do not. The load report is shown either way, since
+   * every source describes its own load.
    */
   const optionsMenu = parts.options
-    ? new OptionsMenu(dom, hasWorkspace(source) ? source : null, async () => {
+    ? new OptionsMenu(dom, showsWorkspace(source, config) ? source : null, async () => {
         onFeedLoaded(await source.tables());
       })
     : undefined;
 
   // A vector style has to be fetched before the map is constructed, and which
   // one is a server setting unless the host names it.
-  const basemap = options.basemap ?? (await source.config?.().catch(() => null))?.basemap;
+  const basemap = options.basemap ?? config?.basemap;
   const map = await options.map?.create(dom, state, source, basemap);
   map?.restoreVisibility();
 
