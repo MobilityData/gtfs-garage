@@ -24,15 +24,18 @@ describe("buildViewer markup", () => {
   it("includes the local tool's parts by default", () => {
     const markup = html();
     expect(markup).toContain('data-el="load-overlay"');
-    expect(markup).toContain('data-el="metrics-panel"');
+    expect(markup).toContain('data-el="options-panel"');
+    expect(markup).toContain('data-el="workdir-section"');
+    expect(markup).toContain('data-el="metrics-section"');
     expect(markup).toContain('data-el="map-pane"');
   });
 
   it("leaves out what an embedded viewer has no use for", () => {
     // A host showing a known dataset has nothing to open and no load to explain.
-    const markup = html({ load: false, report: false, map: false });
+    const markup = html({ load: false, options: false, map: false });
     expect(markup).not.toContain("load-overlay");
-    expect(markup).not.toContain("metrics-panel");
+    expect(markup).not.toContain("options-panel");
+    expect(markup).not.toContain("workdir-section");
     expect(markup).not.toContain("map-pane");
     // The part worth embedding survives.
     expect(markup).toContain('data-el="table-scroll"');
@@ -40,8 +43,9 @@ describe("buildViewer markup", () => {
   });
 
   it("drops the buttons for the parts it leaves out", () => {
-    const markup = html({ load: false, map: false });
+    const markup = html({ load: false, map: false, options: false });
     expect(markup).not.toContain("open-load-btn");
     expect(markup).not.toContain("toggle-map-btn");
+    expect(markup).not.toContain("options-btn");
   });
 });

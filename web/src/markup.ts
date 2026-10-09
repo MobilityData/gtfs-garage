@@ -9,37 +9,68 @@
  * so nothing outside this file cares which it is.
  *
  * `browse` is the part worth embedding - the file list, the grid, the filters.
- * `load` and `report` belong to the local application: a host that already
- * knows which dataset it is showing has nothing to open and no load to explain.
+ * `load` and `options` belong to the local application: a host that already
+ * knows which dataset it is showing has nothing to open, no load to explain and
+ * no workdir of its own.
  */
 
 export interface ViewerParts {
   /** Opening a feed by drop, path or URL. Local application only. */
   load?: boolean;
-  /** The load report in the header. Local application only. */
-  report?: boolean;
+  /**
+   * The options menu: the load report, and the workdir when the source has one.
+   * Local application only.
+   */
+  options?: boolean;
   /** The map pane. */
   map?: boolean;
 }
 
-const EVERYTHING: Required<ViewerParts> = { load: true, report: true, map: true };
+const EVERYTHING: Required<ViewerParts> = { load: true, options: true, map: true };
 
 const header = (parts: Required<ViewerParts>) => `
   <header>
     <h1>GTFS Garage</h1>
     <div data-el="source-label">No feed loaded</div>
-    ${parts.report ? `<button data-el="metrics-btn" title="What this feed cost to open" hidden></button>` : ""}
+    ${parts.options ? `<button data-el="options-btn" title="Workdir and load report">⚙ Options</button>` : ""}
     ${parts.map ? `<button data-el="toggle-map-btn">Hide map</button>` : ""}
     ${parts.load ? `<button data-el="open-load-btn">Load feed</button>` : ""}
   </header>`;
 
-const report = () => `
-  <div data-el="metrics-panel" class="hidden">
-    <div data-el="metrics-header">
-      <strong>Load report</strong>
-      <button data-el="metrics-close-btn" title="Close">&times;</button>
+/**
+ * The options menu, anchored under its button.
+ *
+ * Two sections, in the order someone reaches for them: what is on disk and what
+ * can be done about it, then what the current feed cost to open. The second was
+ * a panel of its own until the first existed; they answer the same question -
+ * what this tool has put on your machine - and belong behind one button.
+ *
+ * The workdir section is emptied and hidden when the source has no workdir to
+ * describe, which is every source but a local server.
+ */
+const options = () => `
+  <div data-el="options-panel" class="hidden">
+    <div data-el="options-header">
+      <strong>Options</strong>
+      <button data-el="options-close-btn" title="Close">&times;</button>
     </div>
-    <div data-el="metrics-body"></div>
+
+    <section data-el="workdir-section" hidden>
+      <div data-el="options-section-title">Workdir</div>
+      <div data-el="workdir-path" title="Where this server writes. Click to copy."></div>
+      <div data-el="workdir-summary"></div>
+      <div data-el="workdir-feeds"></div>
+      <div data-el="workdir-actions">
+        <button data-el="workdir-clear-btn">Empty workdir</button>
+      </div>
+      <div data-el="workdir-status"></div>
+    </section>
+
+    <section data-el="metrics-section" hidden>
+      <div data-el="options-section-title">Load report</div>
+      <div data-el="metrics-summary"></div>
+      <div data-el="metrics-body"></div>
+    </section>
   </div>`;
 
 const browse = (parts: Required<ViewerParts>) => `
@@ -129,7 +160,7 @@ export function buildViewer(root: Element, parts: ViewerParts = {}): void {
   root.classList.add("gtfs-viewer");
   root.innerHTML = [
     header(wanted),
-    wanted.report ? report() : "",
+    wanted.options ? options() : "",
     browse(wanted),
     wanted.load ? loader() : "",
   ].join("\n");

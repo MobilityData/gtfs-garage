@@ -95,8 +95,16 @@ Both `mount` and `<GtfsGarage>` take the same options.
 | `source` | a REST source on `baseUrl` | Your own `ViewerSource`. Takes precedence over `baseUrl`. |
 | `map` | none | `mapPart` from `gtfs-garage-web/map`. Omitted means no map pane — there is nothing to draw one with. |
 | `basemap` | the server's setting | A preset (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template, or a vector style URL. |
-| `parts` | `{load: false, report: false}` | Which extra pieces to build. The feed-picker dialog and the load report belong to the standalone application; an embedded viewer gets neither. |
+| `parts` | `{load: false, options: false}` | Which extra pieces to build. The feed-picker dialog and the options menu belong to the standalone application; an embedded viewer gets neither. |
 | `history` | `memoryHistory()` | Where Back goes. The default is a stack the viewer keeps to itself, so **your address bar is left alone**. Pass `browserHistory()` to make a view a shareable link, which only makes sense if the viewer owns the page. |
+
+`parts.options` builds the header's **Options** menu, which holds the load
+report and — only when the source can answer for one — the server's workdir:
+what it holds, and the buttons that reopen or delete a feed. The workdir half
+appears only if the source implements all four of `workspace`, `reloadFeed`,
+`removeFeed` and `clearWorkspace`, which in practice means a GTFS Garage server.
+It describes a local process's own disk, so there is nothing for a hosted
+backend to put there.
 
 Two side effects worth knowing about. The root element gets the class
 `gtfs-viewer` and its contents are replaced; elements are tagged `data-el=…`
@@ -178,7 +186,7 @@ geometry is about 45 MB on the wire.
 ## Implementing a source instead
 
 `ViewerSource` is the interface the whole UI is written against, and it is not
-an HTTP contract — it is four methods and a stream:
+an HTTP contract — it is four methods, a stream, and some optional extras:
 
 ```ts
 import type { ViewerSource } from "gtfs-garage-web";
@@ -191,6 +199,14 @@ const source: ViewerSource = {
   geojsonStream,   // a whole layer, batch by batch
   config,          // optional: the basemap, if you do not pass one
   close,           // optional: release whatever the source holds
+
+  // Optional, and all four together: the workdir the source writes into. Only
+  // a local server has one, and the options menu simply omits that section for
+  // a source that does not implement them.
+  workspace,       // the directory, its size, and the feeds it holds
+  reloadFeed,      // serve a stored feed again, without fetching it
+  removeFeed,      // delete one feed's files
+  clearWorkspace,  // delete every feed's files but the one being served
 };
 
 await mount(root, { source });

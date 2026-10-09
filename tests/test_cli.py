@@ -3,7 +3,8 @@ from pathlib import Path
 import pytest
 
 from gtfs_garage import __version__
-from gtfs_garage.cli import DEFAULT_HOST, DEFAULT_PORT, build_parser, main
+from gtfs_garage import cli as cli_module
+from gtfs_garage.cli import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_WORKDIR_KEEP, build_parser, main
 
 
 class TestArgumentParsing:
@@ -87,3 +88,63 @@ class TestBasemapOption:
         monkeypatch.setattr("gtfs_garage.cli.uvicorn.run", lambda app, host, port: built.update(app=app))
         assert main([str(feed_dir), "--no-browser", "--basemap", "osm"]) == 0
         assert built["app"].state.basemap == "osm"
+
+
+class TestWorkdirOption:
+    def test_defaults_to_the_run_choosing_its_own(self):
+        args = build_parser().parse_args(["feed.zip"])
+        assert args.workdir is None
+        assert args.workdir_keep == DEFAULT_WORKDIR_KEEP
+
+    def test_accepts_a_directory_and_a_limit(self):
+        args = build_parser().parse_args(["feed.zip", "--workdir", "/tmp/gg", "--workdir-keep", "1"])
+        assert (args.workdir, args.workdir_keep) == ("/tmp/gg", 1)
+
+    def test_a_named_directory_is_kept_and_used(self, feed_dir: Path, tmp_path: Path, monkeypatch):
+        built = {}
+        monkeypatch.setattr("gtfs_garage.cli.uvicorn.run", lambda app, host, port: built.update(app=app))
+        workdir = tmp_path / "gg-work"
+
+        assert main([str(feed_dir), "--no-browser", "--workdir", str(workdir), "--workdir-keep", "2"]) == 0
+
+        workspace = built["app"].state.workspace
+        assert workspace.path == workdir.resolve()
+        assert workspace.persistent is True
+        assert workspace.keep == 2
+        # The feed that was named on the command line is in it already.
+        assert len(workspace.entries()) == 1
+
+    def test_the_path_is_printed_on_every_run(self, feed_dir: Path, tmp_path: Path, monkeypatch, capsys):
+        """Not knowing where a feed landed is the problem the flag solves, and a
+        flag nobody is told about does not solve it."""
+        monkeypatch.setattr("gtfs_garage.cli.uvicorn.run", lambda *a, **k: None)
+        workdir = tmp_path / "gg-work"
+        assert main([str(feed_dir), "--no-browser", "--workdir", str(workdir)]) == 0
+        printed = capsys.readouterr().out
+        assert str(workdir.resolve()) in printed
+        assert "kept" in printed
+
+    def test_an_unasked_for_workdir_says_it_will_go(self, feed_dir: Path, monkeypatch, capsys):
+        monkeypatch.setattr("gtfs_garage.cli.uvicorn.run", lambda *a, **k: None)
+        assert main([str(feed_dir), "--no-browser"]) == 0
+        assert "removed on exit" in capsys.readouterr().out
+
+    def test_an_export_unpacks_into_the_workdir_and_leaves_it(self, feed_zip: Path, tmp_path: Path):
+        """A zip still has to be unpacked somewhere; --workdir says where."""
+        workdir = tmp_path / "gg-work"
+        assert main([str(feed_zip), "--export", str(tmp_path / "out"), "--workdir", str(workdir)]) == 0
+        assert (tmp_path / "out" / "stops.parquet").exists()
+        assert any(workdir.rglob("*"))
+
+    def test_an_export_without_one_leaves_nothing_behind(self, feed_zip: Path, tmp_path: Path, monkeypatch):
+        recorded = []
+        real = cli_module.Workspace.resolve
+
+        def remember(*args, **kwargs):
+            made = real(*args, **kwargs)
+            recorded.append(made)
+            return made
+
+        monkeypatch.setattr(cli_module.Workspace, "resolve", remember)
+        assert main([str(feed_zip), "--export", str(tmp_path / "out")]) == 0
+        assert recorded and not recorded[0].path.exists()

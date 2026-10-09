@@ -28,6 +28,7 @@ from gtfs_garage_gen.models.distinct_response import DistinctResponse
 from gtfs_garage_gen.models.load_progress import LoadProgress
 from gtfs_garage_gen.models.page_response import PageResponse
 from gtfs_garage_gen.models.tables_response import TablesResponse
+from gtfs_garage_gen.models.workspace_response import WorkspaceResponse
 from gtfs_garage.server.state import FeedRecord, FeedRegistry, NoFeedLoadedError
 
 router = APIRouter(prefix="/api")
@@ -113,7 +114,86 @@ def _tables_payload(registry: FeedRegistry) -> dict[str, Any]:
 @router.get("/config", response_model=ConfigResponse)
 def get_config(request: Request) -> dict[str, Any]:
     """Settings the interface reads before it builds the map."""
-    return {"basemap": request.app.state.basemap, "version": __version__}
+    # `workspace` is how the viewer learns whether this server has a workdir to
+    # show. A host implementing this contract on its own backend has none, so
+    # the interface for it never appears there.
+    return {"basemap": request.app.state.basemap, "version": __version__, "workspace": True}
+
+
+def _workspace_payload(registry: FeedRegistry) -> dict[str, Any]:
+    """What is on disk, and which row is the feed being served."""
+    workspace = registry.workspace
+    current = registry.last_load.slot_id if registry.last_load else None
+    return {
+        "path": str(workspace.path),
+        "persistent": workspace.persistent,
+        "keep": workspace.keep,
+        "total_bytes": workspace.total_bytes(),
+        "feeds": [
+            {
+                "id": entry.id,
+                "label": entry.label,
+                "kind": entry.kind,
+                "loaded_at": entry.loaded_at,
+                "bytes": entry.bytes,
+                "tables": entry.tables,
+                "reloadable": entry.reloadable,
+                "current": entry.id == current,
+            }
+            for entry in workspace.entries()
+        ],
+    }
+
+
+@router.get("/workspace", response_model=WorkspaceResponse, tags=["workspace"])
+def get_workspace(request: Request) -> dict[str, Any]:
+    """Where this server writes, what it has written, and what that weighs."""
+    return _workspace_payload(_registry(request))
+
+
+@router.post("/workspace/feeds/{feed_id}/reload", response_model=TablesResponse, tags=["workspace"])
+def reload_workspace_feed(request: Request, feed_id: str) -> dict[str, Any]:
+    """Serve a feed the workdir already holds, from the Parquet it became."""
+    registry = _registry(request)
+    registry.begin_load()
+    try:
+        registry.reopen(feed_id)
+    except GtfsLoadError as exc:
+        registry.finish_load()
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    payload = _tables_payload(registry)
+    registry.finish_load()
+    return payload
+
+
+@router.delete("/workspace/feeds/{feed_id}", response_model=WorkspaceResponse, tags=["workspace"])
+def remove_workspace_feed(request: Request, feed_id: str) -> dict[str, Any]:
+    """Delete one feed's files.
+
+    Refused for a feed still being served: its Parquet is what every query
+    reads, and removing it would break the page rather than tidy it.
+    """
+    registry = _registry(request)
+    if feed_id in registry.held_slots():
+        raise HTTPException(status_code=409, detail="That feed is open. Load another one first.")
+    if registry.workspace.existing(feed_id) is None:
+        raise HTTPException(status_code=404, detail="No such feed in the workdir.")
+    registry.workspace.remove(feed_id)
+    return _workspace_payload(registry)
+
+
+@router.delete("/workspace", response_model=WorkspaceResponse, tags=["workspace"])
+def clear_workspace(request: Request) -> dict[str, Any]:
+    """Empty the workdir of everything that is not open.
+
+    There is no option to take the served feed with it: its Parquet is what
+    every query reads, so deleting it would break the page rather than tidy it.
+    Load another feed first, then this removes it like any other.
+    """
+    registry = _registry(request)
+    registry.workspace.clear(registry.held_slots())
+    return _workspace_payload(registry)
 
 
 @router.post("/load", response_model=TablesResponse)
@@ -135,8 +215,8 @@ def load_feed(
 
     try:
         if files:
-            source = str(registry.store_upload_folder((f.filename or "", f.file) for f in files))
             label = name or "chosen folder"
+            source = str(registry.store_upload_folder(((f.filename or "", f.file) for f in files), label))
         elif file is not None:
             filename = file.filename or "feed.zip"
             source, label = str(registry.store_upload(filename, file.file)), filename

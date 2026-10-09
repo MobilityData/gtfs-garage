@@ -38,6 +38,8 @@ export type AppConfig = Schemas["ConfigResponse"];
 export type GeoFeature = Schemas["Feature"];
 export type FeatureCollection = Schemas["FeatureCollection"];
 export type DatasetManifest = Schemas["DatasetManifest"];
+export type Workspace = Schemas["WorkspaceResponse"];
+export type WorkspaceFeed = Schemas["WorkspaceFeed"];
 
 /** Row values are strings or null: every column is read as text. */
 export type Row = (string | null)[];
@@ -64,6 +66,23 @@ export interface ViewerSource extends GtfsSource {
     signal?: AbortSignal,
   ): Promise<void>;
   config?(): Promise<AppConfig>;
+  /**
+   * The directory the source writes into, if it has one.
+   *
+   * All four are optional together and only a local GTFS Garage server has
+   * them: they describe a process's own disk, which a hosted backend and a
+   * browser reading Parquet have no equivalent of. The viewer builds the
+   * workdir part of its options menu only when `workspace` is present, so an
+   * implementation that omits these is not missing anything - there is simply
+   * nothing to show.
+   */
+  workspace?(): Promise<Workspace>;
+  /** Serve a feed the workdir already holds, without fetching it again. */
+  reloadFeed?(id: string): Promise<TablesResponse>;
+  /** Delete one feed's files. Refused while that feed is the one being served. */
+  removeFeed?(id: string): Promise<Workspace>;
+  /** Delete every feed's files but the one being served. */
+  clearWorkspace?(): Promise<Workspace>;
   /**
    * Release whatever the source is holding.
    *

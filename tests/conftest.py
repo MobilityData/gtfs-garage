@@ -8,6 +8,23 @@ from gtfs_garage.core.feed import GtfsFeed
 FIXTURE_DIR = Path(__file__).parent / "data" / "mini-gtfs"
 
 
+@pytest.fixture(autouse=True)
+def cache_home(tmp_path_factory, monkeypatch):
+    """Keep a run's workdir out of the real cache directory.
+
+    A workspace with no `--workdir` takes a directory under the platform cache,
+    which is derived from the home directory. Pointing that at a temporary one
+    means the suite neither reads nor deletes anything of the developer's, and
+    that a test which forgets to close a registry leaks into pytest's own
+    scratch rather than into `~/Library/Caches`.
+    """
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(home / ".cache"))
+    monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
+    return home
+
+
 @pytest.fixture(scope="session")
 def feed_dir() -> Path:
     """The fixture feed as an extracted folder."""

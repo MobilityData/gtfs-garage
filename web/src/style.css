@@ -362,16 +362,14 @@
   text-align: center;
 }
 
-/* The load report: a summary in the header that expands into a panel. */
-.gtfs-viewer [data-el="metrics-btn"] {
-  color: var(--muted);
-  font-size: 12.5px;
-  padding: 4px 8px;
+/* The options menu: the workdir and the load report, behind one header button
+   and anchored under it. The viewer is `position: relative` for this. */
+.gtfs-viewer [data-el="options-btn"] {
   flex-shrink: 0;
   white-space: nowrap;
 }
 
-.gtfs-viewer [data-el="metrics-panel"] {
+.gtfs-viewer [data-el="options-panel"] {
   position: absolute;
   top: 46px;
   right: 16px;
@@ -381,27 +379,129 @@
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 12.5px;
+  /* Wide enough for a feed's label beside its buttons, and for the file table,
+     which scrolls sideways inside the panel rather than widening it. */
+  width: 460px;
   max-width: 90vw;
   max-height: 70vh;
   overflow: auto;
   box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
 }
 
-.gtfs-viewer [data-el="metrics-panel"].hidden { display: none; }
+.gtfs-viewer [data-el="options-panel"].hidden { display: none; }
 
-.gtfs-viewer [data-el="metrics-header"] {
+.gtfs-viewer [data-el="options-header"] {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 8px;
 }
 
-.gtfs-viewer [data-el="metrics-header"] strong { flex: 1; }
+.gtfs-viewer [data-el="options-header"] strong { flex: 1; }
 
-.gtfs-viewer [data-el="metrics-header"] button {
+.gtfs-viewer [data-el="options-header"] button {
   padding: 0 6px;
   line-height: 1.4;
 }
+
+.gtfs-viewer [data-el="options-panel"] section + section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.gtfs-viewer [data-el="options-section-title"] {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* Wraps rather than truncating: this is the one thing in the menu someone may
+   want to read character by character, or copy by hand. Ordinary paths are a
+   line. */
+.gtfs-viewer [data-el="workdir-path"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--muted);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.gtfs-viewer [data-el="workdir-summary"],
+.gtfs-viewer [data-el="metrics-summary"] {
+  color: var(--muted);
+  margin: 2px 0 8px;
+}
+
+.gtfs-viewer [data-el="workdir-feeds"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gtfs-viewer .workdir-feed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+/* The feed on screen. Marked rather than hidden: it is the row whose buttons
+   are unavailable, and that only makes sense if it can be seen. */
+.gtfs-viewer .workdir-feed.current {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.gtfs-viewer .workdir-feed-text { flex: 1; min-width: 0; }
+
+/* `displayLabel` has already reduced a path or URL to the part that names the
+   feed, so what is left fits; this is the guard for the one that does not. */
+.gtfs-viewer .workdir-feed-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gtfs-viewer .workdir-feed-detail {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.gtfs-viewer .workdir-feed.current .workdir-feed-detail { color: var(--accent); }
+
+.gtfs-viewer .workdir-feed-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.gtfs-viewer .workdir-feed-actions button {
+  font-size: 11.5px;
+  padding: 3px 7px;
+}
+
+.gtfs-viewer .workdir-remove { line-height: 1.2; }
+
+.gtfs-viewer .workdir-empty {
+  color: var(--muted);
+  padding: 6px 8px;
+}
+
+.gtfs-viewer [data-el="workdir-actions"] { margin-top: 8px; }
+
+.gtfs-viewer [data-el="workdir-status"] {
+  color: var(--muted);
+  min-height: 1.2em;
+  margin-top: 4px;
+}
+
+.gtfs-viewer [data-el="workdir-section"].busy { opacity: 0.6; }
+
+/* The file table is seven columns and will not fit; it scrolls rather than
+   stretching the panel to a width the header button is no longer under. */
+.gtfs-viewer [data-el="metrics-body"] { overflow-x: auto; }
 
 .gtfs-viewer [data-el="metrics-phases"] {
   display: grid;

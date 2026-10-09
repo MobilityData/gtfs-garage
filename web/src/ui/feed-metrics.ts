@@ -221,23 +221,17 @@ function fileTable(metrics: LoadMetrics): HTMLElement {
 }
 
 /**
- * Fills the header summary and the panel it expands into. The panel starts
- * closed: a load report should be there when wanted, not in the way.
+ * Fills the load report section of the options menu.
+ *
+ * The summary line leads it rather than sitting in the header, which is where
+ * it was before the menu existed: it is the sentence that says whether the
+ * detail below is worth reading, so it stays, but one button is enough for
+ * everything this tool has written to disk.
  */
 export function renderMetrics(dom: Dom, metrics: LoadMetrics, clientMs?: number): void {
-  const button = dom.el<HTMLButtonElement>("metrics-btn");
-  button.textContent = summaryLine(metrics, clientMs);
-  button.hidden = false;
+  dom.el("metrics-summary").textContent = summaryLine(metrics, clientMs);
 
   const body = dom.el("metrics-body");
   body.innerHTML = "";
   body.append(phaseList(metrics), fileTable(metrics));
-  dom.el("metrics-panel").classList.add("hidden");
-}
-
-/** Wires the summary button to the panel it opens. Called once, at startup. */
-export function initMetricsPanel(dom: Dom): void {
-  const panel = dom.el("metrics-panel");
-  dom.el("metrics-btn").addEventListener("click", () => panel.classList.toggle("hidden"));
-  dom.el("metrics-close-btn").addEventListener("click", () => panel.classList.add("hidden"));
 }

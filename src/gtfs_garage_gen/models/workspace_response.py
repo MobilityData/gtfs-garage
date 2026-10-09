@@ -20,21 +20,24 @@ import json
 
 
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
-from typing import Any, ClassVar, Dict, List, Optional
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from typing import Any, ClassVar, Dict, List
+from gtfs_garage_gen.models.workspace_feed import WorkspaceFeed
 try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
 
-class ConfigResponse(BaseModel):
+class WorkspaceResponse(BaseModel):
     """
-    Settings the interface reads at startup.
+    The directory a GTFS Garage server writes into.
     """ # noqa: E501
-    basemap: StrictStr = Field(description="A preset name (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template containing `{z}/{x}/{y}`, or a vector style URL. The viewer resolves it.")
-    version: StrictStr = Field(description="The version of GTFS Garage serving this API.")
-    workspace: Optional[StrictBool] = Field(default=None, description="Whether this server manages a workdir and so answers the `workspace` paths. Absent or false means it does not, and the viewer builds no interface for one.")
-    __properties: ClassVar[List[str]] = ["basemap", "version", "workspace"]
+    path: StrictStr = Field(description="The workdir's absolute path on the server's filesystem.")
+    persistent: StrictBool = Field(description="Whether it survives the process. True when the server was started with `--workdir`; false for the per-run directory used otherwise, which is removed on exit.")
+    keep: StrictInt = Field(description="How many feeds are kept before the oldest is dropped. 0 means none are ever dropped.")
+    total_bytes: StrictInt = Field(description="What the whole workdir occupies.")
+    feeds: List[WorkspaceFeed] = Field(description="The feeds it holds, most recently loaded first.")
+    __properties: ClassVar[List[str]] = ["path", "persistent", "keep", "total_bytes", "feeds"]
 
     model_config = {
         "populate_by_name": True,
@@ -54,7 +57,7 @@ class ConfigResponse(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
-        """Create an instance of ConfigResponse from a JSON string"""
+        """Create an instance of WorkspaceResponse from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -73,11 +76,18 @@ class ConfigResponse(BaseModel):
             },
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in feeds (list)
+        _items = []
+        if self.feeds:
+            for _item in self.feeds:
+                if _item:
+                    _items.append(_item.to_dict())
+            _dict['feeds'] = _items
         return _dict
 
     @classmethod
     def from_dict(cls, obj: Dict) -> Self:
-        """Create an instance of ConfigResponse from a dict"""
+        """Create an instance of WorkspaceResponse from a dict"""
         if obj is None:
             return None
 
@@ -85,9 +95,11 @@ class ConfigResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "basemap": obj.get("basemap"),
-            "version": obj.get("version"),
-            "workspace": obj.get("workspace")
+            "path": obj.get("path"),
+            "persistent": obj.get("persistent"),
+            "keep": obj.get("keep"),
+            "total_bytes": obj.get("total_bytes"),
+            "feeds": [WorkspaceFeed.from_dict(_item) for _item in obj.get("feeds")] if obj.get("feeds") is not None else None
         })
         return _obj
 

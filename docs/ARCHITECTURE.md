@@ -26,11 +26,19 @@ gtfs-garage <feed.zip>
                                             ▼
                                   core/  (no web framework)
                                      ├── feed.py      GTFS files → DuckDB views
+                                     ├── workspace.py where a run writes, and what it keeps
                                      ├── schema.py    reads data/gtfs-schema.json
                                      ├── filters.py   UI filters → parameterised SQL
                                      ├── queries.py   table summaries, pages, distinct values
                                      └── geojson.py   DuckDB rows → GeoJSON
 ```
+
+`workspace.py` owns every directory the tool creates. A feed does not make its
+own scratch any more; it is handed a slot, which outlives it — that is what lets
+a feed be reopened from the Parquet it was converted to rather than fetched and
+converted again, and what lets the interface say what is on disk and delete it.
+The slot layout is deliberately the one `export_parquet` writes, so reopening is
+`GtfsFeed(slot.parquet_dir)` and takes no special path through the loader.
 
 The rule that makes the rest work: **nothing under `core/` imports a web
 framework.** That is what lets another project depend on the query layer without

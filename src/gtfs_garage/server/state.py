@@ -9,7 +9,6 @@ process do not share a feed.
 from __future__ import annotations
 
 import shutil
-import tempfile
 import threading
 import time
 import urllib.error
@@ -22,6 +21,7 @@ from pathlib import Path
 
 from gtfs_garage import __version__
 from gtfs_garage.core.feed import FeedStats, GtfsFeed, GtfsLoadError
+from gtfs_garage.core.workspace import FeedSlot, Workspace
 
 DOWNLOAD_TIMEOUT_SECONDS = 60
 # Generous enough for any real feed, low enough that a wrong URL cannot fill the
@@ -67,6 +67,9 @@ class FeedRecord:
     kind: str  # path | upload | folder | download
     feed_stats: FeedStats
     acquire: AcquireStats | None = None
+    # The workspace slot holding this feed's files, so the interface can point
+    # at the right row and the registry knows what it must not delete.
+    slot_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -103,12 +106,15 @@ class LoadProgress:
 
 
 class FeedRegistry:
-    def __init__(self, optimise: bool = True) -> None:
+    def __init__(self, optimise: bool = True, workspace: Workspace | None = None) -> None:
         self._feed: GtfsFeed | None = None
         self._source: str | None = None
-        self._upload_dirs: list[Path] = []
+        # Where every file this server writes goes. Defaulted rather than
+        # required, so `FeedRegistry()` still means something on its own.
+        self.workspace = workspace if workspace is not None else Workspace.resolve()
         # Set by the store_* methods, consumed by the next load().
         self._acquire: AcquireStats | None = None
+        self._pending_slot: FeedSlot | None = None
         self.last_load: FeedRecord | None = None
         self.optimise = optimise
         self.progress = LoadProgress()
@@ -181,7 +187,13 @@ class FeedRegistry:
     def _set_progress(self, phase: str, done: int = 0, total: int = 0, detail: str = "") -> None:
         self.progress = LoadProgress(phase=phase, done=done, total=total, detail=detail, running=True)
 
-    def load(self, source: str, label: str | None = None) -> GtfsFeed:
+    def load(
+        self,
+        source: str,
+        label: str | None = None,
+        slot: FeedSlot | None = None,
+        kind: str | None = None,
+    ) -> GtfsFeed:
         """Replace the current feed.
 
         The new feed is opened before the old one is closed, so a load that
@@ -189,27 +201,72 @@ class FeedRegistry:
         actually closed once nothing is still reading it.
 
         `label` is what the interface displays. Uploads and downloads live in
-        temporary directories, so they report where they came from instead of
-        the scratch path they landed in.
+        the workspace, so they report where they came from instead of the
+        directory they landed in.
+
+        `slot` is where the feed's files go. The acquiring step has usually
+        already claimed one - it had to, to have somewhere to write - and a feed
+        opened straight from a path claims one here.
+
+        `kind` overrides how the feed is said to have been obtained. Only
+        `reopen` passes it, so that a downloaded feed read back from the workdir
+        is still listed as a download rather than as the local path it now is.
         """
-        feed = GtfsFeed(source, optimise=self.optimise, on_progress=self._set_progress)
+        shown = label or source
+        slot = slot or self._pending_slot or self.workspace.slot(shown)
+        self._pending_slot = None
+        kind = kind or (self._acquire.kind if self._acquire else "path")
+
+        feed = GtfsFeed(
+            source,
+            optimise=self.optimise,
+            on_progress=self._set_progress,
+            slot=slot,
+            temp_directory=self.workspace.duckdb_dir,
+        )
         self._set_progress(PHASE_SUMMARISE)
+        self.workspace.record(slot, shown, kind, len(feed.tables))
+
         with self._lock:
             self.last_load = FeedRecord(
-                kind=self._acquire.kind if self._acquire else "path",
+                kind=kind,
                 feed_stats=feed.stats,
                 acquire=self._acquire,
+                slot_id=slot.id,
             )
             self._acquire = None
             previous, readers = self._feed, self._readers
-            self._feed, self._source = feed, label or source
+            self._feed, self._source = feed, shown
             self._readers = 0
             if previous is not None:
                 if readers > 0:
                     self._retired.append((previous, readers))
                 else:
                     previous.close()
+        # After the replacement, so the slot of the feed now being served is
+        # counted as the newest and the oldest is what goes.
+        self.workspace.enforce_retention(self.held_slots())
         return feed
+
+    def reopen(self, slot_id: str) -> GtfsFeed:
+        """Serve a feed already in the workspace, from the Parquet it became.
+
+        No download, no unzip and no conversion: `GtfsFeed` opens a directory of
+        Parquet directly, which is the whole reason the workspace stores feeds
+        in that shape.
+        """
+        slot = self.workspace.existing(slot_id)
+        entry = next((e for e in self.workspace.entries() if e.id == slot_id), None)
+        if slot is None or entry is None or not entry.reloadable:
+            raise GtfsLoadError("That feed is no longer in the workdir.")
+        self._acquire = None
+        return self.load(str(slot.parquet_dir), entry.label, slot=slot, kind=entry.kind)
+
+    def held_slots(self) -> set[str]:
+        """Slots whose files are open, and so must not be deleted."""
+        with self._lock:
+            feeds = [self._feed, *(retired for retired, _ in self._retired)]
+        return {feed.slot.id for feed in feeds if feed is not None and feed.slot is not None}
 
     def begin_load(self) -> None:
         self.progress = LoadProgress(phase=PHASE_START, running=True)
@@ -218,8 +275,8 @@ class FeedRegistry:
         self.progress = LoadProgress(phase=PHASE_DONE, running=False)
 
     def store_upload(self, filename: str, stream) -> Path:
-        """Persist an uploaded feed to a temporary directory and return its path."""
-        destination = self._scratch_path("gtfs-garage-upload-", filename)
+        """Persist an uploaded feed into its workspace slot and return its path."""
+        destination = self._claim(filename) / Path(filename).name
         started = time.perf_counter()
         self._set_progress(PHASE_UPLOAD, detail=filename)
         with destination.open("wb") as out:
@@ -227,7 +284,7 @@ class FeedRegistry:
         self._acquire = AcquireStats("upload", destination.stat().st_size, _elapsed_ms(started))
         return destination
 
-    def store_upload_folder(self, files: Iterable[tuple[str, object]]) -> Path:
+    def store_upload_folder(self, files: Iterable[tuple[str, object]], name: str = "chosen folder") -> Path:
         """Reassemble an uploaded folder and return the directory holding it.
 
         A browser sends a chosen folder as its individual files, so they are
@@ -235,23 +292,22 @@ class FeedRegistry:
         are flattened to their basename: GTFS files sit at one level, and a
         relative path from the browser should not steer where anything lands.
         """
-        directory = Path(tempfile.mkdtemp(prefix="gtfs-garage-folder-"))
-        self._upload_dirs.append(directory)
+        directory = self._claim(name)
 
         started = time.perf_counter()
         written = 0
         written_bytes = 0
         self._set_progress(PHASE_UPLOAD)
         for filename, stream in files:
-            name = Path(filename).name
-            if not name or name.startswith("."):
+            member = Path(filename).name
+            if not member or member.startswith("."):
                 continue
-            destination = directory / name
+            destination = directory / member
             with destination.open("wb") as out:
                 shutil.copyfileobj(stream, out)
             written += 1
             written_bytes += destination.stat().st_size
-            self._set_progress(PHASE_UPLOAD, written, 0, name)
+            self._set_progress(PHASE_UPLOAD, written, 0, member)
 
         if written == 0:
             raise GtfsLoadError("That folder contained no files to read.")
@@ -259,13 +315,15 @@ class FeedRegistry:
         return directory
 
     def store_download(self, url: str) -> Path:
-        """Fetch a feed over HTTP into a temporary directory and return its path."""
+        """Fetch a feed over HTTP into its workspace slot and return its path."""
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ("http", "https"):
             raise GtfsLoadError(f"Only http and https URLs can be downloaded, got '{parsed.scheme or url}'")
 
         filename = Path(urllib.parse.unquote(parsed.path)).name or "feed.zip"
-        destination = self._scratch_path("gtfs-garage-download-", filename)
+        # `.name` again on the way in: a URL path can walk upwards, and the
+        # slot is not somewhere a crafted link gets to choose a destination in.
+        destination = self._claim(url) / Path(filename).name
 
         request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
         started = time.perf_counter()
@@ -295,11 +353,15 @@ class FeedRegistry:
         self._acquire = AcquireStats("download", written, _elapsed_ms(started))
         return destination
 
-    def _scratch_path(self, prefix: str, filename: str) -> Path:
-        directory = Path(tempfile.mkdtemp(prefix=prefix))
-        self._upload_dirs.append(directory)
-        # Guard against a name from the URL or upload escaping the directory.
-        return directory / Path(filename).name
+    def _claim(self, label: str) -> Path:
+        """Take the slot this feed will occupy, and return where its source goes.
+
+        Claimed here rather than at `load` because the bytes have to land
+        somewhere before there is a feed to open, and that somewhere should be
+        the slot the feed will end up in rather than a directory of its own.
+        """
+        self._pending_slot = self.workspace.slot(label)
+        return self._pending_slot.source_dir
 
     def close(self) -> None:
         for retired, _ in self._retired:
@@ -309,6 +371,6 @@ class FeedRegistry:
             self._feed.close()
             self._feed, self._source = None, None
             self.last_load = None
-        for directory in self._upload_dirs:
-            shutil.rmtree(directory, ignore_errors=True)
-        self._upload_dirs.clear()
+        # Only an ephemeral workspace goes; a --workdir is the user's, and
+        # keeping it across runs is the reason they named one.
+        self.workspace.close()

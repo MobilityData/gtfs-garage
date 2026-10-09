@@ -33,8 +33,13 @@ import step and only the rows on screen are ever materialised.
   counts behave identically at every size.
 - **See what it cost.** Every load reports its own timings and sizes: the
   download or upload, the unzip, the conversion, and per file the bytes on disk,
-  the rows, and the time spent reading the header versus counting the rows. The header carries a one-line summary that opens
-  into the full breakdown, largest file first.
+  the rows, and the time spent reading the header versus counting the rows. The
+  Options menu carries a one-line summary that opens into the full breakdown,
+  largest file first.
+- **Know where it went.** Every file a run writes lands in one directory whose
+  path is printed on start, and `--workdir` says which. The Options menu lists
+  what is in it and what that weighs, reopens a feed already there without
+  fetching it again, and empties it on request.
 - **Go back.** Every table switch, filter change and page turn is a history
   entry, so Back — in the app or the browser — returns to the previous view with
   its filters intact. The URL describes the view, so it can be reloaded or
@@ -60,7 +65,7 @@ a local path or a URL for the tool to download.
 
 ```
 gtfs-garage [--host HOST] [--port PORT] [--basemap NAME|URL] [--no-browser]
-            [--no-parquet] [--version] [feed]
+            [--no-parquet] [--workdir DIR] [--workdir-keep N] [--version] [feed]
 ```
 
 At load the feed is rewritten once as Parquet and the CSVs it came from are
@@ -68,6 +73,31 @@ released. On a 4.5 GB feed that costs about six seconds and pays for
 itself immediately: counts and filters go from seconds to milliseconds, and the
 feed occupies roughly a twentieth of the disk. `--no-parquet` keeps the original
 behaviour of reading the CSVs where they sit.
+
+## The workdir
+
+Everything a run writes — the extracted feed, the Parquet it becomes, anything
+uploaded or downloaded — goes in one directory, and the path is printed on
+start. By default it is a directory of this run's own under the platform cache,
+and it is removed when the server stops; a run killed before it could clean up
+is swept the next time one starts.
+
+`--workdir DIR` puts it where you say and leaves it there. That makes a feed
+reopenable: it is already Parquet, so a second look at it costs no download, no
+unzip and no conversion, and a workdir survives restarts.
+
+```bash
+gtfs-garage --workdir ~/gtfs-work path/to/feed.zip
+```
+
+The **Options** menu in the header shows the workdir, what it weighs, and the
+feeds in it, with a button to reopen one and buttons to delete them. The feed
+on screen is never deleted — its Parquet is what every query reads — so emptying
+the workdir while browsing leaves exactly that one behind. `--workdir-keep N`
+(default 3) is how many feeds are kept before the oldest is dropped; `1` drops
+the previous feed as soon as a new one loads, and `0` keeps every feed.
+
+Both are also read from `$GTFS_GARAGE_WORKDIR` and `$GTFS_GARAGE_WORKDIR_KEEP`.
 
 The map backdrop is configurable with `--basemap` or `$GTFS_GARAGE_BASEMAP`:
 `openfreemap` (default), `esri`, `osm`, `carto`, `none`, or any raster tile
