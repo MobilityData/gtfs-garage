@@ -20,21 +20,37 @@ import json
 
 
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
 
-class ConfigResponse(BaseModel):
+class WorkspaceFeed(BaseModel):
     """
-    Settings the interface reads at startup.
+    One feed the workdir holds.
     """ # noqa: E501
-    basemap: StrictStr = Field(description="A preset name (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template containing `{z}/{x}/{y}`, or a vector style URL. The viewer resolves it.")
-    version: StrictStr = Field(description="The version of GTFS Garage serving this API.")
-    workspace: Optional[StrictBool] = Field(default=None, description="Whether this server manages a workdir and so answers the `workspace` paths. Absent or false means it does not, and the viewer builds no interface for one.")
-    __properties: ClassVar[List[str]] = ["basemap", "version", "workspace"]
+    id: StrictStr = Field(description="The directory the feed occupies, derived from its label so that loading the same feed twice reuses one slot rather than two.")
+    label: StrictStr = Field(description="What the feed was loaded as - a filename, a path, or a URL.")
+    kind: Optional[StrictStr] = Field(default=None, description="How it was obtained.")
+    loaded_at: Optional[datetime] = Field(default=None, description="When it was last loaded.")
+    bytes: StrictInt = Field(description="What the feed occupies in the workdir, measured from disk.")
+    tables: StrictInt = Field(description="How many tables it holds.")
+    reloadable: StrictBool = Field(description="Whether there is Parquet to reopen it from. False for a feed loaded with `--no-parquet`, and for a load that did not finish.")
+    current: StrictBool = Field(description="Whether this is the feed being served.")
+    __properties: ClassVar[List[str]] = ["id", "label", "kind", "loaded_at", "bytes", "tables", "reloadable", "current"]
+
+    @field_validator('kind')
+    def kind_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in ('path', 'upload', 'folder', 'download'):
+            raise ValueError("must be one of enum values ('path', 'upload', 'folder', 'download')")
+        return value
 
     model_config = {
         "populate_by_name": True,
@@ -54,7 +70,7 @@ class ConfigResponse(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:
-        """Create an instance of ConfigResponse from a JSON string"""
+        """Create an instance of WorkspaceFeed from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
     def to_dict(self) -> Dict[str, Any]:
@@ -77,7 +93,7 @@ class ConfigResponse(BaseModel):
 
     @classmethod
     def from_dict(cls, obj: Dict) -> Self:
-        """Create an instance of ConfigResponse from a dict"""
+        """Create an instance of WorkspaceFeed from a dict"""
         if obj is None:
             return None
 
@@ -85,9 +101,14 @@ class ConfigResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "basemap": obj.get("basemap"),
-            "version": obj.get("version"),
-            "workspace": obj.get("workspace")
+            "id": obj.get("id"),
+            "label": obj.get("label"),
+            "kind": obj.get("kind"),
+            "loaded_at": obj.get("loaded_at"),
+            "bytes": obj.get("bytes"),
+            "tables": obj.get("tables"),
+            "reloadable": obj.get("reloadable"),
+            "current": obj.get("current")
         })
         return _obj
 

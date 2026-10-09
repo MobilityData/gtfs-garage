@@ -57,6 +57,15 @@ tags:
       The feed's geometry as GeoJSON. A whole layer streams as newline-delimited
       JSON, because a large feed's shapes run to hundreds of megabytes and cannot
       be transferred or parsed in one piece.
+  - name: workspace
+    description: |-
+      The directory a GTFS Garage server writes into: what it holds, what that
+      weighs, and how to empty it.
+
+      **A host embedding the viewer does not implement these.** They describe a
+      local process's own disk, which a hosted backend has no equivalent of. The
+      viewer only calls them when `GET /api/config` reports `workspace: true`,
+      and the interface they drive is simply absent otherwise.
 
 paths:
   /api/config:
@@ -382,8 +391,107 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/workspace:
+    get:
+      summary: What the server has written to disk
+      description: >-
+        The workdir's path, whether it survives the process, how many feeds it
+        keeps, and a row per feed it holds. The totals are measured from the
+        directory rather than remembered, so they describe what is actually
+        there.
+      operationId: getWorkspace
+      tags: [workspace]
+      responses:
+        "200":
+          description: The workdir.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+    delete:
+      summary: Empty the workdir
+      description: >-
+        Removes every feed whose files are not open. The feed being served is
+        never removed - its Parquet is what every query reads - so emptying a
+        workdir while browsing leaves exactly that one behind.
+      operationId: clearWorkspace
+      tags: [workspace]
+      responses:
+        "200":
+          description: The workdir, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+
+  /api/workspace/feeds/{feed_id}:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    delete:
+      summary: Delete one feed's files
+      description: >-
+        Refused with 409 while that feed is the one being served, or while a
+        request is still reading it.
+      operationId: removeWorkspaceFeed
+      tags: [workspace]
+      responses:
+        "200":
+          description: The workdir, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "404":
+          description: No such feed in the workdir.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: That feed is open, so its files cannot be removed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/workspace/feeds/{feed_id}/reload:
+    parameters:
+      - $ref: "#/components/parameters/feed_id_path_param"
+    post:
+      summary: Serve a feed the workdir already holds
+      description: >-
+        Reopens the feed from the Parquet it was converted to at its first load,
+        so there is nothing to download, unzip or convert. Replacing the loaded
+        feed behaves exactly as `POST /api/load` does, in-flight requests
+        included.
+      operationId: reloadWorkspaceFeed
+      tags: [workspace]
+      responses:
+        "200":
+          description: The feed, described as `GET /api/tables` would describe it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TablesResponse"
+        "404":
+          description: >-
+            No such feed in the workdir, or one with no Parquet to reopen - a
+            feed loaded with `--no-parquet`, or a load that was interrupted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   parameters:
+    feed_id_path_param:
+      name: feed_id
+      in: path
+      description: A feed's id in the workdir, as `GET /api/workspace` reports it.
+      required: true
+      schema:
+        type: string
+      example: montreal-gtfs-zip-7f3a91c0
     table_path_param:
       name: table
       in: path
@@ -446,6 +554,83 @@ components:
           type: string
           description: The version of GTFS Garage serving this API.
           example: 1.4.2
+        workspace:
+          type: boolean
+          description: >-
+            Whether this server manages a workdir and so answers the `workspace`
+            paths. Absent or false means it does not, and the viewer builds no
+            interface for one.
+          example: true
+
+    WorkspaceFeed:
+      type: object
+      description: One feed the workdir holds.
+      required: [id, label, bytes, tables, reloadable, current]
+      properties:
+        id:
+          type: string
+          description: >-
+            The directory the feed occupies, derived from its label so that
+            loading the same feed twice reuses one slot rather than two.
+          example: montreal-gtfs-zip-7f3a91c0
+        label:
+          type: string
+          description: What the feed was loaded as - a filename, a path, or a URL.
+          example: montreal-gtfs.zip
+        kind:
+          type: string
+          description: How it was obtained.
+          enum: [path, upload, folder, download]
+        loaded_at:
+          type: string
+          format: date-time
+          description: When it was last loaded.
+        bytes:
+          type: integer
+          format: int64
+          description: What the feed occupies in the workdir, measured from disk.
+        tables:
+          type: integer
+          description: How many tables it holds.
+        reloadable:
+          type: boolean
+          description: >-
+            Whether there is Parquet to reopen it from. False for a feed loaded
+            with `--no-parquet`, and for a load that did not finish.
+        current:
+          type: boolean
+          description: Whether this is the feed being served.
+
+    WorkspaceResponse:
+      type: object
+      description: The directory a GTFS Garage server writes into.
+      required: [path, persistent, keep, total_bytes, feeds]
+      properties:
+        path:
+          type: string
+          description: The workdir's absolute path on the server's filesystem.
+          example: /Users/sam/gtfs-work
+        persistent:
+          type: boolean
+          description: >-
+            Whether it survives the process. True when the server was started
+            with `--workdir`; false for the per-run directory used otherwise,
+            which is removed on exit.
+        keep:
+          type: integer
+          description: >-
+            How many feeds are kept before the oldest is dropped. 0 means none
+            are ever dropped.
+          example: 3
+        total_bytes:
+          type: integer
+          format: int64
+          description: What the whole workdir occupies.
+        feeds:
+          type: array
+          description: The feeds it holds, most recently loaded first.
+          items:
+            $ref: "#/components/schemas/WorkspaceFeed"
 
     RelatedLink:
       type: object

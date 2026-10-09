@@ -2,9 +2,9 @@
  * Putting a viewer into a page.
  *
  * The standalone application and an embedded one differ only in what they pass
- * here: the application owns its page, so it takes the load dialog, the load
- * report and the browser's own history; a host embedding the viewer takes none
- * of those and keeps its address bar to itself.
+ * here: the application owns its page, so it takes the load dialog, the options
+ * menu and the browser's own history; a host embedding the viewer takes none of
+ * those and keeps its address bar to itself.
  */
 
 import "./style.css";
@@ -16,7 +16,7 @@ import type { Dom } from "./dom";
 import type { FeatureCollection, TablesResponse, ViewerSource } from "./sources/types";
 import { type AppState, createState, type View } from "./state";
 import { FeedLoader } from "./ui/feed-loader";
-import { initMetricsPanel, renderMetrics } from "./ui/feed-metrics";
+import { OptionsMenu, showsWorkspace } from "./ui/options-menu";
 import { FilterBar } from "./ui/filters";
 import { type HistoryPort, memoryHistory } from "./ui/history";
 import { initialView, Navigator } from "./ui/navigation";
@@ -127,7 +127,7 @@ export interface Viewer {
   destroy(): void;
 }
 
-const EMBEDDED = { load: false, report: false } as const;
+const EMBEDDED = { load: false, options: false } as const;
 
 export async function mount(root: Element, options: ViewerOptions = {}): Promise<Viewer> {
   const parts: ViewerParts = { ...EMBEDDED, ...options.parts, map: Boolean(options.map) };
@@ -136,11 +136,26 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   buildViewer(root, parts);
   const dom = createDom(root);
   const state = createState();
-  if (parts.report) initMetricsPanel(dom);
+
+  // Read before anything is built: it carries both the basemap the map needs
+  // and whether this server has a workdir for the options menu to show.
+  const config = await source.config?.().catch(() => null);
+
+  /**
+   * The workdir part of the menu exists only where there is a workdir: a local
+   * server has one; a host's own backend implementing the same endpoints, and a
+   * browser reading Parquet, do not. The load report is shown either way, since
+   * every source describes its own load.
+   */
+  const optionsMenu = parts.options
+    ? new OptionsMenu(dom, showsWorkspace(source, config) ? source : null, async () => {
+        onFeedLoaded(await source.tables());
+      })
+    : undefined;
 
   // A vector style has to be fetched before the map is constructed, and which
   // one is a server setting unless the host names it.
-  const basemap = options.basemap ?? (await source.config?.().catch(() => null))?.basemap;
+  const basemap = options.basemap ?? config?.basemap;
   const map = await options.map?.create(dom, state, source, basemap);
   map?.restoreVisibility();
 
@@ -212,7 +227,7 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   const onFeedLoaded = (data: TablesResponse, clientMs?: number, restoreFromUrl = false): void => {
     feedLoader?.close();
     dom.el("source-label").textContent = data.source;
-    if (parts.report && data.metrics) renderMetrics(dom, data.metrics, clientMs);
+    if (data.metrics) optionsMenu?.showMetrics(data.metrics, clientMs);
     state.tables = data.tables;
     state.missing = data.missing ?? [];
     state.mapDataLoaded = false;

@@ -230,6 +230,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the server has written to disk
+         * @description The workdir's path, whether it survives the process, how many feeds it keeps, and a row per feed it holds. The totals are measured from the directory rather than remembered, so they describe what is actually there.
+         */
+        get: operations["getWorkspace"];
+        put?: never;
+        post?: never;
+        /**
+         * Empty the workdir
+         * @description Removes every feed whose files are not open. The feed being served is never removed - its Parquet is what every query reads - so emptying a workdir while browsing leaves exactly that one behind.
+         */
+        delete: operations["clearWorkspace"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspace/feeds/{feed_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A feed's id in the workdir, as `GET /api/workspace` reports it.
+                 * @example montreal-gtfs-zip-7f3a91c0
+                 */
+                feed_id: components["parameters"]["feed_id_path_param"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete one feed's files
+         * @description Refused with 409 while that feed is the one being served, or while a request is still reading it.
+         */
+        delete: operations["removeWorkspaceFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspace/feeds/{feed_id}/reload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A feed's id in the workdir, as `GET /api/workspace` reports it.
+                 * @example montreal-gtfs-zip-7f3a91c0
+                 */
+                feed_id: components["parameters"]["feed_id_path_param"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Serve a feed the workdir already holds
+         * @description Reopens the feed from the Parquet it was converted to at its first load, so there is nothing to download, unzip or convert. Replacing the loaded feed behaves exactly as `POST /api/load` does, in-flight requests included.
+         */
+        post: operations["reloadWorkspaceFeed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -251,6 +327,67 @@ export interface components {
              * @example 1.4.2
              */
             version: string;
+            /**
+             * @description Whether this server manages a workdir and so answers the `workspace` paths. Absent or false means it does not, and the viewer builds no interface for one.
+             * @example true
+             */
+            workspace?: boolean;
+        };
+        /** @description One feed the workdir holds. */
+        WorkspaceFeed: {
+            /**
+             * @description The directory the feed occupies, derived from its label so that loading the same feed twice reuses one slot rather than two.
+             * @example montreal-gtfs-zip-7f3a91c0
+             */
+            id: string;
+            /**
+             * @description What the feed was loaded as - a filename, a path, or a URL.
+             * @example montreal-gtfs.zip
+             */
+            label: string;
+            /**
+             * @description How it was obtained.
+             * @enum {string}
+             */
+            kind?: "path" | "upload" | "folder" | "download";
+            /**
+             * Format: date-time
+             * @description When it was last loaded.
+             */
+            loaded_at?: string;
+            /**
+             * Format: int64
+             * @description What the feed occupies in the workdir, measured from disk.
+             */
+            bytes: number;
+            /** @description How many tables it holds. */
+            tables: number;
+            /** @description Whether there is Parquet to reopen it from. False for a feed loaded with `--no-parquet`, and for a load that did not finish. */
+            reloadable: boolean;
+            /** @description Whether this is the feed being served. */
+            current: boolean;
+        };
+        /** @description The directory a GTFS Garage server writes into. */
+        WorkspaceResponse: {
+            /**
+             * @description The workdir's absolute path on the server's filesystem.
+             * @example /Users/sam/gtfs-work
+             */
+            path: string;
+            /** @description Whether it survives the process. True when the server was started with `--workdir`; false for the per-run directory used otherwise, which is removed on exit. */
+            persistent: boolean;
+            /**
+             * @description How many feeds are kept before the oldest is dropped. 0 means none are ever dropped.
+             * @example 3
+             */
+            keep: number;
+            /**
+             * Format: int64
+             * @description What the whole workdir occupies.
+             */
+            total_bytes: number;
+            /** @description The feeds it holds, most recently loaded first. */
+            feeds: components["schemas"]["WorkspaceFeed"][];
         };
         /** @description A table that points back at the current row's id. */
         RelatedLink: {
@@ -705,6 +842,11 @@ export interface components {
     };
     parameters: {
         /**
+         * @description A feed's id in the workdir, as `GET /api/workspace` reports it.
+         * @example montreal-gtfs-zip-7f3a91c0
+         */
+        feed_id_path_param: string;
+        /**
          * @description The table name, which is the GTFS file stem - `stops` for `stops.txt`. `locations` is the flattened form of `locations.geojson`.
          * @example stop_times
          */
@@ -976,6 +1118,125 @@ export interface operations {
             };
             /** @description No source was supplied, or the feed could not be opened - a download that failed, an archive with no GTFS files in it. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workdir. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceResponse"];
+                };
+            };
+        };
+    };
+    clearWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workdir, as it now stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceResponse"];
+                };
+            };
+        };
+    };
+    removeWorkspaceFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A feed's id in the workdir, as `GET /api/workspace` reports it.
+                 * @example montreal-gtfs-zip-7f3a91c0
+                 */
+                feed_id: components["parameters"]["feed_id_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workdir, as it now stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceResponse"];
+                };
+            };
+            /** @description No such feed in the workdir. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description That feed is open, so its files cannot be removed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reloadWorkspaceFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A feed's id in the workdir, as `GET /api/workspace` reports it.
+                 * @example montreal-gtfs-zip-7f3a91c0
+                 */
+                feed_id: components["parameters"]["feed_id_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The feed, described as `GET /api/tables` would describe it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TablesResponse"];
+                };
+            };
+            /** @description No such feed in the workdir, or one with no Parquet to reopen - a feed loaded with `--no-parquet`, or a load that was interrupted. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

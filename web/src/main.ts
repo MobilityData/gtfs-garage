@@ -22,6 +22,6 @@ void mount(root, {
   // The application always shows a map, so it takes the part unconditionally.
   // An embedded viewer imports it only if its host wants one.
   map: mapPart,
-  parts: { load: true, report: true },
+  parts: { load: true, options: true },
   history: browserHistory(),
 });

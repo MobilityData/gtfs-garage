@@ -3,9 +3,27 @@ from pathlib import Path
 
 import pytest
 
+from gtfs_garage.core import workspace as workspace_module
 from gtfs_garage.core.feed import GtfsFeed
 
 FIXTURE_DIR = Path(__file__).parent / "data" / "mini-gtfs"
+
+
+@pytest.fixture(autouse=True)
+def cache_home(tmp_path_factory, monkeypatch) -> Path:
+    """Keep a run's workdir out of the real cache directory.
+
+    A workspace with no `--workdir` takes a directory under the platform cache,
+    so the suite would otherwise write into - and sweep - the developer's own.
+
+    `cache_root` is replaced rather than `$HOME` or `$XDG_CACHE_HOME`: the cache
+    directory is shared, and moving it moves every tool that reads it. Playwright
+    keeps its browsers under the same root, so repointing the environment made
+    the browser guard fail to find a Chromium that was installed.
+    """
+    root = tmp_path_factory.mktemp("cache") / "gtfs-garage"
+    monkeypatch.setattr(workspace_module, "cache_root", lambda: root)
+    return root
 
 
 @pytest.fixture(scope="session")

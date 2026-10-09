@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gtfs_garage import __version__
+from gtfs_garage.core.workspace import FeedSlot
 
 # Reported through `on_progress` so a caller can say which phase is running.
 PHASE_EXTRACT = "extract"
@@ -111,13 +112,32 @@ class FeedStats:
 
 
 class GtfsFeed:
-    def __init__(self, source_path: str, optimise: bool = True, on_progress: ProgressFn | None = None):
+    def __init__(
+        self,
+        source_path: str,
+        optimise: bool = True,
+        on_progress: ProgressFn | None = None,
+        slot: FeedSlot | None = None,
+        temp_directory: Path | None = None,
+    ):
+        """Open a feed.
+
+        `slot` places the extracted CSVs and the Parquet in a workspace rather
+        than in directories of this feed's own making. The difference is
+        ownership, and it is the whole point: a slot outlives the feed, so the
+        same Parquet can be reopened later without fetching or converting
+        anything again, whereas a feed that made its own directories deletes
+        them when it closes. Without one the behaviour is exactly as before,
+        which is what `GtfsFeed("feed.zip")` on its own still relies on.
+        """
         import duckdb
 
         self.source_path = Path(source_path).expanduser()
         self._on_progress = on_progress
+        self.slot = slot
         # Directories this feed created and is therefore allowed to delete. A
-        # folder handed to us belongs to the user and never goes in here.
+        # folder handed to us belongs to the user and never goes in here, and
+        # neither does a workspace slot, which the workspace owns.
         self._owned_dirs: list[Path] = []
         self._extract_dir: Path | None = None
         self.stats = FeedStats()
@@ -127,7 +147,11 @@ class GtfsFeed:
         # already been converted.
         self._parquet_source = False
         self.data_dir = self._resolve_data_dir()
-        self.con = duckdb.connect(database=":memory:")
+        # Keeping DuckDB's own spill beside everything else is the difference
+        # between a workdir that accounts for the disk it uses and one that does
+        # not: a query over a feed too large for memory writes gigabytes here.
+        config = {"temp_directory": str(temp_directory)} if temp_directory else {}
+        self.con = duckdb.connect(database=":memory:", config=config)
         self.tables: dict[str, list[str]] = {}
         self._load_tables()
         if not self.tables:
@@ -141,7 +165,16 @@ class GtfsFeed:
         if self._on_progress:
             self._on_progress(phase, done, total, detail)
 
-    def _scratch_dir(self, prefix: str) -> Path:
+    def _scratch_dir(self, prefix: str, slot_dir: Path | None = None) -> Path:
+        """Somewhere to write. The workspace's, if there is one; ours if not.
+
+        Only a directory this feed created itself is recorded as owned, which is
+        what `close` deletes. A slot's directories belong to the workspace and
+        survive the feed, so that the feed can be reopened from them.
+        """
+        if slot_dir is not None:
+            slot_dir.mkdir(parents=True, exist_ok=True)
+            return slot_dir
         directory = Path(tempfile.mkdtemp(prefix=prefix))
         self._owned_dirs.append(directory)
         return directory
@@ -169,7 +202,7 @@ class GtfsFeed:
 
         if self.source_path.suffix.lower() == ".zip":
             self.stats.source_bytes = self.source_path.stat().st_size
-            self._extract_dir = self._scratch_dir("gtfs-garage-")
+            self._extract_dir = self._scratch_dir("gtfs-garage-", self.slot.extract_dir if self.slot else None)
             started = time.perf_counter()
             try:
                 with zipfile.ZipFile(self.source_path) as zf:
@@ -238,6 +271,11 @@ class GtfsFeed:
         CSVs were read with, so every column is already text and the queries
         behave identically to a feed opened from source.
         """
+        # What the files weighed before they were converted cannot be recovered
+        # from the Parquet, so the manifest beside it is the only place the load
+        # report can get them. Absent for a dataset written by an older version,
+        # in which case those columns are simply not reported.
+        original = self._manifest_sizes()
         for parquet_file in sorted(self.data_dir.glob("*.parquet")):
             table_name = parquet_file.stem
             escaped_path = str(parquet_file).replace("'", "''")
@@ -249,19 +287,38 @@ class GtfsFeed:
             columns = [row[0] for row in self.con.execute(f'DESCRIBE "{table_name}"').fetchall()]
             self.tables[table_name] = columns
             size = parquet_file.stat().st_size
+            was = original.get(table_name, {})
             self.stats.files.append(
                 FileStats(
                     name=parquet_file.name,
                     table=table_name,
-                    bytes=size,
-                    # Already converted, so there is no archive it came out of
-                    # and no separate on-disk form to report.
-                    compressed_bytes=None,
+                    # The source's own size where the manifest remembers it, so
+                    # a reopened feed reports the feed rather than its storage.
+                    bytes=was.get("bytes") or size,
+                    compressed_bytes=was.get("compressed_bytes"),
                     parquet_bytes=size,
                     register_ms=_elapsed_ms(file_started),
                     columns=len(columns),
                 )
             )
+
+    def _manifest_sizes(self) -> dict[str, dict]:
+        """Per table, what the manifest beside the Parquet remembers of the source."""
+        try:
+            data = json.loads((self.data_dir / MANIFEST).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        tables = data.get("tables")
+        if not isinstance(tables, list):
+            return {}
+        return {
+            str(entry.get("name")): {
+                "bytes": entry.get("bytes"),
+                "compressed_bytes": entry.get("compressed_bytes"),
+            }
+            for entry in tables
+            if isinstance(entry, dict) and entry.get("name")
+        }
 
     def export_parquet(self, destination: Path) -> list[Path]:
         """Write every table as Parquet into `destination`, and return the files.
@@ -311,7 +368,7 @@ class GtfsFeed:
         a table list, and its `bytes` meant the Parquet size rather than the
         source's - so a reader has to know which it is holding.
         """
-        sized = [t for t in tables if t["bytes"] is not None]
+        sized = [t for t in tables if t.get("bytes") is not None]
         return {
             "version": 2,
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -319,7 +376,7 @@ class GtfsFeed:
             "source": {"kind": self._source_kind(), "bytes": self.stats.source_bytes},
             "totals": {
                 "uncompressed_bytes": sum(t["bytes"] for t in sized),
-                "stored_bytes": sum(t["parquet_bytes"] for t in tables),
+                "stored_bytes": sum(t["parquet_bytes"] or 0 for t in tables),
             },
             "tables": tables,
         }
@@ -409,7 +466,7 @@ class GtfsFeed:
         column stays text and no query behaves differently than before.
         """
         started = time.perf_counter()
-        parquet_dir = self._scratch_dir("gtfs-garage-parquet-")
+        parquet_dir = self._scratch_dir("gtfs-garage-parquet-", self.slot.parquet_dir if self.slot else None)
         by_table = {f.table: f for f in self.stats.files}
         total = len(self.tables)
 
@@ -435,7 +492,40 @@ class GtfsFeed:
                 stats.convert_ms = _elapsed_ms(table_started)
 
         self.stats.convert_ms = _elapsed_ms(started)
+        if self.slot is not None:
+            # Only a slot is reopened later, and only a manifest makes that
+            # reopening report the feed rather than the Parquet it became.
+            self._write_manifest(parquet_dir)
         self._drop_extracted_csvs()
+
+    def _write_manifest(self, destination: Path) -> None:
+        """Describe the converted dataset beside it, as `export_parquet` does.
+
+        The sizes here cannot be recovered from the directory afterwards: the
+        CSVs are deleted by the next step, and a zip member's compressed size
+        exists only in the archive's own directory.
+        """
+        try:
+            tables = [
+                {
+                    "name": stats.table,
+                    "file": f"{stats.table}.parquet",
+                    # Read from the Parquet footer rather than scanned, so this
+                    # costs nothing even on a feed of sixty million rows.
+                    "rows": self.row_count(stats.table),
+                    "columns": stats.columns,
+                    "bytes": stats.bytes,
+                    "compressed_bytes": stats.compressed_bytes,
+                    "parquet_bytes": stats.parquet_bytes,
+                }
+                for stats in self.stats.files
+                if stats.parquet_bytes is not None
+            ]
+            (destination / MANIFEST).write_text(json.dumps(self._manifest(tables), indent=2) + "\n", encoding="utf-8")
+        except Exception:
+            # A dataset without its manifest still opens; only the report is
+            # poorer. Failing the load over it would be the worse trade.
+            pass
 
     def _drop_extracted_csvs(self) -> None:
         """Release the extracted CSVs, which nothing reads once converted.
