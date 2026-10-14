@@ -95,8 +95,38 @@ Both `mount` and `<GtfsGarage>` take the same options.
 | `source` | a REST source on `baseUrl` | Your own `ViewerSource`. Takes precedence over `baseUrl`. |
 | `map` | none | `mapPart` from `gtfs-garage-web/map`. Omitted means no map pane — there is nothing to draw one with. |
 | `basemap` | the server's setting | A preset (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template, or a vector style URL. |
-| `parts` | `{load: false, report: false}` | Which extra pieces to build. The feed-picker dialog and the load report belong to the standalone application; an embedded viewer gets neither. |
+| `parts` | `{load: false, options: false}` | Which extra pieces to build. The feed-picker dialog and the options menu belong to the standalone application; an embedded viewer gets neither. |
 | `history` | `memoryHistory()` | Where Back goes. The default is a stack the viewer keeps to itself, so **your address bar is left alone**. Pass `browserHistory()` to make a view a shareable link, which only makes sense if the viewer owns the page. |
+
+`parts.options` builds the header's **Options** menu. It always holds the load
+report. It additionally holds the server's workdir — what is on disk, and the
+buttons that reopen or delete a feed — but only when two things are both true:
+the source implements all four of `workspace`, `reloadFeed`, `removeFeed` and
+`clearWorkspace`, **and** `GET /api/config` answers `workspace: true`.
+
+Both, because either alone is the wrong test. `RestSource` always carries the
+four methods, since it is written against the whole contract — so pointing
+`baseUrl` at your own backend would otherwise build a section and discover it
+empty with a 404 on every open. The server declares it instead, and a backend
+that does not serve those paths simply does not set the flag. A source with no
+`config` method at all is taken at its word: a host that wrote the four methods
+by hand meant them.
+
+The same gate governs the load dialog: with `parts.load`, a source that passes
+it has the workdir's feeds listed at the top of the dialog as one-click
+reopens, and a source that does not simply shows the dropzone, the pickers and
+the path field as before.
+
+One further method, `setStartupFeed`, is optional on its own: it adds the
+**At startup** button to each feed's row, which names the feed a later server
+on that workdir opens by itself. A source without it keeps the rest of the
+section. The button is drawn only for a workdir that reports `persistent`,
+which every GTFS Garage server's is — the flag exists for a backend whose
+directory does not outlive the request that made it, where the choice would be
+stored into something about to be deleted.
+
+A workdir describes a local process's own disk, so there is normally nothing for
+a hosted backend to put there.
 
 Two side effects worth knowing about. The root element gets the class
 `gtfs-viewer` and its contents are replaced; elements are tagged `data-el=…`
@@ -178,7 +208,7 @@ geometry is about 45 MB on the wire.
 ## Implementing a source instead
 
 `ViewerSource` is the interface the whole UI is written against, and it is not
-an HTTP contract — it is four methods and a stream:
+an HTTP contract — it is four methods, a stream, and some optional extras:
 
 ```ts
 import type { ViewerSource } from "gtfs-garage-web";
@@ -191,6 +221,19 @@ const source: ViewerSource = {
   geojsonStream,   // a whole layer, batch by batch
   config,          // optional: the basemap, if you do not pass one
   close,           // optional: release whatever the source holds
+
+  // Optional, and all four together: the workdir the source writes into. Only
+  // a local server has one, and the options menu simply omits that section for
+  // a source that does not implement them.
+  workspace,       // the directory, its size, and the feeds it holds
+  reloadFeed,      // serve a stored feed again, without fetching it
+  removeFeed,      // delete one feed's files
+  clearWorkspace,  // delete every feed's files but the one being served
+
+  // Optional on its own, and only alongside those four: which feed a later
+  // server on this workdir opens by itself. Without it the workdir section is
+  // unchanged but for the button that sets this.
+  setStartupFeed,  // name that feed, or clear the choice with null
 };
 
 await mount(root, { source });

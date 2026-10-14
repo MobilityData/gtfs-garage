@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from gtfs_garage.core.workspace import Workspace
 from gtfs_garage.server import state as state_module
 from gtfs_garage.server.app import create_app
 from gtfs_garage.server.state import FeedRegistry, NoFeedLoadedError
@@ -64,6 +65,34 @@ class TestReaderGuard:
         made._retired.append((retired, 1))  # a reader that never returned
         made.close()
         assert made._retired == []
+
+
+class TestSlotProtection:
+    """Retention must never delete the files a query is still reading.
+
+    A replaced feed keeps its DuckDB connection open until its last reader is
+    done, and that connection reads Parquet out of the slot. Evicting the slot
+    underneath it is the one failure mode the reader guard exists to prevent,
+    and retention is a second way to reach it.
+    """
+
+    def test_a_feed_being_read_is_protected_even_once_replaced(self, feed_dir: Path, tmp_path: Path):
+        made = FeedRegistry(workspace=Workspace(tmp_path / "work", persistent=True, keep=1))
+        made.load(str(feed_dir), "first")
+        with made.reading() as old_feed:
+            # Loading past the limit would otherwise evict the slot this reader
+            # is holding, since keep=1 leaves room for the new feed only.
+            made.load(str(feed_dir), "second")
+            assert old_feed.slot is not None
+            assert old_feed.slot.parquet_dir.exists()
+            assert old_feed.row_count("stops") == 3
+        made.close()
+
+    def test_held_slots_names_the_served_feed(self, feed_dir: Path, tmp_path: Path):
+        made = FeedRegistry(workspace=Workspace(tmp_path / "work", persistent=True))
+        feed = made.load(str(feed_dir), "only")
+        assert made.held_slots() == {feed.slot.id}
+        made.close()
 
 
 class TestConcurrentRequests:

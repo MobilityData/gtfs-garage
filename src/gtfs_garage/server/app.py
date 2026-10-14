@@ -14,6 +14,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from gtfs_garage import __version__
+from gtfs_garage.core.feed import GtfsLoadError
+from gtfs_garage.core.workspace import Workspace
 from gtfs_garage.server.routes import router
 from gtfs_garage.server.state import FeedRegistry
 
@@ -33,6 +35,47 @@ FRONTEND_MISSING_PAGE = f"""<!doctype html>
 """
 
 
+def _slot_to_reopen(workspace: Workspace, wanted: str) -> str:
+    """Which stored feed `--reopen` meant.
+
+    Raises `GtfsLoadError` rather than starting empty: someone who asked for a
+    feed and silently got none would browse the wrong thing, or nothing, without
+    being told why.
+    """
+    if wanted != REOPEN_LATEST:
+        return wanted
+    latest = workspace.latest()
+    if latest is None:
+        raise GtfsLoadError(f"No feed in {workspace.path} to reopen.")
+    return latest.id
+
+
+def _open_startup_feed(registry: FeedRegistry, slot_id: str) -> None:
+    """Open the feed the workdir names, without making it a condition of starting.
+
+    Unlike `--reopen`, nobody asked for this feed on this run: it is a stored
+    preference. So a slot that turns out to be unreadable between being listed
+    and being opened leaves the server up with no feed, where the interface
+    offers the workdir like it does on any empty start - rather than refusing
+    to start over a choice made some other day.
+    """
+    try:
+        registry.reopen(slot_id)
+    except GtfsLoadError:
+        return
+    finally:
+        registry.finish_load()
+
+
+def _keep_from_env() -> int | None:
+    """GTFS_GARAGE_WORKDIR_KEEP, when it says something a count can be made of."""
+    raw = os.environ.get(WORKDIR_KEEP_ENV_VAR)
+    try:
+        return int(raw) if raw else None
+    except ValueError:
+        return None
+
+
 def web_root() -> Path:
     """Directory holding the built frontend, resolved from the installed package."""
     return Path(str(resources.files("gtfs_garage").joinpath("web")))
@@ -46,12 +89,22 @@ DEFAULT_BASEMAP = "openfreemap"
 BASEMAP_ENV_VAR = "GTFS_GARAGE_BASEMAP"
 FEED_ENV_VAR = "GTFS_GARAGE_FEED"
 NO_PARQUET_ENV_VAR = "GTFS_GARAGE_NO_PARQUET"
+WORKDIR_ENV_VAR = "GTFS_GARAGE_WORKDIR"
+WORKDIR_KEEP_ENV_VAR = "GTFS_GARAGE_WORKDIR_KEEP"
+REOPEN_ENV_VAR = "GTFS_GARAGE_REOPEN"
+NO_REOPEN_ENV_VAR = "GTFS_GARAGE_NO_REOPEN"
+
+REOPEN_LATEST = "latest"
 
 
 def create_app(
     feed_path: str | None = None,
     basemap: str | None = None,
     optimise: bool | None = None,
+    workdir: str | None = None,
+    workdir_keep: int | None = None,
+    reopen: str | None = None,
+    open_startup: bool | None = None,
 ) -> FastAPI:
     """Build an app, optionally with a feed already loaded.
 
@@ -65,12 +118,31 @@ def create_app(
     `optimise` rewrites the feed as Parquet at load; see `GtfsFeed`. Falls back
     to GTFS_GARAGE_NO_PARQUET being unset.
 
-    Both arguments fall back to environment variables so this works as a uvicorn
-    factory, which is what `--reload` needs and so what the dev loop uses.
+    `workdir` is where every file this server writes goes, and naming one keeps
+    it: feeds stay put between runs and can be reopened from it. Without one the
+    server takes a directory of its own under the platform cache and removes it
+    on the way out. `workdir_keep` is how many feeds such a directory holds
+    before the oldest is dropped.
+
+    `reopen` serves a feed the workdir already holds instead of opening one from
+    source: a slot id, or `"latest"` for the most recent that can be reopened.
+    Ignored when `feed_path` names a feed, which is the more specific request.
+
+    `open_startup` is whether to honour the feed the workdir itself names as the
+    one to open at startup - what the options menu sets. True by default, and
+    only consulted when neither `feed_path` nor `reopen` said what to open.
+
+    Every argument falls back to an environment variable so this works as a
+    uvicorn factory, which is what `--reload` needs and so what the dev loop
+    uses - it calls this with no arguments at all.
     """
     if optimise is None:
         optimise = not os.environ.get(NO_PARQUET_ENV_VAR)
-    registry = FeedRegistry(optimise=optimise)
+    workspace = Workspace.resolve(
+        workdir or os.environ.get(WORKDIR_ENV_VAR) or None,
+        workdir_keep if workdir_keep is not None else _keep_from_env(),
+    )
+    registry = FeedRegistry(optimise=optimise, workspace=workspace)
     feed_path = feed_path or os.environ.get(FEED_ENV_VAR) or None
 
     @asynccontextmanager
@@ -83,13 +155,22 @@ def create_app(
     # difference between a large feed's map arriving and the tab dying.
     app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.state.feeds = registry
+    app.state.workspace = workspace
     app.state.basemap = basemap or os.environ.get(BASEMAP_ENV_VAR) or DEFAULT_BASEMAP
 
+    reopen = reopen or os.environ.get(REOPEN_ENV_VAR) or None
+    if open_startup is None:
+        open_startup = not os.environ.get(NO_REOPEN_ENV_VAR)
     if feed_path:
         registry.load(feed_path)
         # A feed named on the command line finishes before the server accepts a
         # request, so nothing is in progress by the time anyone can ask.
         registry.finish_load()
+    elif reopen:
+        registry.reopen(_slot_to_reopen(workspace, reopen))
+        registry.finish_load()
+    elif open_startup and (startup := workspace.startup_feed()):
+        _open_startup_feed(registry, startup)
 
     app.include_router(router)
 

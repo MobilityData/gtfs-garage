@@ -20,8 +20,8 @@ import json
 
 
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from typing import Any, ClassVar, Dict, List, Optional
 try:
     from typing import Self
 except ImportError:
@@ -33,7 +33,8 @@ class ConfigResponse(BaseModel):
     """ # noqa: E501
     basemap: StrictStr = Field(description="A preset name (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template containing `{z}/{x}/{y}`, or a vector style URL. The viewer resolves it.")
     version: StrictStr = Field(description="The version of GTFS Garage serving this API.")
-    __properties: ClassVar[List[str]] = ["basemap", "version"]
+    workspace: Optional[StrictBool] = Field(default=None, description="Whether this server manages a workdir and so answers the `workspace` paths. Absent or false means it does not, and the viewer builds no interface for one.")
+    __properties: ClassVar[List[str]] = ["basemap", "version", "workspace"]
 
     model_config = {
         "populate_by_name": True,
@@ -85,7 +86,8 @@ class ConfigResponse(BaseModel):
 
         _obj = cls.model_validate({
             "basemap": obj.get("basemap"),
-            "version": obj.get("version")
+            "version": obj.get("version"),
+            "workspace": obj.get("workspace")
         })
         return _obj
 

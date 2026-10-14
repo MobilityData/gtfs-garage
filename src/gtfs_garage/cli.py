@@ -27,9 +27,12 @@ import uvicorn
 
 from gtfs_garage import __version__
 from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
+from gtfs_garage.core.workspace import DEFAULT_KEEP as DEFAULT_WORKDIR_KEEP
+from gtfs_garage.core.workspace import Workspace
 from gtfs_garage.server.app import (
     BASEMAP_ENV_VAR,
     BUILD_COMMAND,
+    REOPEN_LATEST,
     create_app,
     frontend_is_built,
 )
@@ -70,6 +73,50 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--workdir",
+        metavar="DIR",
+        default=None,
+        help=(
+            "put everything this run writes - the extracted feed, the Parquet it is "
+            "converted to, anything uploaded or downloaded - under DIR. A feed in DIR "
+            "reopens without being fetched or converted again. Without this a shared "
+            "directory under the platform cache is used, which is kept just the same"
+        ),
+    )
+    parser.add_argument(
+        "--workdir-keep",
+        type=int,
+        default=DEFAULT_WORKDIR_KEEP,
+        metavar="N",
+        help=(
+            f"how many feeds the workdir holds before the oldest is dropped "
+            f"(default: {DEFAULT_WORKDIR_KEEP}). 1 drops the previous feed as soon as "
+            f"a new one loads; 0 keeps every feed"
+        ),
+    )
+    parser.add_argument(
+        "--reopen",
+        nargs="?",
+        const=REOPEN_LATEST,
+        metavar="ID",
+        default=None,
+        help=(
+            "serve a feed the workdir already holds instead of opening one from source. "
+            "Bare, it takes the most recently loaded; ID picks one, as the Options menu "
+            "lists them. There is nothing to download, unzip or convert, so it is "
+            "near-instant"
+        ),
+    )
+    parser.add_argument(
+        "--no-reopen",
+        action="store_true",
+        help=(
+            "start with no feed even if the workdir names one to open. A workdir "
+            "names one when a feed is marked 'open at startup' in the Options menu; "
+            "this ignores that for one run"
+        ),
+    )
+    parser.add_argument(
         "--export",
         metavar="DIR",
         help=(
@@ -82,15 +129,22 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _export(feed_path: str | None, destination: str) -> int:
+def _export(feed_path: str | None, destination: str, workdir: str | None = None) -> int:
     """Write the feed out as Parquet, the artifact a browser can query."""
     if not feed_path:
         print("error: --export needs a feed to convert", file=sys.stderr)
         return 1
 
+    # A zip still has to be unpacked somewhere, so an export honours --workdir
+    # for the same reason a server does: the user should know where that went.
+    # Without one it takes a directory of its own rather than the kept default:
+    # the answer is the Parquet in `destination`, and an export should neither
+    # leave a copy behind nor evict a feed a server is keeping.
+    workspace = Workspace.resolve(workdir) if workdir else Workspace.ephemeral()
     try:
-        feed = GtfsFeed(feed_path, optimise=False)
+        feed = GtfsFeed(feed_path, optimise=False, slot=workspace.slot(feed_path))
     except GtfsLoadError as exc:
+        workspace.close()
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -98,6 +152,7 @@ def _export(feed_path: str | None, destination: str) -> int:
         written = feed.export_parquet(Path(destination))
     finally:
         feed.close()
+        workspace.close()
 
     total = sum(f.stat().st_size for f in written)
     tables = [f for f in written if f.suffix == ".parquet"]
@@ -109,10 +164,26 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     if args.export:
-        return _export(args.feed, args.export)
+        return _export(args.feed, args.export, args.workdir)
+
+    if args.feed and args.reopen:
+        print("error: give a feed or --reopen, not both", file=sys.stderr)
+        return 1
+
+    if args.reopen and args.no_reopen:
+        print("error: --reopen names a feed to open and --no-reopen opens none", file=sys.stderr)
+        return 1
 
     try:
-        app = create_app(args.feed, args.basemap, optimise=not args.no_parquet)
+        app = create_app(
+            args.feed,
+            args.basemap,
+            optimise=not args.no_parquet,
+            workdir=args.workdir,
+            workdir_keep=args.workdir_keep,
+            reopen=args.reopen,
+            open_startup=not args.no_reopen,
+        )
     except GtfsLoadError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -125,7 +196,16 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     url = f"http://{args.host}:{args.port}"
+    workspace = app.state.workspace
     print(f"GTFS Garage running at {url}")
+    # Said out loud, every run. Not knowing where a four gigabyte feed landed is
+    # the problem --workdir exists to solve, and a flag nobody is told about
+    # does not solve it.
+    # Kept now, so the line says what the ceiling is rather than whether there
+    # is one: a directory that survives every run is a directory worth knowing
+    # the size rule of.
+    limit = f"newest {workspace.keep} kept" if workspace.keep else "every feed kept"
+    print(f"Workdir: {workspace.path} ({limit})")
     if not args.no_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
 

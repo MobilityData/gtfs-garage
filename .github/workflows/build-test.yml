@@ -195,7 +195,10 @@ jobs:
         continue-on-error: true
         run: |
           # Mirrors the repo layout: benchmark.py finds the feed generator at
-          # ../tests/conftest.py relative to itself.
+          # ../tests/feeds.py relative to itself. Only that file is copied -
+          # it imports nothing from the package, so it runs unchanged against
+          # either commit. conftest.py would not: it imports gtfs_garage, and
+          # a module this branch adds does not exist on the base.
           #
           # This step calls the .py directly rather than scripts/benchmark.sh:
           # the wrapper resolves the repository from its own location, which
@@ -203,7 +206,7 @@ jobs:
           # wrapper is the entry point.
           mkdir -p /tmp/harness/scripts /tmp/harness/tests
           cp scripts/benchmark.py scripts/compare_benchmarks.py /tmp/harness/scripts/
-          cp tests/conftest.py /tmp/harness/tests/
+          cp tests/feeds.py /tmp/harness/tests/
           git checkout --quiet ${{ github.event.pull_request.base.sha }}
           # The editable install points at src/, so the checkout above is what
           # this measures. No reinstall unless dependencies moved, in which case

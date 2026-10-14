@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from gtfs_garage.core.feed import GtfsLoadError
+from gtfs_garage.core.workspace import Workspace
 from gtfs_garage.server import state as state_module
 from gtfs_garage.server.app import create_app
 from gtfs_garage.server.state import FeedRegistry
@@ -130,16 +131,37 @@ class TestRegistryScratchFiles:
         )
         stored = registry.store_download("https://example.org/a/../../../etc/passwd")
         assert stored.name == "passwd"
-        assert stored.parent.name.startswith("gtfs-garage-download-")
+        # Inside the slot the workspace handed out, not somewhere the URL chose.
+        assert stored.parent == stored.parent.parent / "source"
+        assert registry.workspace.path in stored.parents
         registry.close()
 
-    def test_scratch_directories_are_removed_on_close(self, feed_zip: Path):
+    def test_an_unasked_for_workdir_keeps_what_it_was_given_too(self, feed_zip: Path):
+        """The default is the shared directory under the cache, and it is kept:
+        an upload is still there for the next run to reopen."""
         registry = FeedRegistry()
+        with feed_zip.open("rb") as handle:
+            stored = registry.store_upload("feed.zip", handle)
+        assert registry.workspace.persistent
+        registry.close()
+        assert stored.exists()
+
+    def test_a_named_workdir_keeps_what_it_was_given(self, feed_zip: Path, tmp_path: Path):
+        """The same, where the user said which directory."""
+        registry = FeedRegistry(workspace=Workspace(tmp_path / "work", persistent=True))
+        with feed_zip.open("rb") as handle:
+            stored = registry.store_upload("feed.zip", handle)
+        registry.close()
+        assert stored.exists()
+
+    def test_a_workspace_of_the_run_s_own_is_removed_on_close(self, feed_zip: Path):
+        """What an export takes, so it leaves nothing behind."""
+        registry = FeedRegistry(workspace=Workspace.ephemeral())
         with feed_zip.open("rb") as handle:
             stored = registry.store_upload("feed.zip", handle)
         assert stored.exists()
         registry.close()
-        assert not stored.parent.exists()
+        assert not registry.workspace.path.exists()
 
     def test_a_non_http_scheme_is_rejected_before_any_request(self):
         registry = FeedRegistry()

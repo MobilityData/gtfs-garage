@@ -1,9 +1,17 @@
-/** The overlay for opening a feed: drop a zip, pick a file, or give a path or URL. */
+/**
+ * The overlay for opening a feed: one the workdir already holds, a dropped zip,
+ * a chosen file or folder, or a path or URL.
+ *
+ * The workdir list is first because it is the cheapest answer - the feed is
+ * already Parquet - and the only part that exists locally only: `port` is null
+ * unless the source has a workdir, and the section is then not shown.
+ */
 
-import type { Dom } from "../dom";
+import { button, type Dom } from "../dom";
 import type { RestSource } from "../sources/rest";
 import type { TablesResponse } from "../sources/types";
 import { progressLine } from "./load-progress";
+import { offerableFeeds, type WorkspacePort } from "./options-menu";
 
 const URL_PATTERN = /^https?:\/\//i;
 
@@ -19,6 +27,8 @@ export class FeedLoader {
     private readonly onLoaded: (tables: TablesResponse, clientMs: number) => void,
     /** Whether there is a loaded feed to return to when cancelling. */
     private readonly canCancel: () => boolean,
+    /** The workdir to offer feeds from, or null where there is none. */
+    private readonly port: WorkspacePort | null = null,
   ) {
     this.dom.el("open-load-btn").addEventListener("click", () => this.open());
     this.dom.el("load-cancel-btn").addEventListener("click", () => this.close());
@@ -74,7 +84,45 @@ export class FeedLoader {
     this.dom.el("load-overlay").classList.remove("hidden");
     this.dom.el("load-error").textContent = "";
     this.syncSubmitState();
+    void this.showRecent();
     this.dom.el<HTMLInputElement>("path-input").focus();
+  }
+
+  /**
+   * Offer the feeds already in the workdir. Read on every open: one can have
+   * been deleted or evicted since the last time anyone looked.
+   */
+  private async showRecent(): Promise<void> {
+    const section = this.dom.el("recent-section");
+    if (!this.port) return;
+
+    let rows;
+    try {
+      rows = offerableFeeds(await this.port.workspace());
+    } catch {
+      // Every other way of opening a feed is still on screen and still works.
+      section.hidden = true;
+      return;
+    }
+
+    const list = this.dom.el("recent-feeds");
+    list.innerHTML = "";
+    section.hidden = rows.length === 0;
+    for (const row of rows) {
+      const entry = button(row.label, `${row.source}\n${row.detail}`, () => void this.reopen(row.id));
+      entry.className = "recent-feed";
+      const detail = document.createElement("span");
+      detail.className = "recent-feed-detail";
+      detail.textContent = row.detail;
+      entry.appendChild(detail);
+      list.appendChild(entry);
+    }
+  }
+
+  /** Reopen a stored feed, through the same path as any other load. */
+  private async reopen(id: string): Promise<void> {
+    if (!this.port || this.busy) return;
+    await this.load(() => this.port!.reloadFeed(id) as Promise<TablesResponse>, "from the workdir");
   }
 
   close(): void {

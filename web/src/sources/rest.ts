@@ -11,6 +11,7 @@ import type {
   PageResponse,
   TablesResponse,
   ValueCount,
+  Workspace,
 } from "./types";
 
 export class HttpError extends Error {
@@ -86,6 +87,36 @@ export class RestSource implements GtfsSource {
     return fetchJson<FeatureCollection>(
       `${this.baseUrl}/api/geojson/${kind}${query ? `?${query}` : ""}`,
     );
+  }
+
+  workspace(): Promise<Workspace> {
+    return fetchJson<Workspace>(`${this.baseUrl}/api/workspace`);
+  }
+
+  reloadFeed(id: string): Promise<TablesResponse> {
+    return fetchJson<TablesResponse>(
+      `${this.baseUrl}/api/workspace/feeds/${encodeURIComponent(id)}/reload`,
+      { method: "POST" },
+    );
+  }
+
+  removeFeed(id: string): Promise<Workspace> {
+    return fetchJson<Workspace>(
+      `${this.baseUrl}/api/workspace/feeds/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+  }
+
+  clearWorkspace(): Promise<Workspace> {
+    return fetchJson<Workspace>(`${this.baseUrl}/api/workspace`, { method: "DELETE" });
+  }
+
+  setStartupFeed(id: string | null): Promise<Workspace> {
+    return fetchJson<Workspace>(`${this.baseUrl}/api/workspace/startup`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feed_id: id }),
+    });
   }
 
   loadProgress(): Promise<LoadProgress> {
