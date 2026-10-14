@@ -484,12 +484,45 @@
 
 .gtfs-viewer .workdir-remove { line-height: 1.2; }
 
+/* The feed a later run opens. Marked by the button that sets it rather than by
+   a separate badge, so there is one thing on the row saying one thing. */
+.gtfs-viewer .workdir-startup.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
 .gtfs-viewer .workdir-empty {
   color: var(--muted);
   padding: 6px 8px;
 }
 
 .gtfs-viewer [data-el="workdir-actions"] { margin-top: 8px; }
+
+/* The workdir shortcuts at the top of the load dialog. Each is one button, so
+   the whole row is the target - there is only one thing to do with it. */
+.gtfs-viewer [data-el="recent-feeds"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.gtfs-viewer .recent-feed {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+}
+
+.gtfs-viewer .recent-feed-detail {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
 
 .gtfs-viewer [data-el="workdir-status"] {
   color: var(--muted);

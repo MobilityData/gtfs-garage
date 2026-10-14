@@ -60,7 +60,7 @@ tags:
   - name: workspace
     description: |-
       The directory a GTFS Garage server writes into: what it holds, what that
-      weighs, and how to empty it.
+      weighs, which feed a new server on it opens, and how to empty it.
 
       **A host embedding the viewer does not implement these.** They describe a
       local process's own disk, which a hosted backend has no equivalent of. The
@@ -424,6 +424,39 @@ paths:
               schema:
                 $ref: "#/components/schemas/WorkspaceResponse"
 
+  /api/workspace/startup:
+    put:
+      summary: Choose the feed a new server opens
+      description: >-
+        Names a feed the workdir holds as the one to open when a server starts
+        on this workdir, which is the stored form of `--reopen ID`. A null
+        `feed_id` clears the choice, and a feed named on the command line or an
+        explicit `--reopen` still takes precedence over it. Only meaningful for
+        a workdir that survives the process, which every server's does.
+      operationId: setStartupFeed
+      tags: [workspace]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartupFeedRequest"
+      responses:
+        "200":
+          description: The workdir, as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceResponse"
+        "404":
+          description: >-
+            No such feed in the workdir, or one with no Parquet to open it
+            from, which could not be served at startup either.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/workspace/feeds/{feed_id}:
     parameters:
       - $ref: "#/components/parameters/feed_id_path_param"
@@ -565,7 +598,7 @@ components:
     WorkspaceFeed:
       type: object
       description: One feed the workdir holds.
-      required: [id, label, bytes, tables, reloadable, current]
+      required: [id, label, bytes, tables, reloadable, current, startup]
       properties:
         id:
           type: string
@@ -600,6 +633,11 @@ components:
         current:
           type: boolean
           description: Whether this is the feed being served.
+        startup:
+          type: boolean
+          description: >-
+            Whether this is the feed a new server on this workdir opens by
+            itself. At most one feed is, and none has to be.
 
     WorkspaceResponse:
       type: object
@@ -613,9 +651,10 @@ components:
         persistent:
           type: boolean
           description: >-
-            Whether it survives the process. True when the server was started
-            with `--workdir`; false for the per-run directory used otherwise,
-            which is removed on exit.
+            Whether it survives the process. True for a server's workdir,
+            named with `--workdir` or the shared default under the platform
+            cache; false only for the directory of its own that an export
+            takes, which is removed when it finishes.
         keep:
           type: integer
           description: >-
@@ -626,11 +665,33 @@ components:
           type: integer
           format: int64
           description: What the whole workdir occupies.
+        startup:
+          type: string
+          nullable: true
+          description: >-
+            The id of the feed a new server on this workdir opens by itself, or
+            null when there is none. Reported as it would actually be applied,
+            so a choice whose feed has since been deleted or evicted reads as
+            null rather than pointing at nothing.
+          example: montreal-gtfs-zip-7f3a91c0
         feeds:
           type: array
           description: The feeds it holds, most recently loaded first.
           items:
             $ref: "#/components/schemas/WorkspaceFeed"
+
+    StartupFeedRequest:
+      type: object
+      description: Which feed a new server on this workdir should open.
+      required: [feed_id]
+      properties:
+        feed_id:
+          type: string
+          nullable: true
+          description: >-
+            The feed to open at startup, or null to open none and leave the
+            interface to offer the workdir as it does on any empty start.
+          example: montreal-gtfs-zip-7f3a91c0
 
     RelatedLink:
       type: object

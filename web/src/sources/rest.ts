@@ -111,6 +111,14 @@ export class RestSource implements GtfsSource {
     return fetchJson<Workspace>(`${this.baseUrl}/api/workspace`, { method: "DELETE" });
   }
 
+  setStartupFeed(id: string | null): Promise<Workspace> {
+    return fetchJson<Workspace>(`${this.baseUrl}/api/workspace/startup`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feed_id: id }),
+    });
+  }
+
   loadProgress(): Promise<LoadProgress> {
     return fetchJson<LoadProgress>(`${this.baseUrl}/api/load/progress`);
   }

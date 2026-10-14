@@ -43,8 +43,6 @@ class TestSlugs:
         assert slug_for("https://example.org/montreal-gtfs.zip").startswith("https-example-org-montreal-gtfs-zip")
 
     def test_keeps_the_end_of_a_long_label_rather_than_the_start(self):
-        """A path is mostly prefix: its front names a home directory, its end
-        names the feed, and only one of the two is worth putting on screen."""
         slug = slug_for("/Users/sam/work/transit/archive/2026/montreal-gtfs.zip")
         assert "montreal-gtfs-zip" in slug
         assert "users-sam" not in slug
@@ -53,7 +51,6 @@ class TestSlugs:
         assert slug_for("feed.zip") == slug_for("feed.zip")
 
     def test_two_feeds_sharing_a_name_do_not_share_a_slot(self):
-        """The reason a readable slug is not enough on its own."""
         assert slug_for("https://a.example/gtfs.zip") != slug_for("https://b.example/gtfs.zip")
 
     def test_a_label_with_nothing_usable_in_it_still_names_a_directory(self):
@@ -114,7 +111,6 @@ class TestListing:
         assert workspace.entries() == []
 
     def test_a_feed_without_parquet_cannot_be_reopened(self, workspace: Workspace):
-        """What --no-parquet leaves behind: files, but nothing to reopen from."""
         fill(workspace, "feed.zip", parquet=False)
         assert workspace.entries()[0].reloadable is False
 
@@ -186,22 +182,49 @@ class TestModes:
         workspace.close()
         assert workspace.path.exists()
 
-    def test_an_unasked_for_one_lives_under_the_cache_and_goes_with_the_run(self, cache_home: Path):
+    def test_an_unasked_for_one_lives_under_the_cache_and_is_kept(self, cache_home: Path):
+        """The reason a plain run finds the feeds its last run converted."""
         workspace = Workspace.resolve()
+        assert workspace.persistent
+        assert cache_home in workspace.path.parents
+        workspace.close()
+        assert workspace.path.exists()
+
+    def test_every_run_without_a_workdir_gets_the_same_one(self, cache_home: Path):
+        assert Workspace.resolve().path == Workspace.resolve().path
+
+    def test_a_workspace_of_a_run_s_own_goes_with_the_run(self, cache_home: Path):
+        workspace = Workspace.ephemeral()
         assert not workspace.persistent
         assert cache_home in workspace.path.parents
         assert workspace.path.name.startswith(f"{os.getpid()}-")
         workspace.close()
         assert not workspace.path.exists()
 
-    def test_two_workspaces_in_one_process_do_not_share_a_root(self):
+    def test_a_run_s_own_is_never_the_kept_one(self, cache_home: Path):
+        """Closing an export's workspace must not take a server's feeds with it."""
+        kept = Workspace.resolve()
+        own = Workspace.ephemeral()
+        assert own.path != kept.path
+        own.close()
+        assert kept.path.exists()
+
+    def test_two_workspaces_of_a_run_s_own_do_not_share_a_root(self):
         """One process holds more than one - this suite does - and a shared root
         would have one's teardown delete the other's feeds."""
-        first, second = Workspace.resolve(), Workspace.resolve()
+        first, second = Workspace.ephemeral(), Workspace.ephemeral()
         assert first.path != second.path
         first.close()
         assert second.path.exists()
         second.close()
+
+    def test_what_an_older_version_left_under_runs_is_swept(self, cache_home: Path):
+        """Nothing writes a directory per run any more, so resolving is the one
+        chance to clear the ones that are left."""
+        stale = cache_home / "runs" / "999999-abcdef12"
+        stale.mkdir(parents=True)
+        Workspace.resolve()
+        assert not stale.exists()
 
 
 class TestSweep:
@@ -253,6 +276,53 @@ class TestRecords:
         assert written["kind"] == "download"
         assert written["tables"] == 4
         assert written["loaded_at"].endswith("+00:00")
+
+
+class TestStartupFeed:
+    """Which feed a later run on this workdir opens, as the options menu sets it."""
+
+    def test_nothing_is_named_to_begin_with(self, workspace: Workspace):
+        assert workspace.startup_feed() is None
+
+    def test_a_choice_survives_a_new_workspace_on_the_same_directory(self, workspace: Workspace):
+        chosen = fill(workspace, "montreal.zip")
+        workspace.set_startup_feed(chosen)
+        assert Workspace(workspace.path, persistent=True).startup_feed() == chosen
+
+    def test_the_choice_can_be_cleared(self, workspace: Workspace):
+        workspace.set_startup_feed(fill(workspace, "montreal.zip"))
+        workspace.set_startup_feed(None)
+        assert workspace.startup_feed() is None
+
+    def test_clearing_a_choice_that_was_never_made_is_not_an_error(self, workspace: Workspace):
+        workspace.set_startup_feed(None)
+        assert workspace.startup_feed() is None
+
+    def test_a_feed_that_has_been_deleted_since_reads_as_no_choice(self, workspace: Workspace):
+        chosen = fill(workspace, "montreal.zip")
+        workspace.set_startup_feed(chosen)
+        workspace.remove(chosen)
+        assert workspace.startup_feed() is None
+
+    def test_a_feed_evicted_by_retention_reads_as_no_choice(self, workspace: Workspace):
+        kept = Workspace(workspace.path, persistent=True, keep=1)
+        chosen = fill(kept, "first.zip")
+        kept.set_startup_feed(chosen)
+        fill(kept, "second.zip")
+        kept.enforce_retention()
+        assert kept.startup_feed() is None
+
+    def test_a_feed_with_no_parquet_reads_as_no_choice(self, workspace: Workspace):
+        # Nothing to open it from, so honouring it would only produce an empty
+        # start with nothing to explain it.
+        chosen = fill(workspace, "montreal.zip", parquet=False)
+        workspace.set_startup_feed(chosen)
+        assert workspace.startup_feed() is None
+
+    def test_a_file_that_is_not_a_choice_is_ignored(self, workspace: Workspace):
+        for content in ("", "not json", "[]", '{"feed": null}', '{"feed": ""}'):
+            workspace.startup_path.write_text(content, encoding="utf-8")
+            assert workspace.startup_feed() is None
 
 
 class TestMeasuring:

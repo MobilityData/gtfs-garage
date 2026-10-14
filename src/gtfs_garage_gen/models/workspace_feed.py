@@ -40,7 +40,8 @@ class WorkspaceFeed(BaseModel):
     tables: StrictInt = Field(description="How many tables it holds.")
     reloadable: StrictBool = Field(description="Whether there is Parquet to reopen it from. False for a feed loaded with `--no-parquet`, and for a load that did not finish.")
     current: StrictBool = Field(description="Whether this is the feed being served.")
-    __properties: ClassVar[List[str]] = ["id", "label", "kind", "loaded_at", "bytes", "tables", "reloadable", "current"]
+    startup: StrictBool = Field(description="Whether this is the feed a new server on this workdir opens by itself. At most one feed is, and none has to be.")
+    __properties: ClassVar[List[str]] = ["id", "label", "kind", "loaded_at", "bytes", "tables", "reloadable", "current", "startup"]
 
     @field_validator('kind')
     def kind_validate_enum(cls, value):
@@ -108,7 +109,8 @@ class WorkspaceFeed(BaseModel):
             "bytes": obj.get("bytes"),
             "tables": obj.get("tables"),
             "reloadable": obj.get("reloadable"),
-            "current": obj.get("current")
+            "current": obj.get("current"),
+            "startup": obj.get("startup")
         })
         return _obj
 

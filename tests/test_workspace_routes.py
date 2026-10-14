@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from gtfs_garage.core.feed import GtfsLoadError
 from gtfs_garage.server.app import create_app
 
 
@@ -116,7 +117,6 @@ class TestReload:
         assert client.post("/api/workspace/feeds/..%2F..%2Fetc/reload").status_code == 404
 
     def test_a_feed_with_no_parquet_cannot_be_reopened(self, workdir: Path, feed_dir: Path):
-        """--no-parquet leaves the slot with nothing to reopen from."""
         with TestClient(create_app(workdir=str(workdir), optimise=False)) as client:
             client.post("/api/load", params={"path": str(feed_dir)})
             feed_id = _feeds(client)[0]["id"]
@@ -186,14 +186,19 @@ class TestModes:
             assert [feed["id"] for feed in _feeds(client)] == [feed_id]
             assert client.post(f"/api/workspace/feeds/{feed_id}/reload").status_code == 200
 
-    def test_without_a_workdir_nothing_is_left_behind(self, feed_dir: Path):
+    def test_without_a_workdir_the_feed_is_still_there_next_time(self, feed_dir: Path):
+        """The default is a shared directory under the cache, kept like any
+        other: a plain run finds what the last one converted."""
         with TestClient(create_app()) as client:
             client.post("/api/load", params={"path": str(feed_dir)})
             body = client.get("/api/workspace").json()
-            assert body["persistent"] is False
-            path = Path(body["path"])
-            assert path.exists()
-        assert not path.exists()
+            assert body["persistent"] is True
+            feed_id = body["feeds"][0]["id"]
+        assert Path(body["path"]).exists()
+
+        with TestClient(create_app()) as client:
+            assert [feed["id"] for feed in _feeds(client)] == [feed_id]
+            assert client.post(f"/api/workspace/feeds/{feed_id}/reload").status_code == 200
 
     def test_the_environment_can_name_the_workdir(self, tmp_path: Path, monkeypatch):
         """Required: the dev loop starts uvicorn with a factory and no arguments."""
@@ -212,12 +217,8 @@ class TestModes:
 
 
 def test_a_reopened_feed_reports_the_sizes_of_the_feed_it_came_from(client: TestClient, feed_zip: Path, workdir: Path):
-    """The manifest beside the Parquet is the only place these survive.
-
-    Conversion deletes the CSVs and a zip member's compressed size lives only in
-    the archive's directory, so without it a reopened feed could only report the
-    Parquet it became.
-    """
+    """Conversion deletes the CSVs and a zip member's compressed size lives only
+    in the archive, so the manifest is the only place these survive."""
     with feed_zip.open("rb") as handle:
         first = client.post("/api/load", files={"file": ("montreal.zip", handle, "application/zip")}).json()
     feed_id = _current(client)
@@ -229,3 +230,172 @@ def test_a_reopened_feed_reports_the_sizes_of_the_feed_it_came_from(client: Test
     for table, metrics in after.items():
         assert metrics["bytes"] == before[table]["bytes"]
         assert metrics["compressed_bytes"] == before[table]["compressed_bytes"]
+
+
+class TestReopenAtStartup:
+    """`--reopen`: serve a feed the workdir already holds, with no feed named."""
+
+    def test_takes_the_most_recent_by_default(self, workdir: Path, feed_dir: Path, tmp_path: Path):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            for name in ("older", "newer"):
+                copied = tmp_path / name
+                shutil.copytree(feed_dir, copied)
+                client.post("/api/load", params={"path": str(copied)})
+
+        with TestClient(create_app(workdir=str(workdir), reopen="latest")) as client:
+            assert Path(client.get("/api/tables").json()["source"]).name == "newer"
+
+    def test_costs_no_conversion(self, workdir: Path, feed_zip: Path):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            with feed_zip.open("rb") as handle:
+                client.post("/api/load", files={"file": ("montreal.zip", handle, "application/zip")})
+
+        with TestClient(create_app(workdir=str(workdir), reopen="latest")) as client:
+            metrics = client.get("/api/tables").json()["metrics"]
+            assert metrics["convert_ms"] is None
+            assert metrics["extract_ms"] is None
+            assert client.get("/api/table/stops").json()["total"] == 3
+
+    def test_an_id_picks_one(self, workdir: Path, feed_dir: Path, tmp_path: Path):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            for name in ("wanted", "newer"):
+                copied = tmp_path / name
+                shutil.copytree(feed_dir, copied)
+                client.post("/api/load", params={"path": str(copied)})
+            wanted = next(feed["id"] for feed in _feeds(client) if "wanted" in feed["label"])
+
+        with TestClient(create_app(workdir=str(workdir), reopen=wanted)) as client:
+            assert Path(client.get("/api/tables").json()["source"]).name == "wanted"
+
+    def test_an_empty_workdir_says_so_rather_than_starting_blank(self, workdir: Path):
+        with pytest.raises(GtfsLoadError, match="to reopen"):
+            create_app(workdir=str(workdir), reopen="latest")
+
+    def test_a_feed_with_no_parquet_is_not_what_latest_means(self, workdir: Path, feed_dir: Path):
+        with TestClient(create_app(workdir=str(workdir), optimise=False)) as client:
+            client.post("/api/load", params={"path": str(feed_dir)})
+
+        with pytest.raises(GtfsLoadError, match="to reopen"):
+            create_app(workdir=str(workdir), reopen="latest")
+
+    def test_a_named_feed_wins_over_the_flag(self, workdir: Path, feed_dir: Path, tmp_path: Path):
+        """`create_app` takes both; the CLI refuses them together, but a host
+        embedding the factory should get the more specific request."""
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            copied = tmp_path / "stored"
+            shutil.copytree(feed_dir, copied)
+            client.post("/api/load", params={"path": str(copied)})
+
+        with TestClient(create_app(str(feed_dir), workdir=str(workdir), reopen="latest")) as client:
+            assert client.get("/api/tables").json()["source"] == str(feed_dir)
+
+    def test_the_environment_can_ask_for_it(self, workdir: Path, feed_dir: Path, monkeypatch):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            client.post("/api/load", params={"path": str(feed_dir)})
+
+        monkeypatch.setenv("GTFS_GARAGE_WORKDIR", str(workdir))
+        monkeypatch.setenv("GTFS_GARAGE_REOPEN", "latest")
+        with TestClient(create_app()) as client:
+            assert client.get("/api/tables").json()["source"] == str(feed_dir)
+
+
+class TestStartupFeed:
+    """The stored form of `--reopen ID`, set from the options menu."""
+
+    def test_nothing_is_marked_to_begin_with(self, client: TestClient, feed_dir: Path):
+        client.post("/api/load", params={"path": str(feed_dir)})
+        body = client.get("/api/workspace").json()
+        assert body["startup"] is None
+        assert [feed["startup"] for feed in body["feeds"]] == [False]
+
+    def test_marking_a_feed_names_it_in_the_listing(self, client: TestClient, two_feeds: list[str]):
+        wanted = two_feeds[0]
+        body = client.put("/api/workspace/startup", json={"feed_id": wanted}).json()
+        assert body["startup"] == wanted
+        assert {feed["id"]: feed["startup"] for feed in body["feeds"]}[wanted] is True
+
+    def test_only_one_feed_is_ever_the_marked_one(self, client: TestClient, two_feeds: list[str]):
+        client.put("/api/workspace/startup", json={"feed_id": two_feeds[0]})
+        body = client.put("/api/workspace/startup", json={"feed_id": two_feeds[1]}).json()
+        assert body["startup"] == two_feeds[1]
+        assert [feed["id"] for feed in body["feeds"] if feed["startup"]] == [two_feeds[1]]
+
+    def test_the_choice_can_be_cleared(self, client: TestClient, two_feeds: list[str]):
+        client.put("/api/workspace/startup", json={"feed_id": two_feeds[0]})
+        body = client.put("/api/workspace/startup", json={"feed_id": None}).json()
+        assert body["startup"] is None
+
+    def test_the_feed_being_served_can_be_the_marked_one(self, client: TestClient, feed_dir: Path):
+        """Unlike Reload, which is a no-op on it. Coming back to what you are
+        looking at is the ordinary reason to set this."""
+        client.post("/api/load", params={"path": str(feed_dir)})
+        current = _current(client)
+        body = client.put("/api/workspace/startup", json={"feed_id": current}).json()
+        assert body["startup"] == current
+
+    def test_a_feed_that_is_not_there_is_refused(self, client: TestClient):
+        response = client.put("/api/workspace/startup", json={"feed_id": "no-such-feed"})
+        assert response.status_code == 404
+
+    def test_a_feed_with_no_parquet_is_refused(self, workdir: Path, feed_dir: Path):
+        """It could not be opened at startup either, so storing it would only
+        produce an empty start later with nothing to explain it."""
+        with TestClient(create_app(workdir=str(workdir), optimise=False)) as client:
+            client.post("/api/load", params={"path": str(feed_dir)})
+            stored = _feeds(client)[0]["id"]
+            response = client.put("/api/workspace/startup", json={"feed_id": stored})
+            assert response.status_code == 404
+            assert "no-parquet" in response.json()["detail"]
+
+    def test_a_new_server_opens_the_marked_feed(self, workdir: Path, feed_dir: Path, tmp_path: Path):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            for name in ("wanted", "newer"):
+                copied = tmp_path / name
+                shutil.copytree(feed_dir, copied)
+                client.post("/api/load", params={"path": str(copied)})
+            wanted = next(feed["id"] for feed in _feeds(client) if "wanted" in feed["label"])
+            client.put("/api/workspace/startup", json={"feed_id": wanted})
+
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            assert Path(client.get("/api/tables").json()["source"]).name == "wanted"
+
+    def test_a_marked_feed_that_has_since_gone_leaves_the_server_empty(self, workdir: Path, feed_dir: Path):
+        """A preference, not an instruction: a start with no feed hands the
+        workdir to the load dialog rather than refusing to run."""
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            client.post("/api/load", params={"path": str(feed_dir)})
+            marked = _current(client)
+            client.put("/api/workspace/startup", json={"feed_id": marked})
+        shutil.rmtree(workdir / "feeds" / marked)
+
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            assert client.get("/api/tables").status_code == 409
+            assert client.get("/api/workspace").json()["startup"] is None
+
+    def test_a_named_feed_wins_over_the_mark(self, workdir: Path, feed_dir: Path, tmp_path: Path):
+        stored = tmp_path / "stored"
+        shutil.copytree(feed_dir, stored)
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            client.post("/api/load", params={"path": str(stored)})
+            client.put("/api/workspace/startup", json={"feed_id": _current(client)})
+
+        with TestClient(create_app(str(feed_dir), workdir=str(workdir))) as client:
+            assert client.get("/api/tables").json()["source"] == str(feed_dir)
+
+    def test_open_startup_false_ignores_the_mark(self, workdir: Path, feed_dir: Path):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            client.post("/api/load", params={"path": str(feed_dir)})
+            client.put("/api/workspace/startup", json={"feed_id": _current(client)})
+
+        with TestClient(create_app(workdir=str(workdir), open_startup=False)) as client:
+            assert client.get("/api/tables").status_code == 409
+
+    def test_the_environment_can_ignore_it_too(self, workdir: Path, feed_dir: Path, monkeypatch):
+        with TestClient(create_app(workdir=str(workdir))) as client:
+            client.post("/api/load", params={"path": str(feed_dir)})
+            client.put("/api/workspace/startup", json={"feed_id": _current(client)})
+
+        monkeypatch.setenv("GTFS_GARAGE_WORKDIR", str(workdir))
+        monkeypatch.setenv("GTFS_GARAGE_NO_REOPEN", "1")
+        with TestClient(create_app()) as client:
+            assert client.get("/api/tables").status_code == 409

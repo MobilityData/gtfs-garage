@@ -6,8 +6,11 @@ import {
   feedRows,
   formatAge,
   hasWorkspace,
+  offerableFeeds,
   reloadBlockedReason,
+  showsStartup,
   showsWorkspace,
+  startupTitle,
   workspaceSummary,
 } from "./options-menu";
 
@@ -23,6 +26,7 @@ function feed(overrides: Partial<WorkspaceFeed> = {}): WorkspaceFeed {
     tables: 12,
     reloadable: true,
     current: false,
+    startup: false,
     ...overrides,
   };
 }
@@ -68,8 +72,7 @@ describe("workspaceSummary", () => {
   });
 
   it("says when nothing here will survive the session", () => {
-    // The difference between the two modes, and the one thing someone reading
-    // this line needs to know before relying on a feed still being there.
+    // Whether anything here survives the session.
     expect(workspaceSummary(workspace({ persistent: false }))).toContain("removed on exit");
   });
 
@@ -88,7 +91,6 @@ describe("displayLabel", () => {
   });
 
   it("reduces a path to the file that names the feed", () => {
-    // Five segments that are the same on every row, and one that is not.
     expect(displayLabel("/Users/sam/work/transit/2026/montreal.zip")).toBe("montreal.zip");
   });
 
@@ -144,6 +146,48 @@ describe("feedRows", () => {
     expect(row.reloadable).toBe(false);
     expect(row.removable).toBe(true);
   });
+
+  it("marks the feed a later run opens", () => {
+    const [row] = feedRows(workspace({ feeds: [feed({ startup: true })] }), NOW);
+    expect(row.startup).toBe(true);
+  });
+
+  it("can still make the feed on screen the one a later run opens", () => {
+    // Unlike Reload, which would be a no-op on it: wanting to come back to
+    // what you are looking at is the ordinary reason to set this at all.
+    const [row] = feedRows(workspace({ feeds: [feed({ current: true })] }), NOW);
+    expect(row.reloadable).toBe(false);
+    expect(row.startable).toBe(true);
+  });
+
+  it("cannot start on a feed with no Parquet, for the same reason it cannot reopen one", () => {
+    const [row] = feedRows(workspace({ feeds: [feed({ reloadable: false })] }), NOW);
+    expect(row.startable).toBe(false);
+  });
+});
+
+describe("offerableFeeds", () => {
+  it("offers the feeds that can actually be reopened", () => {
+    const listed = workspace({
+      feeds: [feed({ id: "a" }), feed({ id: "b", reloadable: false }), feed({ id: "c" })],
+    });
+    expect(offerableFeeds(listed, 5, NOW).map((row) => row.id)).toEqual(["a", "c"]);
+  });
+
+  it("caps the list", () => {
+    const many = workspace({ feeds: Array.from({ length: 9 }, (_, i) => feed({ id: `f${i}` })) });
+    expect(offerableFeeds(many, 5, NOW)).toHaveLength(5);
+  });
+
+  it("offers nothing from an empty workdir", () => {
+    expect(offerableFeeds(workspace({ feeds: [] }), 5, NOW)).toEqual([]);
+  });
+
+  it("does not offer the feed already on screen", () => {
+    // Reopening what you are looking at is a button that does nothing.
+    const listed = workspace({ feeds: [feed({ id: "open", current: true })] });
+    expect(offerableFeeds(listed, 5, NOW)).toEqual([]);
+  });
 });
 
 describe("reloadBlockedReason", () => {
@@ -155,6 +199,8 @@ describe("reloadBlockedReason", () => {
     current: false,
     reloadable: true,
     removable: true,
+    startable: true,
+    startup: false,
     ...overrides,
   });
 
@@ -186,9 +232,7 @@ describe("showsWorkspace", () => {
   });
 
   it("hides it for a backend implementing the same endpoints without one", () => {
-    // `RestSource` always carries the four methods - it is written against the
-    // whole contract - so having them says nothing about what is behind
-    // `baseUrl`. Only the server's own config settles it.
+    // `RestSource` carries the four methods whatever is behind `baseUrl`.
     expect(showsWorkspace(port, config())).toBe(false);
     expect(showsWorkspace(port, config({ workspace: false }))).toBe(false);
   });
@@ -210,11 +254,44 @@ describe("hasWorkspace", () => {
   });
 
   it("rejects a source missing any of it", () => {
-    // All four or none: a section with half its buttons dead is worse than no
-    // section, and a browser reading Parquet has no workdir to describe.
     expect(hasWorkspace({ ...port, clearWorkspace: undefined })).toBe(false);
     expect(hasWorkspace({})).toBe(false);
     expect(hasWorkspace(undefined)).toBe(false);
     expect(hasWorkspace(null)).toBe(false);
+  });
+});
+
+describe("startupTitle", () => {
+  const row = (overrides: Partial<ReturnType<typeof feedRows>[number]> = {}) =>
+    feedRows(workspace({ feeds: [feed()] }), NOW).map((r) => ({ ...r, ...overrides }))[0];
+
+  it("offers the choice on a feed that is not the marked one", () => {
+    expect(startupTitle(row())).toContain("Open this feed");
+  });
+
+  it("says the click undoes it on the marked one", () => {
+    expect(startupTitle(row({ startup: true }))).toContain("Click to stop");
+  });
+
+  it("names the flag that left nothing to open from", () => {
+    expect(startupTitle(row({ startable: false }))).toContain("--no-parquet");
+  });
+});
+
+describe("showsStartup", () => {
+  const startupPort = { ...port, setStartupFeed: () => Promise.resolve(workspace()) };
+
+  it("offers it where the workdir and the source both outlast the choice", () => {
+    expect(showsStartup(workspace(), startupPort)).toBe(true);
+  });
+
+  it("hides it for a workdir that goes when the process does", () => {
+    // The choice would be written into a directory about to be deleted.
+    expect(showsStartup(workspace({ persistent: false }), startupPort)).toBe(false);
+  });
+
+  it("hides it for a source that does not implement the call", () => {
+    expect(showsStartup(workspace(), port)).toBe(false);
+    expect(showsStartup(workspace(), null)).toBe(false);
   });
 });

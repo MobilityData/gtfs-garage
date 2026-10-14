@@ -147,8 +147,10 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
    * browser reading Parquet, do not. The load report is shown either way, since
    * every source describes its own load.
    */
+  const workspacePort = showsWorkspace(source, config) ? source : null;
+
   const optionsMenu = parts.options
-    ? new OptionsMenu(dom, showsWorkspace(source, config) ? source : null, async () => {
+    ? new OptionsMenu(dom, workspacePort, async () => {
         onFeedLoaded(await source.tables());
       })
     : undefined;
@@ -246,6 +248,7 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
         source as RestSource,
         (data, clientMs) => onFeedLoaded(data, clientMs),
         () => state.tables.length > 0,
+        workspacePort,
       )
     : undefined;
 

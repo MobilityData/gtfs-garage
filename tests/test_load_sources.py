@@ -136,24 +136,32 @@ class TestRegistryScratchFiles:
         assert registry.workspace.path in stored.parents
         registry.close()
 
-    def test_scratch_directories_are_removed_on_close(self, feed_zip: Path):
-        """An unasked-for workdir is the run's own, and goes with the run."""
+    def test_an_unasked_for_workdir_keeps_what_it_was_given_too(self, feed_zip: Path):
+        """The default is the shared directory under the cache, and it is kept:
+        an upload is still there for the next run to reopen."""
         registry = FeedRegistry()
         with feed_zip.open("rb") as handle:
             stored = registry.store_upload("feed.zip", handle)
-        assert stored.exists()
-        assert not registry.workspace.persistent
+        assert registry.workspace.persistent
         registry.close()
-        assert not stored.parent.exists()
-        assert not registry.workspace.path.exists()
+        assert stored.exists()
 
     def test_a_named_workdir_keeps_what_it_was_given(self, feed_zip: Path, tmp_path: Path):
-        """The opposite case, and the reason --workdir exists."""
+        """The same, where the user said which directory."""
         registry = FeedRegistry(workspace=Workspace(tmp_path / "work", persistent=True))
         with feed_zip.open("rb") as handle:
             stored = registry.store_upload("feed.zip", handle)
         registry.close()
         assert stored.exists()
+
+    def test_a_workspace_of_the_run_s_own_is_removed_on_close(self, feed_zip: Path):
+        """What an export takes, so it leaves nothing behind."""
+        registry = FeedRegistry(workspace=Workspace.ephemeral())
+        with feed_zip.open("rb") as handle:
+            stored = registry.store_upload("feed.zip", handle)
+        assert stored.exists()
+        registry.close()
+        assert not registry.workspace.path.exists()
 
     def test_a_non_http_scheme_is_rejected_before_any_request(self):
         registry = FeedRegistry()

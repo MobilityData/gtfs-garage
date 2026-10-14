@@ -122,13 +122,10 @@ class GtfsFeed:
     ):
         """Open a feed.
 
-        `slot` places the extracted CSVs and the Parquet in a workspace rather
-        than in directories of this feed's own making. The difference is
-        ownership, and it is the whole point: a slot outlives the feed, so the
-        same Parquet can be reopened later without fetching or converting
-        anything again, whereas a feed that made its own directories deletes
-        them when it closes. Without one the behaviour is exactly as before,
-        which is what `GtfsFeed("feed.zip")` on its own still relies on.
+        `slot` puts the extracted CSVs and the Parquet in a workspace instead of
+        in directories of this feed's own making. The difference is ownership: a
+        slot outlives the feed and can be reopened from, while directories the
+        feed made it deletes on close. Without one, behaviour is as before.
         """
         import duckdb
 
@@ -168,9 +165,8 @@ class GtfsFeed:
     def _scratch_dir(self, prefix: str, slot_dir: Path | None = None) -> Path:
         """Somewhere to write. The workspace's, if there is one; ours if not.
 
-        Only a directory this feed created itself is recorded as owned, which is
-        what `close` deletes. A slot's directories belong to the workspace and
-        survive the feed, so that the feed can be reopened from them.
+        Only a directory this feed made itself is recorded as owned, which is
+        what `close` deletes; a slot's belong to the workspace and outlive it.
         """
         if slot_dir is not None:
             slot_dir.mkdir(parents=True, exist_ok=True)
@@ -501,9 +497,8 @@ class GtfsFeed:
     def _write_manifest(self, destination: Path) -> None:
         """Describe the converted dataset beside it, as `export_parquet` does.
 
-        The sizes here cannot be recovered from the directory afterwards: the
-        CSVs are deleted by the next step, and a zip member's compressed size
-        exists only in the archive's own directory.
+        These sizes cannot be recovered later: the CSVs are deleted by the next
+        step, and a zip member's compressed size lives only in the archive.
         """
         try:
             tables = [

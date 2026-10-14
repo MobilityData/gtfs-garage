@@ -204,13 +204,12 @@ class FeedRegistry:
         the workspace, so they report where they came from instead of the
         directory they landed in.
 
-        `slot` is where the feed's files go. The acquiring step has usually
-        already claimed one - it had to, to have somewhere to write - and a feed
-        opened straight from a path claims one here.
+        `slot` is where the feed's files go; the acquiring step has usually
+        claimed one already, and a feed opened from a path claims one here.
 
         `kind` overrides how the feed is said to have been obtained. Only
-        `reopen` passes it, so that a downloaded feed read back from the workdir
-        is still listed as a download rather than as the local path it now is.
+        `reopen` passes it, so a downloaded feed read back from the workdir is
+        still listed as a download rather than the local path it now is.
         """
         shown = label or source
         slot = slot or self._pending_slot or self.workspace.slot(shown)
@@ -251,12 +250,12 @@ class FeedRegistry:
     def reopen(self, slot_id: str) -> GtfsFeed:
         """Serve a feed already in the workspace, from the Parquet it became.
 
-        No download, no unzip and no conversion: `GtfsFeed` opens a directory of
-        Parquet directly, which is the whole reason the workspace stores feeds
-        in that shape.
+        No download, unzip or conversion: `GtfsFeed` opens a directory of
+        Parquet directly, which is why the workspace stores feeds in that shape.
         """
         slot = self.workspace.existing(slot_id)
         entry = next((e for e in self.workspace.entries() if e.id == slot_id), None)
+
         if slot is None or entry is None or not entry.reloadable:
             raise GtfsLoadError("That feed is no longer in the workdir.")
         self._acquire = None
@@ -357,8 +356,7 @@ class FeedRegistry:
         """Take the slot this feed will occupy, and return where its source goes.
 
         Claimed here rather than at `load` because the bytes have to land
-        somewhere before there is a feed to open, and that somewhere should be
-        the slot the feed will end up in rather than a directory of its own.
+        somewhere before there is a feed to open.
         """
         self._pending_slot = self.workspace.slot(label)
         return self._pending_slot.source_dir

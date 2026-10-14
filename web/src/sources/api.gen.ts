@@ -254,6 +254,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workspace/startup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose the feed a new server opens
+         * @description Names a feed the workdir holds as the one to open when a server starts on this workdir, which is the stored form of `--reopen ID`. A null `feed_id` clears the choice, and a feed named on the command line or an explicit `--reopen` still takes precedence over it. Only meaningful for a workdir that survives the process, which every server's does.
+         */
+        put: operations["setStartupFeed"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workspace/feeds/{feed_id}": {
         parameters: {
             query?: never;
@@ -366,6 +386,8 @@ export interface components {
             reloadable: boolean;
             /** @description Whether this is the feed being served. */
             current: boolean;
+            /** @description Whether this is the feed a new server on this workdir opens by itself. At most one feed is, and none has to be. */
+            startup: boolean;
         };
         /** @description The directory a GTFS Garage server writes into. */
         WorkspaceResponse: {
@@ -374,7 +396,7 @@ export interface components {
              * @example /Users/sam/gtfs-work
              */
             path: string;
-            /** @description Whether it survives the process. True when the server was started with `--workdir`; false for the per-run directory used otherwise, which is removed on exit. */
+            /** @description Whether it survives the process. True for a server's workdir, named with `--workdir` or the shared default under the platform cache; false only for the directory of its own that an export takes, which is removed when it finishes. */
             persistent: boolean;
             /**
              * @description How many feeds are kept before the oldest is dropped. 0 means none are ever dropped.
@@ -386,8 +408,21 @@ export interface components {
              * @description What the whole workdir occupies.
              */
             total_bytes: number;
+            /**
+             * @description The id of the feed a new server on this workdir opens by itself, or null when there is none. Reported as it would actually be applied, so a choice whose feed has since been deleted or evicted reads as null rather than pointing at nothing.
+             * @example montreal-gtfs-zip-7f3a91c0
+             */
+            startup?: string | null;
             /** @description The feeds it holds, most recently loaded first. */
             feeds: components["schemas"]["WorkspaceFeed"][];
+        };
+        /** @description Which feed a new server on this workdir should open. */
+        StartupFeedRequest: {
+            /**
+             * @description The feed to open at startup, or null to open none and leave the interface to offer the workdir as it does on any empty start.
+             * @example montreal-gtfs-zip-7f3a91c0
+             */
+            feed_id: string | null;
         };
         /** @description A table that points back at the current row's id. */
         RelatedLink: {
@@ -1163,6 +1198,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceResponse"];
+                };
+            };
+        };
+    };
+    setStartupFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartupFeedRequest"];
+            };
+        };
+        responses: {
+            /** @description The workdir, as it now stands. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceResponse"];
+                };
+            };
+            /** @description No such feed in the workdir, or one with no Parquet to open it from, which could not be served at startup either. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

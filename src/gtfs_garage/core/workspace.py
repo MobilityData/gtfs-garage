@@ -1,30 +1,32 @@
 """Where a run keeps the files it writes.
 
-Every scratch directory the tool produces - an extracted zip, the Parquet a feed
-is converted to, an uploaded or downloaded archive - lands under one root, so a
-user can see what is on disk, reopen a feed without fetching it again, and
-delete the lot deliberately rather than hunting through `$TMPDIR`.
+Every scratch directory the tool produces lands under one root, so a user can
+see what is on disk and delete it deliberately. `--workdir` says where that root
+is; without one it is a directory under the platform cache, and either way it is
+kept. Feeds therefore outlive the run that loaded them, which is the whole point
+of converting them: the load dialog offers what is already there on the next
+start, and reopening costs no download, unzip or conversion.
 
-Two modes, one layout:
-
-- `--workdir DIR` is **persistent**. Feeds survive the process, so the next run
-  lists them and can reopen one from its Parquet in milliseconds.
-- With no flag the root is a per-run directory under the platform cache dir,
-  **ephemeral**: it is removed when the server stops, and a run left behind by a
-  crash is swept the next time one starts. The path is still a stable, printable
-  one rather than a random `mkdtemp` name, which is the actual complaint - not
-  that temporary files exist, but that nobody could say where.
+Retention is what stops that growing without end - `keep` feeds survive, oldest
+out first - so the kept directory has a ceiling rather than a lifetime. Only an
+export takes a workspace of its own, through `ephemeral`, because an export
+writes its answer somewhere else and should leave nothing behind.
 
 A feed occupies a *slot*, named from the label it was loaded under, so loading
-the same URL twice reuses one directory instead of doubling the disk:
+the same URL twice reuses one directory rather than doubling the disk:
 
     <root>/feeds/<slug>/source/     the archive as it arrived
                        /extract/    the CSVs, dropped once converted
                        /parquet/    what the queries actually read
                        /feed.json   what this slot holds
 
-`parquet/` is deliberately the same shape `GtfsFeed.export_parquet` writes, so
-reopening a slot is `GtfsFeed(slot.parquet_dir)` and nothing special happens.
+`parquet/` is the shape `GtfsFeed.export_parquet` writes, so reopening a slot is
+`GtfsFeed(slot.parquet_dir)` and takes no special path through the loader.
+
+A persistent workspace can also name one of its slots as the feed to open at
+startup, in `<root>/startup.json`. That is the stored form of `--reopen ID`, set
+from the options menu rather than the command line, and it is what makes a
+workdir something you return to rather than something you point at again.
 """
 
 from __future__ import annotations
@@ -42,10 +44,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 APP_DIR = "gtfs-garage"
+# The default root under the cache directory, shared by every run that does
+# not name its own with --workdir.
+DEFAULT_DIR = "workdir"
 FEEDS_DIR = "feeds"
 RUNS_DIR = "runs"
 DUCKDB_DIR = "duckdb"
 RECORD = "feed.json"
+STARTUP = "startup.json"
 
 # How many feeds a workspace keeps. 1 means the previous feed goes as soon as a
 # new one lands; 0 means nothing is ever evicted.
@@ -73,15 +79,11 @@ def cache_root() -> Path:
 def slug_for(label: str) -> str:
     """A directory name for a feed, derived from the label alone.
 
-    Readable at the front so a listing of the workdir means something, and
-    hash-suffixed at the back because two different feeds can present the same
-    readable name - two `gtfs.zip` from different cities, say - and sharing a
-    slot would have one silently overwrite the other.
-
-    The readable part is the *end* of the label, not the start: a feed is
-    identified by its filename, and an absolute path or a URL is mostly prefix.
-    Keeping the front of `/Users/sam/work/transit/2026/montreal.zip` names the
-    home directory; keeping the end names the feed.
+    Hash-suffixed because two feeds can present the same readable name - two
+    `gtfs.zip` from different cities - and sharing a slot would have one
+    overwrite the other. The readable half is the label's *end*: a path or URL
+    is mostly prefix, so its front names a home directory and its end names the
+    feed.
     """
     readable = _SLUG_UNSAFE.sub("-", label).strip("-").lower()[-40:].strip("-") or "feed"
     digest = hashlib.sha256(label.encode("utf-8")).hexdigest()[:8]
@@ -128,9 +130,8 @@ class FeedSlot:
     def prepare(self) -> FeedSlot:
         """Create the directories, replacing whatever the slot held before.
 
-        A slot is reused when the same feed is loaded again, and the previous
-        contents describe the previous fetch - a feed that lost a file between
-        the two would otherwise appear to still have it.
+        A reused slot's contents describe the previous fetch, so a feed that
+        lost a file between the two would otherwise appear to still have it.
         """
         shutil.rmtree(self.root, ignore_errors=True)
         for directory in (self.source_dir, self.extract_dir, self.parquet_dir):
@@ -160,27 +161,48 @@ class Workspace:
         self.keep = max(0, keep)
         self.feeds_dir = self.path / FEEDS_DIR
         self.duckdb_dir = self.path / DUCKDB_DIR
+        self.startup_path = self.path / STARTUP
         self.feeds_dir.mkdir(parents=True, exist_ok=True)
         self.duckdb_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def resolve(cls, workdir: str | None = None, keep: int | None = None) -> Workspace:
-        """Build the workspace a run should use.
+        """Build the workspace a server should use. Kept, either way.
 
-        A named directory is persistent; the absence of one produces a run of
-        its own under the cache directory, and sweeps the runs that no longer
-        have a process behind them.
+        A named directory is used as given; without one, the shared directory
+        under the platform cache, so that a plain run still finds the feeds its
+        last run converted instead of starting from nothing every time.
         """
         wanted = DEFAULT_KEEP if keep is None else keep
         if workdir:
             return cls(Path(workdir), persistent=True, keep=wanted)
 
+        # Versions before the default was kept wrote a directory per run under
+        # `runs/`. Nothing writes there now, so this is the one chance to clear
+        # what they left, and it is the same sweep they ran themselves.
+        runs = cache_root() / RUNS_DIR
+        if runs.is_dir():
+            sweep_stale_runs(runs)
+        return cls(cache_root() / DEFAULT_DIR, persistent=True, keep=wanted)
+
+    @classmethod
+    def ephemeral(cls, keep: int | None = None) -> Workspace:
+        """A workspace of this run's own, removed by `close`.
+
+        For work that produces its result somewhere else and should leave
+        nothing behind - an export - and so must not touch, evict from, or be
+        evicted by the directory a server is keeping.
+        """
         runs = cache_root() / RUNS_DIR
         runs.mkdir(parents=True, exist_ok=True)
         sweep_stale_runs(runs)
         # A token as well as the pid: one process can hold more than one
         # workspace - the test suite does - and they must not share a root.
-        return cls(runs / f"{os.getpid()}-{uuid.uuid4().hex[:8]}", persistent=False, keep=wanted)
+        return cls(
+            runs / f"{os.getpid()}-{uuid.uuid4().hex[:8]}",
+            persistent=False,
+            keep=DEFAULT_KEEP if keep is None else keep,
+        )
 
     # ----------------------------------------------------------------- slots
 
@@ -221,9 +243,8 @@ class Workspace:
     def entries(self) -> list[WorkspaceEntry]:
         """Every slot that carries a record, most recently loaded first.
 
-        A directory without a readable record is skipped rather than guessed at:
-        it is a load that was interrupted before it finished, and reporting it
-        as a feed would offer a reload that cannot work.
+        A directory without a readable record is an interrupted load, and
+        reporting it as a feed would offer a reload that cannot work.
         """
         found = []
         for directory in sorted(self.feeds_dir.glob("*")):
@@ -249,6 +270,40 @@ class Workspace:
     def total_bytes(self) -> int:
         return directory_bytes(self.path)
 
+    def latest(self) -> WorkspaceEntry | None:
+        """The most recently loaded feed that can actually be reopened.
+
+        What `--reopen` with no id means. A slot with no Parquet is skipped
+        rather than returned and then refused.
+        """
+        return next((entry for entry in self.entries() if entry.reloadable), None)
+
+    # --------------------------------------------------------------- startup
+
+    def startup_feed(self) -> str | None:
+        """The slot a new server should open, or None.
+
+        Checked against what is actually on disk rather than returned as
+        written: the named feed can have been deleted or evicted since someone
+        chose it, and a workdir that pointed at a slot that is no longer there
+        would fail to start over a preference.
+        """
+        try:
+            data = json.loads(self.startup_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        wanted = data.get("feed") if isinstance(data, dict) else None
+        if not isinstance(wanted, str) or not wanted:
+            return None
+        return wanted if any(e.id == wanted and e.reloadable for e in self.entries()) else None
+
+    def set_startup_feed(self, slot_id: str | None) -> None:
+        """Name the feed to open at startup, or clear the choice with None."""
+        if slot_id is None:
+            self.startup_path.unlink(missing_ok=True)
+            return
+        self.startup_path.write_text(json.dumps({"feed": slot_id}, indent=2) + "\n", encoding="utf-8")
+
     # --------------------------------------------------------------- removal
 
     def remove(self, slot_id: str) -> int:
@@ -272,10 +327,9 @@ class Workspace:
     def enforce_retention(self, protected: set[str] | None = None) -> list[str]:
         """Drop the oldest slots past the limit, and say which went.
 
-        `protected` names the slots of feeds that are still open - the one being
-        served, and any a request is still reading. Those are never candidates
-        however the dates sort, because deleting a Parquet file out from under a
-        running query is the one thing this must not do.
+        `protected` names the slots of feeds that are still open. Deleting a
+        Parquet file out from under a running query is the one thing this must
+        not do, so they are never candidates however the dates sort.
         """
         if self.keep <= 0:
             return []
@@ -290,7 +344,7 @@ class Workspace:
         return removed
 
     def close(self) -> None:
-        """Give up what this run created, unless the user asked to keep it."""
+        """Give up what this run created, unless the workspace is a kept one."""
         if not self.persistent:
             shutil.rmtree(self.path, ignore_errors=True)
 
@@ -298,9 +352,9 @@ class Workspace:
 def sweep_stale_runs(runs: Path) -> list[str]:
     """Remove run directories left behind by processes that are gone.
 
-    Only ever called against the cache directory's own `runs/`, never against a
-    `--workdir` someone named: a user's directory is theirs, and a heuristic
-    about process liveness has no business deleting from it.
+    Only ever called against the cache directory's own `runs/`, never a
+    `--workdir`: a heuristic about process liveness has no business deleting
+    from a directory someone named.
     """
     removed = []
     for directory in runs.glob("*"):

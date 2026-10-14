@@ -21,7 +21,7 @@ import json
 
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from gtfs_garage_gen.models.workspace_feed import WorkspaceFeed
 try:
     from typing import Self
@@ -33,11 +33,12 @@ class WorkspaceResponse(BaseModel):
     The directory a GTFS Garage server writes into.
     """ # noqa: E501
     path: StrictStr = Field(description="The workdir's absolute path on the server's filesystem.")
-    persistent: StrictBool = Field(description="Whether it survives the process. True when the server was started with `--workdir`; false for the per-run directory used otherwise, which is removed on exit.")
+    persistent: StrictBool = Field(description="Whether it survives the process. True for a server's workdir, named with `--workdir` or the shared default under the platform cache; false only for the directory of its own that an export takes, which is removed when it finishes.")
     keep: StrictInt = Field(description="How many feeds are kept before the oldest is dropped. 0 means none are ever dropped.")
     total_bytes: StrictInt = Field(description="What the whole workdir occupies.")
+    startup: Optional[StrictStr] = Field(default=None, description="The id of the feed a new server on this workdir opens by itself, or null when there is none. Reported as it would actually be applied, so a choice whose feed has since been deleted or evicted reads as null rather than pointing at nothing.")
     feeds: List[WorkspaceFeed] = Field(description="The feeds it holds, most recently loaded first.")
-    __properties: ClassVar[List[str]] = ["path", "persistent", "keep", "total_bytes", "feeds"]
+    __properties: ClassVar[List[str]] = ["path", "persistent", "keep", "total_bytes", "startup", "feeds"]
 
     model_config = {
         "populate_by_name": True,
@@ -83,6 +84,11 @@ class WorkspaceResponse(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict['feeds'] = _items
+        # set to None if startup (nullable) is None
+        # and model_fields_set contains the field
+        if self.startup is None and "startup" in self.model_fields_set:
+            _dict['startup'] = None
+
         return _dict
 
     @classmethod
@@ -99,6 +105,7 @@ class WorkspaceResponse(BaseModel):
             "persistent": obj.get("persistent"),
             "keep": obj.get("keep"),
             "total_bytes": obj.get("total_bytes"),
+            "startup": obj.get("startup"),
             "feeds": [WorkspaceFeed.from_dict(_item) for _item in obj.get("feeds")] if obj.get("feeds") is not None else None
         })
         return _obj

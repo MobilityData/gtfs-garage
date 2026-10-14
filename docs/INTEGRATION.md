@@ -112,6 +112,19 @@ that does not serve those paths simply does not set the flag. A source with no
 `config` method at all is taken at its word: a host that wrote the four methods
 by hand meant them.
 
+The same gate governs the load dialog: with `parts.load`, a source that passes
+it has the workdir's feeds listed at the top of the dialog as one-click
+reopens, and a source that does not simply shows the dropzone, the pickers and
+the path field as before.
+
+One further method, `setStartupFeed`, is optional on its own: it adds the
+**At startup** button to each feed's row, which names the feed a later server
+on that workdir opens by itself. A source without it keeps the rest of the
+section. The button is drawn only for a workdir that reports `persistent`,
+which every GTFS Garage server's is — the flag exists for a backend whose
+directory does not outlive the request that made it, where the choice would be
+stored into something about to be deleted.
+
 A workdir describes a local process's own disk, so there is normally nothing for
 a hosted backend to put there.
 
@@ -216,6 +229,11 @@ const source: ViewerSource = {
   reloadFeed,      // serve a stored feed again, without fetching it
   removeFeed,      // delete one feed's files
   clearWorkspace,  // delete every feed's files but the one being served
+
+  // Optional on its own, and only alongside those four: which feed a later
+  // server on this workdir opens by itself. Without it the workdir section is
+  // unchanged but for the button that sets this.
+  setStartupFeed,  // name that feed, or clear the choice with null
 };
 
 await mount(root, { source });

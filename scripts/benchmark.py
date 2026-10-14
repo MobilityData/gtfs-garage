@@ -27,7 +27,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tests"))
 
-from conftest import write_feed  # noqa: E402
+from feeds import write_feed  # noqa: E402
 
 from gtfs_garage.core import geojson as gj  # noqa: E402
 from gtfs_garage.core.feed import GtfsFeed  # noqa: E402

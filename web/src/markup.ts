@@ -128,6 +128,17 @@ const loader = () => `
   <div data-el="load-overlay" class="hidden">
     <div data-el="load-panel">
       <h2>Load a GTFS feed</h2>
+      <!--
+        Feeds the workdir already holds, offered before the ways of fetching
+        one: reopening is instant and needs no network, so when it is on the
+        table it is almost always the answer. Hidden unless the source has a
+        workdir, which is what tells a local run from a hosted one.
+      -->
+      <section data-el="recent-section" hidden>
+        <label class="field-label">In the workdir</label>
+        <div data-el="recent-feeds"></div>
+        <div class="or">or</div>
+      </section>
       <div data-el="dropzone">Drop a GTFS .zip here, or click to choose one</div>
       <input data-el="file-input" type="file" accept=".zip" style="display:none" />
       <!-- webkitdirectory turns this into a folder chooser. -->

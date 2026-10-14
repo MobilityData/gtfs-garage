@@ -84,6 +84,14 @@ export interface ViewerSource extends GtfsSource {
   /** Delete every feed's files but the one being served. */
   clearWorkspace?(): Promise<Workspace>;
   /**
+   * Name the feed a new server on this workdir opens, or clear it with null.
+   *
+   * Separately optional from the four above: it is one control on a feed's
+   * row, not the section itself, so a source written against the earlier
+   * contract keeps its workdir and simply does not offer this.
+   */
+  setStartupFeed?(id: string | null): Promise<Workspace>;
+  /**
    * Release whatever the source is holding.
    *
    * A REST source holds nothing; one querying Parquet holds a WebAssembly

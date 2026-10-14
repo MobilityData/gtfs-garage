@@ -25,6 +25,7 @@ describe("buildViewer markup", () => {
     const markup = html();
     expect(markup).toContain('data-el="load-overlay"');
     expect(markup).toContain('data-el="options-panel"');
+    expect(markup).toContain('data-el="recent-section"');
     expect(markup).toContain('data-el="workdir-section"');
     expect(markup).toContain('data-el="metrics-section"');
     expect(markup).toContain('data-el="map-pane"');
@@ -34,6 +35,7 @@ describe("buildViewer markup", () => {
     // A host showing a known dataset has nothing to open and no load to explain.
     const markup = html({ load: false, options: false, map: false });
     expect(markup).not.toContain("load-overlay");
+    expect(markup).not.toContain("recent-section");
     expect(markup).not.toContain("options-panel");
     expect(markup).not.toContain("workdir-section");
     expect(markup).not.toContain("map-pane");

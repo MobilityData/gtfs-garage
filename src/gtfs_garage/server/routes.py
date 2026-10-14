@@ -27,6 +27,7 @@ from gtfs_garage_gen.models.config_response import ConfigResponse
 from gtfs_garage_gen.models.distinct_response import DistinctResponse
 from gtfs_garage_gen.models.load_progress import LoadProgress
 from gtfs_garage_gen.models.page_response import PageResponse
+from gtfs_garage_gen.models.startup_feed_request import StartupFeedRequest
 from gtfs_garage_gen.models.tables_response import TablesResponse
 from gtfs_garage_gen.models.workspace_response import WorkspaceResponse
 from gtfs_garage.server.state import FeedRecord, FeedRegistry, NoFeedLoadedError
@@ -124,11 +125,13 @@ def _workspace_payload(registry: FeedRegistry) -> dict[str, Any]:
     """What is on disk, and which row is the feed being served."""
     workspace = registry.workspace
     current = registry.last_load.slot_id if registry.last_load else None
+    startup = workspace.startup_feed()
     return {
         "path": str(workspace.path),
         "persistent": workspace.persistent,
         "keep": workspace.keep,
         "total_bytes": workspace.total_bytes(),
+        "startup": startup,
         "feeds": [
             {
                 "id": entry.id,
@@ -139,6 +142,7 @@ def _workspace_payload(registry: FeedRegistry) -> dict[str, Any]:
                 "tables": entry.tables,
                 "reloadable": entry.reloadable,
                 "current": entry.id == current,
+                "startup": entry.id == startup,
             }
             for entry in workspace.entries()
         ],
@@ -149,6 +153,29 @@ def _workspace_payload(registry: FeedRegistry) -> dict[str, Any]:
 def get_workspace(request: Request) -> dict[str, Any]:
     """Where this server writes, what it has written, and what that weighs."""
     return _workspace_payload(_registry(request))
+
+
+@router.put("/workspace/startup", response_model=WorkspaceResponse, tags=["workspace"])
+def set_startup_feed(request: Request, body: StartupFeedRequest) -> dict[str, Any]:
+    """Choose which feed a new server on this workdir opens, or clear the choice.
+
+    Refused for a feed with no Parquet behind it: it could not be reopened at
+    startup either, so storing it would only produce an empty start later with
+    nothing to explain it.
+    """
+    registry = _registry(request)
+    feed_id = body.feed_id
+    if feed_id is not None:
+        entry = next((e for e in registry.workspace.entries() if e.id == feed_id), None)
+        if entry is None:
+            raise HTTPException(status_code=404, detail="No such feed in the workdir.")
+        if not entry.reloadable:
+            raise HTTPException(
+                status_code=404,
+                detail="No Parquet to open this from - it was loaded with --no-parquet.",
+            )
+    registry.workspace.set_startup_feed(feed_id)
+    return _workspace_payload(registry)
 
 
 @router.post("/workspace/feeds/{feed_id}/reload", response_model=TablesResponse, tags=["workspace"])

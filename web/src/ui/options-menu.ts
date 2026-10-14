@@ -1,15 +1,10 @@
 /**
  * The options menu: what this tool has put on your machine, and what to do
- * about it.
+ * about it. The workdir and the load report answer the same question, so they
+ * sit behind one button.
  *
- * Two sections behind one button. The workdir - where the server writes, what
- * it holds, and the actions that reopen or delete a feed - and the load report,
- * which was a panel of its own before this existed. They answer the same
- * question, so they are in the same place.
- *
- * What goes on screen is decided by the exported functions below and drawn by
- * the class, the same split as `values.ts` and `table.ts`: a decision can then
- * be tested without a document, and the tests here need no DOM at all.
+ * The exported functions decide and the class draws, the same split as
+ * `values.ts` and `table.ts`, so the decisions are testable without a document.
  */
 
 import { button, type Dom } from "../dom";
@@ -22,14 +17,18 @@ export interface WorkspacePort {
   reloadFeed(id: string): Promise<unknown>;
   removeFeed(id: string): Promise<Workspace>;
   clearWorkspace(): Promise<Workspace>;
+  /**
+   * Name the feed a new server on this workdir opens, or clear it with null.
+   *
+   * Optional where the other four are not: it adds one control to a feed's
+   * row rather than deciding whether the section is worth drawing, so a source
+   * written before it exists keeps everything else.
+   */
+  setStartupFeed?(id: string | null): Promise<Workspace>;
 }
 
-/**
- * True when a source can answer for a workdir.
- *
- * All four methods together: a source offering some of them could not drive the
- * section, and the section is all-or-nothing rather than partly disabled.
- */
+/** True when a source can answer for a workdir. All four or none: a section
+ * with half its buttons dead is worse than no section. */
 export function hasWorkspace(source: unknown): source is WorkspacePort {
   const candidate = source as Partial<WorkspacePort>;
   return (
@@ -43,18 +42,11 @@ export function hasWorkspace(source: unknown): source is WorkspacePort {
 /**
  * Whether to build the workdir section for this source.
  *
- * Two questions, and both have to be answered. `RestSource` always carries the
- * four methods, because it is written against the whole contract - so having
- * them says nothing about whether the thing at the other end of `baseUrl` is a
- * GTFS Garage server or somebody's own backend implementing the same spec. The
- * server declares it instead, in `GET /api/config`, and a backend that does not
- * answer these paths simply does not set it.
- *
- * A source with no `config` at all is taken at its word: a host that wrote the
- * four methods by hand meant them, and there is nothing to ask.
- *
- * Without this the section would be built and then discovered empty by a 404
- * on every open - working, but by accident, and a failed request each time.
+ * Both questions have to be answered. `RestSource` carries the four methods
+ * whatever is behind `baseUrl`, because it is written against the whole
+ * contract - so the server declares it in `GET /api/config` instead, and a
+ * backend that does not serve those paths does not set it. A source with no
+ * `config` at all is taken at its word.
  */
 export function showsWorkspace(
   source: unknown,
@@ -69,12 +61,8 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/**
- * When a feed was last loaded, in words.
- *
- * Relative rather than absolute because the question being asked of this
- * column is "which of these is stale", not "what time was it".
- */
+/** When a feed was last loaded. Relative, because the question is "which of
+ * these is stale", not "what time was it". */
 export function formatAge(loadedAt: string | undefined, now = Date.now()): string {
   if (!loadedAt) return "";
   const at = Date.parse(loadedAt);
@@ -112,20 +100,22 @@ export interface FeedRow {
   reloadable: boolean;
   /** The served feed's files are open, so they cannot be deleted. */
   removable: boolean;
+  /**
+   * Whether it can be the feed a new server opens. The same Parquet question
+   * as `reloadable`, but asked of the feed on screen too: wanting to come back
+   * to what you are looking at is the ordinary reason to set this.
+   */
+  startable: boolean;
+  /** Whether it is the feed a new server on this workdir opens. */
+  startup: boolean;
 }
 
 /**
- * The part of a label that names the feed.
+ * The part of a label that names the feed - its last segment, since a path or
+ * URL is mostly prefix. The whole label stays in the row's tooltip.
  *
- * A label is a filename, a folder name, a URL or an absolute path, and the last
- * three are mostly prefix: `/Users/sam/work/transit/2026/montreal.zip` is one
- * useful word behind five that are the same on every row. The whole label stays
- * in the row's tooltip, so nothing is lost - only moved out of the way.
- *
- * Truncating in CSS instead was tried and is worse: ellipsising a path from the
- * front needs `direction: rtl`, which reorders the slashes at the string's
- * edges and renders `/srv/feeds` as `srv/feeds/` - a trailing slash that says
- * "directory" about a file.
+ * Not done in CSS: ellipsising from the front needs `direction: rtl`, which
+ * reorders the slashes at the edges and renders `/srv/feeds` as `srv/feeds/`.
  */
 export function displayLabel(label: string): string {
   const trimmed = label.replace(/[/\\]+$/, "");
@@ -146,7 +136,19 @@ export function feedRows(workspace: Workspace, now = Date.now()): FeedRow[] {
     current: feed.current,
     reloadable: feed.reloadable && !feed.current,
     removable: !feed.current,
+    startable: feed.reloadable,
+    startup: feed.startup,
   }));
+}
+
+/**
+ * The feeds worth offering as a one-click reopen: the ones with Parquet behind
+ * them, capped, since a workdir kept with `--workdir-keep 0` holds dozens.
+ */
+export function offerableFeeds(workspace: Workspace, limit = 5, now = Date.now()): FeedRow[] {
+  return feedRows(workspace, now)
+    .filter((row) => row.reloadable)
+    .slice(0, limit);
 }
 
 /** Why a feed's reload button is unavailable, or "" when it is not. */
@@ -154,6 +156,31 @@ export function reloadBlockedReason(row: FeedRow): string {
   if (row.current) return "This is the feed you are looking at.";
   if (!row.reloadable) return "No Parquet to reopen this from - it was loaded with --no-parquet.";
   return "";
+}
+
+/**
+ * Whether the rows get a startup control at all.
+ *
+ * Two reasons they might not. A workdir that goes when the process does has no
+ * later run to open anything, so the choice would be stored into a directory
+ * about to be deleted. And a host's own source need not implement the call -
+ * the rest of the section still works without it.
+ */
+export function showsStartup(
+  workspace: Workspace,
+  port: WorkspacePort | null,
+): boolean {
+  return workspace.persistent && typeof port?.setStartupFeed === "function";
+}
+
+/**
+ * What the startup button says it will do, so the state is readable without
+ * having to work out which of the rows is the marked one.
+ */
+export function startupTitle(row: FeedRow): string {
+  if (!row.startable) return "No Parquet to open this from - it was loaded with --no-parquet.";
+  if (row.startup) return "Opened when a server starts on this workdir. Click to stop.";
+  return "Open this feed when a server starts on this workdir.";
 }
 
 export class OptionsMenu {
@@ -182,11 +209,9 @@ export class OptionsMenu {
   }
 
   /**
-   * Draw the load report for the feed now being served.
-   *
-   * Called on every load, including one started from this menu. Which feed is
-   * open has just changed, so a menu that is on screen is re-read rather than
-   * left showing the previous feed as the current one.
+   * Draw the load report for the feed now being served. Which feed is open has
+   * just changed, so a menu already on screen is re-read rather than left
+   * marking the previous one as current.
    */
   showMetrics(metrics: LoadMetrics, clientMs?: number): void {
     this.dom.el("metrics-section").hidden = false;
@@ -268,19 +293,46 @@ export class OptionsMenu {
       remove.title = "This feed is open. Load another one first.";
     }
 
-    actions.append(reload, remove);
+    actions.append(...this.startupButton(row), reload, remove);
     element.append(text, actions);
     return element;
+  }
+
+  /**
+   * The "At startup" toggle, or nothing where there is nothing for it to do.
+   *
+   * A list rather than an element or null, so the caller appends it without a
+   * branch of its own.
+   */
+  private startupButton(row: FeedRow): HTMLButtonElement[] {
+    if (!this.workspace || !showsStartup(this.workspace, this.port)) return [];
+
+    const element = button("At startup", startupTitle(row), () =>
+      // Clicking the marked feed clears the choice: one button, and the state
+      // it is in says which of the two it will do.
+      void this.chooseStartup(row.startup ? null : row.id),
+    );
+    element.className = "workdir-startup" + (row.startup ? " on" : "");
+    element.setAttribute("aria-pressed", String(row.startup));
+    element.disabled = !row.startable;
+    return [element];
+  }
+
+  private async chooseStartup(id: string | null): Promise<void> {
+    const set = this.port?.setStartupFeed;
+    if (!this.port || !set) return;
+    await this.run(id ? "Setting…" : "Clearing…", async () => {
+      this.workspace = await set.call(this.port, id);
+      this.render();
+    });
   }
 
   private async reload(id: string): Promise<void> {
     if (!this.port) return;
     await this.run("Reopening…", async () => {
       await this.port!.reloadFeed(id);
-      // The application reloads from the server, so a reopened feed lands the
-      // same way a freshly loaded one does - sidebar, map and history included.
-      // That also re-reads this list through `showMetrics`, which is what moves
-      // the "open" marker onto the row just clicked.
+      // Lands the same way a freshly loaded feed does - sidebar, map, history -
+      // and re-reads this list through `showMetrics`, moving the "open" marker.
       await this.onReloaded();
     });
   }
@@ -297,8 +349,7 @@ export class OptionsMenu {
     if (!this.port || !this.workspace) return;
     const removable = feedRows(this.workspace).filter((row) => row.removable);
     if (removable.length === 0) return;
-    // Deleting files is not undoable, so it is asked rather than assumed. The
-    // count is in the question because "empty the workdir" reads the same
+    // The count is in the question because "empty the workdir" reads the same
     // whether it means one feed or nine.
     const feeds = `${removable.length} ${removable.length === 1 ? "feed" : "feeds"}`;
     if (!window.confirm(`Delete ${feeds} from the workdir? The feed you are looking at is kept.`)) return;
@@ -313,11 +364,8 @@ export class OptionsMenu {
   }
 
   /**
-   * Run an action with the buttons disabled, and say so if it fails.
-   *
-   * What the action returns replaces the busy line, so one with something to
-   * report - how much deleting freed - says it, and one with nothing to report
-   * clears the line rather than leaving "Emptying…" up for good.
+   * Run an action with the buttons disabled, and say so if it fails. What it
+   * returns replaces the busy line, so "Emptying…" is not left up for good.
    */
   private async run(busyMessage: string, action: () => Promise<string | void>): Promise<void> {
     this.setBusy(true);
