@@ -1,13 +1,55 @@
 # GTFS Garage
 
-A local browser for GTFS feeds. Open a feed and get tables whose IDs are
-clickable across files, a filter builder that never asks you to write SQL, and a
-map of the stops and route shapes.
+A local browser for GTFS feeds. Open a feed and get an overview of what is in
+it, a calendar that says which days it runs, a page per route - and under all of
+that, the files themselves: tables whose IDs are clickable across files, a
+filter builder that never asks you to write SQL, and a map of the stops and
+route shapes.
 
 Built for feeds that are too large or too cross-referenced to inspect in a
 spreadsheet: DuckDB queries the `.txt` files where they sit, so there is no
 import step and only the rows on screen are ever materialised.
 
+- **See what the feed is, before knowing its file names.** The Overview says
+  who runs it, what they run, how big it is, when it expires and which optional
+  parts of GTFS it uses. Every figure is a link into the rows it was counted
+  from - nothing is asserted that cannot be checked one click later.
+- **Work from a day, when you want one.** Nothing is filtered by date until you
+  pick one - the route list shows every route the feed has. Choose a day and a
+  chip appears above the content saying which day it is and what kind of day
+  that turned out to be; everything below follows it until you clear it.
+  **Jump to** offers real dates: today, the next Saturday, the first and last
+  day of the feed.
+- **Read a timetable.** Stops down, trips across, for one route on the chosen
+  day - the artefact an operator recognises, and the one GTFS spreads over four
+  files. A trip that does not call somewhere leaves a blank, so the short
+  working and the express are visible as holes rather than hidden. Selecting a
+  trip draws it on the map above the grid and frames it on that trip; clicking
+  a stop centres the map on it and marks it; clicking a time opens the row in
+  `stop_times.txt` it came from. A toggle swaps the names for the `stop_id`s
+  and `trip_id`s, for when the next thing you do is look one of them up.
+- **See when the schedule changes.** Service days draws one band per kind of day
+  across the feed's whole range, however long that is - the week "Weekdays" ends
+  and "Mon, Tue, Wed, Fri" begins is where one band stops and another starts -
+  and lists those dates outright. Not a grid of every date: a feed declaring
+  service to 2100 is twenty-eight thousand cells, and nobody reads one to find a
+  Tuesday.
+- **Narrow the route list by what the routes are.** Mode, agency, how much each
+  one runs, and what is worth noticing - no colour, no short name, no trips at
+  all. Each option carries how many routes it would leave, counted against
+  everything else already chosen, so the row says the feed has eight rail routes
+  and fourteen without a colour before anything is clicked. The chosen filters
+  are in the link.
+- **Open a route.** Its colour and mode, its directions and headsigns, the
+  distinct stop sequences its trips follow - each with the share of the route's
+  trips that follows it - when it starts and stops, and what it does on each day
+  of the week. The map shows that route and its stops alone, because a line
+  drawn among every other line in the city is hidden rather than shown.
+- **Explore, or Files.** Two halves behind one switch: the views above, and the
+  feed exactly as written. A sidebar entry means one thing.
+- **Keep the files.** None of the above replaces the file browser: the sidebar
+  lists every file the feed has, with its row counts, and the raw view shows the
+  characters the feed contains. The derived views are a second way in.
 - **Follow an ID across files.** Every foreign key (`route_id`, `trip_id`,
   `shape_id`, `stop_id`, `service_id`, …) is a link to the referenced row, and a
   table's own id column offers the reverse direction — from a route straight to
@@ -169,6 +211,47 @@ The frontend build output is not in version control, so a checkout has none
 until it is built. Without it the API still runs and the page explains what to
 do, rather than failing obscurely. The individual frontend commands live in
 `web/`: `yarn dev`, `yarn build`, `yarn typecheck`, `yarn test`.
+
+## Integration checks
+
+```bash
+scripts/integrations.sh              # all five
+scripts/integrations.sh local static # just those
+```
+
+The suites above cover the pieces; this covers the configurations, which is
+where the defects have been. It drives a real browser against each way the
+viewer can be deployed - the standalone application, an embedded viewer, a host
+mounting the REST source, and Parquet on a static host with no server at all -
+and asserts what each one promises. Every server it starts gets a workdir of
+its own, so a run never touches the shared one under your platform cache.
+
+To look at them yourself rather than have them asserted:
+
+```bash
+scripts/run-integrations.sh                 # the test fixture
+scripts/run-integrations.sh ~/feeds/stm.zip # a real feed
+```
+
+It exports the feed to Parquet, starts the API, the interface and a server that
+behaves the way the dataset bucket does, and prints a URL per configuration.
+`?mode=static` is the one MobilityData's operations web app runs: the npm viewer
+with `ParquetSource` against the public bucket, calling no HTTP API at all — map
+included, since that source builds the map's layers from the same Parquet.
+Ctrl-C stops everything and removes what the run wrote.
+
+The fifth check is `conformance`. The derived views exist twice - in
+`gtfs_garage.core`, served over HTTP, and in `web/src/sources/explore/`,
+computed in a browser against Parquet - so it asks both for the same payloads
+over the same feed and diffs them. `--against <base-url>` runs the same
+comparison against any backend implementing
+[the API](docs/GtfsGarageAPI.yaml) and serving the fixture feed.
+
+Needs a browser:
+
+```bash
+pip install -e ".[dev,perf]" && playwright install chromium
+```
 
 ## Linter
 

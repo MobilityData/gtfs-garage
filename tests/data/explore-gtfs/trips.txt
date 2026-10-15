@@ -1,0 +1,91 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,shape_id
+10,WKDY,10-W-60,Riverside,0,SH10
+10,WKDY,10-W-60-R,Central Station,1,SH10R
+10,WKDY,10-W-630,Riverside,0,SH10
+10,WKDY,10-W-630-R,Central Station,1,SH10R
+10,WKDY,10-W-70,Riverside,0,SH10
+10,WKDY,10-W-70-R,Central Station,1,SH10R
+10,WKDY,10-W-730,Riverside,0,SH10
+10,WKDY,10-W-730-R,Central Station,1,SH10R
+10,WKDY,10-W-80,Riverside,0,SH10
+10,WKDY,10-W-80-R,Central Station,1,SH10R
+10,WKDY,10-W-830,Riverside,0,SH10
+10,WKDY,10-W-830-R,Central Station,1,SH10R
+10,WKDY,10-W-90,Riverside,0,SH10
+10,WKDY,10-W-90-R,Central Station,1,SH10R
+10,WKDY,10-W-930,Riverside,0,SH10
+10,WKDY,10-W-930-R,Central Station,1,SH10R
+10,WKDY,10-W-100,Riverside,0,SH10
+10,WKDY,10-W-100-R,Central Station,1,SH10R
+10,WKDY,10-W-1030,Riverside,0,SH10
+10,WKDY,10-W-1030-R,Central Station,1,SH10R
+10,WKDY,10-W-110,Riverside,0,SH10
+10,WKDY,10-W-110-R,Central Station,1,SH10R
+10,WKDY,10-W-1130,Riverside,0,SH10
+10,WKDY,10-W-1130-R,Central Station,1,SH10R
+10,WKDY,10-W-120,Riverside,0,SH10
+10,WKDY,10-W-120-R,Central Station,1,SH10R
+10,WKDY,10-W-1230,Riverside,0,SH10
+10,WKDY,10-W-1230-R,Central Station,1,SH10R
+10,WKDY,10-W-130,Riverside,0,SH10
+10,WKDY,10-W-130-R,Central Station,1,SH10R
+10,WKDY,10-W-1330,Riverside,0,SH10
+10,WKDY,10-W-1330-R,Central Station,1,SH10R
+10,WKDY,10-W-140,Riverside,0,SH10
+10,WKDY,10-W-140-R,Central Station,1,SH10R
+10,WKDY,10-W-1430,Riverside,0,SH10
+10,WKDY,10-W-1430-R,Central Station,1,SH10R
+10,WKDY,10-W-150,Riverside,0,SH10
+10,WKDY,10-W-150-R,Central Station,1,SH10R
+10,WKDY,10-W-1530,Riverside,0,SH10
+10,WKDY,10-W-1530-R,Central Station,1,SH10R
+10,WKDY,10-W-160,Riverside,0,SH10
+10,WKDY,10-W-160-R,Central Station,1,SH10R
+10,WKDY,10-W-1630,Riverside,0,SH10
+10,WKDY,10-W-1630-R,Central Station,1,SH10R
+10,WKDY,10-W-170,Riverside,0,SH10
+10,WKDY,10-W-170-R,Central Station,1,SH10R
+10,WKDY,10-W-1730,Riverside,0,SH10
+10,WKDY,10-W-1730-R,Central Station,1,SH10R
+10,WKDY,10-W-180,Riverside,0,SH10
+10,WKDY,10-W-180-R,Central Station,1,SH10R
+10,WKDY,10-W-1830,Riverside,0,SH10
+10,WKDY,10-W-1830-R,Central Station,1,SH10R
+10,WKDY,10-W-190,Riverside,0,SH10
+10,WKDY,10-W-190-R,Central Station,1,SH10R
+10,WKDY,10-W-1930,Riverside,0,SH10
+10,WKDY,10-W-1930-R,Central Station,1,SH10R
+10,WKDY,10-W-200,Riverside,0,SH10
+10,WKDY,10-W-200-R,Central Station,1,SH10R
+10,WKDY,10-W-2030,Riverside,0,SH10
+10,WKDY,10-W-2030-R,Central Station,1,SH10R
+10,SAT,10-S-8,Riverside,0,SH10
+10,SAT,10-S-9,Riverside,0,SH10
+10,SAT,10-S-10,Riverside,0,SH10
+10,SAT,10-S-11,Riverside,0,SH10
+10,SAT,10-S-12,Riverside,0,SH10
+10,SAT,10-S-13,Riverside,0,SH10
+10,SAT,10-S-14,Riverside,0,SH10
+10,SAT,10-S-15,Riverside,0,SH10
+10,SAT,10-S-16,Riverside,0,SH10
+10,SAT,10-S-17,Riverside,0,SH10
+10,SAT,10-S-18,Riverside,0,SH10
+2,WKDY,2-W-7,Hilltop,0,SH2
+2,WKDY,2-W-8,Hilltop,0,SH2
+2,WKDY,2-W-9,Hilltop,0,SH2
+2,WKDY,2-W-10,Hilltop,0,SH2
+2,WKDY,2-W-11,Hilltop,0,SH2
+2,WKDY,2-W-12,Hilltop,0,SH2
+2,WKDY,2-W-13,Hilltop,0,SH2
+2,WKDY,2-W-14,Hilltop,0,SH2
+2,WKDY,2-W-15,Hilltop,0,SH2
+2,WKDY,2-W-16,Hilltop,0,SH2
+2,WKDY,2-W-17,Hilltop,0,SH2
+2,WKDY,2-W-18,Hilltop,0,SH2
+2,WKDY,2-W-short,Market Square,0,SH2
+101,NIGHT,101-N-23,Night Owl,0,
+101,NIGHT,101-N-24,Night Owl,0,
+101,NIGHT,101-N-25,Night Owl,0,
+RL,SUN,RL-9,Airport,0,SHRL
+RL,SUN,RL-13,Airport,0,SHRL
+RL,SUN,RL-17,Airport,0,SHRL

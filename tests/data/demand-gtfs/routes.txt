@@ -1,0 +1,3 @@
+route_id,agency_id,route_long_name,route_type
+DAR-GEN,DAR,Dial-A-Ride - general public,3
+DAR-SEN,DAR,Dial-A-Ride - seniors,3

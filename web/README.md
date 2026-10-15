@@ -1,7 +1,8 @@
 # gtfs-garage-web
 
-Browse a GTFS feed: a table with filters and foreign-key navigation, and a map
-of its stops, shapes and zones. The viewer of
+Browse a GTFS feed: an overview of what is in it, a calendar of the days it
+runs, a page per route - and under all of that, a table with filters and
+foreign-key navigation, and a map of its stops, shapes and zones. The viewer of
 [GTFS Garage](https://github.com/MobilityData/gtfs-garage), packaged so it can
 be mounted in another application.
 
@@ -70,6 +71,28 @@ from your own backend, either serve the same API — specified in
 — or pass a `source` implementing `ViewerSource`, which is the escape hatch for
 a backend of any other shape, for authentication, or for reading Parquet in the
 browser with no server at all.
+
+The derived views - the overview, the calendar and the route pages - are four
+optional methods on that interface. `ParquetSource` implements all four against
+Parquet in the browser, so a dataset on a static host gets them with no server
+anywhere; a source that omits them shows the file browser alone, with no
+Explore entries in the sidebar and nothing else changed.
+
+## Changing what it shows
+
+The derived views are **screens**, and the screens are a list:
+
+```ts
+import { mount, defaultScreens } from "gtfs-garage-web";
+
+mount(root, { screens: [...defaultScreens, myScreen] });   // add one
+mount(root, { screens: [] });                              // the file browser alone
+```
+
+A screen is an id, an optional sidebar label, an `available` predicate, a
+`fetch` and a `render`. See
+[`docs/INTEGRATION.md`](https://github.com/MobilityData/gtfs-garage/blob/main/docs/INTEGRATION.md)
+for the whole interface and the helpers a screen can build on.
 
 ## Styling
 

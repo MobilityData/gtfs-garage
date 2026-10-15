@@ -1,0 +1,4 @@
+route_id,service_id,trip_id
+DAR-GEN,WKDY,t-gen-1
+DAR-GEN,WKDY,t-gen-2
+DAR-SEN,WKDY,t-sen-1

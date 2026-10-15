@@ -1,0 +1,5 @@
+route_id,agency_id,route_short_name,route_long_name,route_type,route_color,route_text_color
+10,CITY,10,Riverside,3,1E88E5,FFFFFF
+2,CITY,2,Hilltop,3,43A047,FFFFFF
+101,CITY,101,Night Owl,3,,
+RL,REG,,Regional Line,2,6D4C41,FFFFFF

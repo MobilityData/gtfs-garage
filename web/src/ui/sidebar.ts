@@ -1,6 +1,7 @@
 import type { Dom } from "../dom";
 import type { AppState } from "../state";
 import type { MissingFile, TableInfo } from "../sources/types";
+import { listedScreens } from "./screens";
 
 /**
  * Why a file the feed lacks is wanted.
@@ -29,18 +30,43 @@ export function describeForbidden(table: TableInfo): string {
   return `${forbidden.condition} Forbidden here: ${forbidden.outcome.evidence}.`;
 }
 
-/** The list of the feed's files, with row counts, and any it is missing. */
+/**
+ * The feed's files with row counts, any it is missing, and - above them - the
+ * screens this source can answer.
+ *
+ * A screen with no label is left out: it is a detail view opened from another
+ * screen, and a sidebar entry for "a route" with no route in mind would mean
+ * nothing.
+ */
 export function renderSidebar(
   dom: Dom,
   state: AppState,
   onSelect: (table: string) => void,
+  onScreen?: (screen: string) => void,
 ): void {
   const sidebar = dom.el("sidebar");
   sidebar.innerHTML = "";
 
+  // One mode's entries, never both: Explore and Files answer different
+  // questions, and a list holding both made a row ambiguous.
+  const listed = onScreen ? listedScreens(state.screens) : [];
+  if (state.mode === "explore" && listed.length) {
+    for (const screen of listed) {
+      const row = document.createElement("div");
+      row.className = "table-tab explore-tab" + (state.view.screen === screen.id ? " active" : "");
+      if (screen.title) row.title = screen.title;
+      row.dataset.el = "explore-tab";
+      row.textContent = screen.label as string;
+      row.addEventListener("click", () => onScreen?.(screen.id));
+      sidebar.appendChild(row);
+    }
+    return;
+  }
+
   for (const table of state.tables) {
     const row = document.createElement("div");
-    row.className = "table-tab" + (table.name === state.view.table ? " active" : "");
+    const current = !state.view.screen && table.name === state.view.table;
+    row.className = "table-tab" + (current ? " active" : "");
 
     const name = document.createElement("span");
     name.textContent = table.name;

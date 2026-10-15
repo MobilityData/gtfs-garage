@@ -21,6 +21,19 @@ export const EMPTY_FEATURE_COLLECTION = {
 
 const geojsonSource = () => ({ type: "geojson", data: EMPTY_FEATURE_COLLECTION });
 
+/**
+ * How stops are drawn, and how they are drawn when they are the subject.
+ *
+ * Scaled by zoom rather than hidden at low zoom: an inspection tool has to
+ * show where the stops are before you know where to zoom. The focused pair is
+ * exported beside the ordinary one so the map can swap between them without a
+ * second copy of either drifting out of step.
+ */
+export const STOP_RADIUS = ["interpolate", ["linear"], ["zoom"], 6, 1.5, 12, 3, 16, 5];
+export const STOP_OPACITY = 0.45;
+export const STOP_RADIUS_FOCUSED = ["interpolate", ["linear"], ["zoom"], 6, 3, 12, 5, 16, 7];
+export const STOP_OPACITY_FOCUSED = 0.95;
+
 export const SOURCE_IDS = ["locations", "routes", "shapes", "stops", "highlight"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -84,11 +97,9 @@ function feedLayers(): Record<string, unknown>[] {
       type: "circle",
       source: "stops",
       paint: {
-        // Scaled by zoom rather than hidden at low zoom: an inspection tool has
-        // to show where the stops are before you know where to zoom.
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 12, 3, 16, 5],
+        "circle-radius": STOP_RADIUS,
         "circle-color": "#1c1e21",
-        "circle-opacity": 0.45,
+        "circle-opacity": STOP_OPACITY,
       },
     },
     {

@@ -57,6 +57,12 @@ tags:
       The feed's geometry as GeoJSON. A whole layer streams as newline-delimited
       JSON, because a large feed's shapes run to hundreds of megabytes and cannot
       be transferred or parsed in one piece.
+  - name: explore
+    description: >-
+      The feed read as a network rather than as files: what it contains, when it
+      runs, and one route at a time. Every figure here is derived from the same
+      rows `/api/table/{table}` serves, so a reader can always go from a summary
+      to the rows behind it.
   - name: workspace
     description: |-
       The directory a GTFS Garage server writes into: what it holds, what that
@@ -515,6 +521,196 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/overview:
+    get:
+      summary: What is in this feed
+      description: >-
+        Who runs it, what they run, when it runs and which optional parts of
+        GTFS it uses. The landing view for a reader who does not know the file
+        names, and cheap enough to be the first request after `/api/tables`:
+        nothing here reads `stop_times.txt`.
+      operationId: getOverview
+      tags: [explore]
+      responses:
+        "200":
+          description: The feed, summarised.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverviewResponse"
+        "409":
+          $ref: "#/components/responses/NoFeedLoaded"
+
+  /api/calendar:
+    get:
+      summary: When this feed runs
+      description: >-
+        `calendar.txt` and `calendar_dates.txt` expanded into one row per date,
+        then summarised three ways: the trips running on each date, a profile
+        per weekday, and the service patterns - groups of dates on which exactly
+        the same set of services is active.
+
+        A feed whose dates span more than about three years is cut off rather
+        than expanded in full, and says so in `truncated`; an end date of
+        20991231 is a typo, not a decade of service.
+      operationId: getCalendar
+      tags: [explore]
+      responses:
+        "200":
+          description: The feed's service calendar.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarResponse"
+        "404":
+          description: The feed has no calendar.txt and no calendar_dates.txt.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          $ref: "#/components/responses/NoFeedLoaded"
+
+  /api/routes:
+    get:
+      summary: Every route, with what it is and how much of it there is
+      description: >-
+        One row per route in `routes.txt`, with its mode spelled out, its
+        agency's name, and its trip and service counts. Does not read
+        `stop_times.txt`, so it answers at the same speed on any feed.
+
+        `service_date` narrows it to the routes running on one day, which is
+        what turns a date on the calendar into something to look at. A route
+        the feed has but that runs on no service that day is absent rather than
+        present with a zero.
+      operationId: getRoutes
+      tags: [explore]
+      parameters:
+        - name: service_date
+          in: query
+          required: false
+          description: An ISO date, `YYYY-MM-DD`. Omit for every route.
+          schema:
+            type: string
+            format: date
+          example: "2026-03-14"
+      responses:
+        "200":
+          description: The feed's routes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteListResponse"
+        "409":
+          $ref: "#/components/responses/NoFeedLoaded"
+
+  /api/routes/{route_id}:
+    parameters:
+      - $ref: "#/components/parameters/route_id_path_param"
+    get:
+      summary: One route, gathered back together
+      description: >-
+        The route's own row, its directions and headsigns, the distinct stop
+        sequences its trips follow, when it starts and stops, how many trips run
+        on each weekday, and which service patterns it appears in.
+
+        This is the one endpoint here that reads `stop_times.txt`, and it does
+        so through a semi-join on this route's trips - a filtered scan of two
+        columns rather than a read of the file.
+      operationId: getRoute
+      tags: [explore]
+      parameters:
+        - name: service_date
+          in: query
+          required: false
+          description: >-
+            Adds what the route does on that one day, beside what it does across
+            the feed. Costs nothing: the per-date counts are already computed
+            for the weekday profile.
+          schema:
+            type: string
+            format: date
+          example: "2026-03-16"
+      responses:
+        "200":
+          description: The route.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RouteDetailResponse"
+        "404":
+          description: The feed has no route with that id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          $ref: "#/components/responses/NoFeedLoaded"
+
+
+  /api/routes/{route_id}/timetable:
+    parameters:
+      - $ref: "#/components/parameters/route_id_path_param"
+    get:
+      summary: One route's departures on one day, as stops by trips
+      description: >-
+        The artefact an operator recognises, and the one GTFS makes hardest to
+        see: the times live in `stop_times.txt` keyed by trip, the trips live in
+        `trips.txt` keyed by service, and which services run on a Tuesday is two
+        more files away.
+
+        Rows are stops in one order covering every trip - built from the longest
+        sequence, with the shorter ones woven in after the stop they follow - and
+        `trips[].calls` is aligned to it, so a trip that does not call somewhere
+        leaves a hole rather than being squeezed out. A short working is
+        therefore visible as a gap, which is exactly what someone is looking for.
+
+        Read through a semi-join on this route's own trips, narrowed to the
+        day's services inside that join: a filtered scan of five columns rather
+        than a read of the largest file in the feed.
+      operationId: getRouteTimetable
+      tags: [explore]
+      parameters:
+        - name: service_date
+          in: query
+          required: true
+          description: An ISO date, `YYYY-MM-DD`.
+          schema:
+            type: string
+            format: date
+          example: "2026-03-16"
+        - name: direction_id
+          in: query
+          required: false
+          description: >-
+            One direction only. Omit for both, which is right for a route whose
+            feed leaves `direction_id` empty.
+          schema:
+            type: string
+          example: "0"
+      responses:
+        "200":
+          description: The day's grid. Empty `trips` when nothing runs that day.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimetableResponse"
+        "400":
+          description: "`service_date` is not an ISO date."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: No such route, or no trips in that direction on that day.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          $ref: "#/components/responses/NoFeedLoaded"
+
+
 components:
   parameters:
     feed_id_path_param:
@@ -525,6 +721,14 @@ components:
       schema:
         type: string
       example: montreal-gtfs-zip-7f3a91c0
+    route_id_path_param:
+      name: route_id
+      in: path
+      description: A `route_id` as it appears in `routes.txt`.
+      required: true
+      schema:
+        type: string
+      example: R1
     table_path_param:
       name: table
       in: path
@@ -1406,3 +1610,636 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ManifestTable"
+
+    # ---------------------------------------------------------------------
+    # The derived views. Everything below is computed from the same rows the
+    # table endpoints serve - no figure here exists in the feed as a column -
+    # which is why each one carries the ids needed to go back to its source.
+    # ---------------------------------------------------------------------
+
+    OverviewAgency:
+      type: object
+      description: One agency in the feed, and how much of it is theirs.
+      required: [name, routes]
+      properties:
+        agency_id:
+          type: string
+          nullable: true
+          description: Null in a single-agency feed, which GTFS lets omit it.
+        name:
+          type: string
+          example: Société de transport de Montréal
+        timezone:
+          type: string
+          nullable: true
+          example: America/Montreal
+        url:
+          type: string
+          nullable: true
+        routes:
+          type: integer
+          description: Routes this agency operates. Zero is a finding, not an error.
+
+    OverviewMode:
+      type: object
+      description: Routes grouped by `route_type`.
+      required: [route_type, label, routes]
+      properties:
+        route_type:
+          type: string
+          nullable: true
+          example: "3"
+        label:
+          type: string
+          description: >-
+            What GTFS calls that type. A value outside the reference's
+            enumeration - the extended 100s and 700s - reads as `Type 700`
+            rather than being guessed at.
+          example: Bus
+        routes:
+          type: integer
+
+    OverviewCounts:
+      type: object
+      description: >-
+        The feed's size in the units a reader thinks in. `stops` counts places a
+        rider boards, excluding stations and entrances, because counting a
+        station's own node alongside its platforms inflates every feed that
+        models stations.
+      required: [routes, stops, stations, trips, stop_times, shapes, services]
+      properties:
+        routes:
+          type: integer
+        stops:
+          type: integer
+        stations:
+          type: integer
+        trips:
+          type: integer
+        stop_times:
+          type: integer
+          format: int64
+        shapes:
+          type: integer
+          description: Distinct `shape_id`s, not rows of shapes.txt.
+        services:
+          type: integer
+          description: Distinct `service_id`s referenced by trips.
+        zones:
+          type: integer
+          description: >-
+            On-demand zones from `locations.geojson`. A demand-responsive feed
+            has these instead of stops, and counting only stops makes a working
+            flex feed read as an empty one.
+        location_groups:
+          type: integer
+          description: Distinct `location_group_id`s - named groups of zones.
+
+    ServiceWindow:
+      type: object
+      description: >-
+        The span the calendar covers, and what remains of it. `days_remaining`
+        is the fact an operator usually came for and the one the files are worst
+        at showing - it is the maximum of a column of eight-digit strings spread
+        over two files.
+      properties:
+        first_date:
+          type: string
+          format: date
+          nullable: true
+        last_date:
+          type: string
+          format: date
+          nullable: true
+        days_remaining:
+          type: integer
+          nullable: true
+          description: Negative when the feed has already expired.
+        truncated:
+          type: boolean
+          description: Whether the window was cut short before expansion.
+        note:
+          type: string
+          description: Why there is no window, when there is none.
+
+    FeedFeature:
+      type: object
+      description: >-
+        One optional part of GTFS, reported present or absent. Absent is
+        reported rather than omitted: "no shapes" is the answer to a question
+        someone asked, and a missing row looks like a check that did not run.
+      required: [name, description, present, tables]
+      properties:
+        name:
+          type: string
+          example: Fares v2
+        description:
+          type: string
+        present:
+          type: boolean
+        tables:
+          type: array
+          description: The files that evidence it, for linking into them.
+          items:
+            type: string
+
+    OverviewResponse:
+      type: object
+      required: [agencies, modes, counts, service, features]
+      properties:
+        published:
+          type: object
+          description: >-
+            `feed_info.txt`'s single row, as the columns the feed has. Empty
+            when the feed has no feed_info.txt, which is common.
+          additionalProperties:
+            type: string
+            nullable: true
+        agencies:
+          type: array
+          items:
+            $ref: "#/components/schemas/OverviewAgency"
+        modes:
+          type: array
+          items:
+            $ref: "#/components/schemas/OverviewMode"
+        counts:
+          $ref: "#/components/schemas/OverviewCounts"
+        service:
+          $ref: "#/components/schemas/ServiceWindow"
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedFeature"
+
+    CalendarDay:
+      type: object
+      description: >-
+        One date in the feed's window. Dates with no service are present and
+        carry `trips: 0` - a day nothing runs is the most useful thing a
+        calendar can show, and omitting it makes it indistinguishable from a
+        date outside the feed.
+      required: [service_date, weekday, services, trips, routes]
+      properties:
+        # Not `date`: the generator treats that as reserved, renames the field
+        # `_date`, and pydantic refuses a leading underscore outright. The name
+        # is also the more accurate one - this is a service date, which in GTFS
+        # starts when the first trip of the day does and can run past midnight.
+        service_date:
+          type: string
+          format: date
+          example: "2026-03-14"
+        weekday:
+          type: integer
+          description: 0 is Sunday, as `strftime('%w')` numbers them.
+          minimum: 0
+          maximum: 6
+        services:
+          type: array
+          description: The `service_id`s active that date, sorted.
+          items:
+            type: string
+        trips:
+          type: integer
+          format: int64
+          description: Trips running that date, summed over its services.
+        routes:
+          type: integer
+          format: int64
+          description: >-
+            Distinct routes running that date. The other half of what a
+            calendar is asked: a day with the same trip count as another can
+            still be a very different day if half the network is missing.
+        truncated:
+          type: boolean
+          description: Set on the last day only, when the window was cut short.
+
+    ServicePattern:
+      type: object
+      description: >-
+        A group of dates on which exactly the same set of services is active.
+        This is what makes a calendar legible: a feed with fourteen service ids
+        usually has four or five genuinely different days in it, and a group of
+        one date is almost always a holiday.
+      required: [name, services, trips, routes, days, weekdays, first_date, last_date, sample_dates]
+      properties:
+        name:
+          type: string
+          description: >-
+            Named from the days it falls on, not from the services in it - a
+            reader recognises "Weekdays" and has never seen `S_WKDY_24B`. A
+            group of one date is named by the date.
+          example: Weekdays
+        services:
+          type: array
+          items:
+            type: string
+        trips:
+          type: integer
+          format: int64
+          description: Trips on any one of these dates; identical across the group.
+        routes:
+          type: integer
+          format: int64
+          description: Distinct routes on any one of these dates.
+        days:
+          type: integer
+          description: How many dates are in the group.
+        weekdays:
+          type: array
+          description: Which weekdays it falls on, 0 = Sunday.
+          items:
+            type: integer
+        first_date:
+          type: string
+          format: date
+        last_date:
+          type: string
+          format: date
+        sample_dates:
+          type: array
+          description: The first few dates, for showing what the group means.
+          items:
+            type: string
+            format: date
+
+    WeekdayProfile:
+      type: object
+      description: >-
+        What runs on a Monday, a Tuesday, and so on. `typical_trips` is the most
+        common value rather than the mean, because the mean of fifty-two Mondays
+        and two public holidays is a number that happens on no Monday at all.
+      required: [weekday, name, dates, dates_with_service, typical_trips, max_trips]
+      properties:
+        weekday:
+          type: integer
+          minimum: 0
+          maximum: 6
+        name:
+          type: string
+          example: Monday
+        dates:
+          type: integer
+          description: How many such dates the window contains.
+        dates_with_service:
+          type: integer
+          description: How many of them anything runs on.
+        typical_trips:
+          type: integer
+          format: int64
+        max_trips:
+          type: integer
+          format: int64
+
+    CalendarResponse:
+      type: object
+      required: [days, patterns, weekdays]
+      properties:
+        first_date:
+          type: string
+          format: date
+          nullable: true
+        last_date:
+          type: string
+          format: date
+          nullable: true
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarDay"
+        patterns:
+          type: array
+          items:
+            $ref: "#/components/schemas/ServicePattern"
+        weekdays:
+          type: array
+          description: Monday first, which is how a timetable is read.
+          items:
+            $ref: "#/components/schemas/WeekdayProfile"
+        truncated:
+          type: boolean
+          description: Whether the window was cut short before expansion.
+
+    RouteSummary:
+      type: object
+      description: One route, as a list shows it.
+      required: [route_id, mode, trips, services]
+      properties:
+        route_id:
+          type: string
+        short_name:
+          type: string
+          nullable: true
+        long_name:
+          type: string
+          nullable: true
+        route_type:
+          type: string
+          nullable: true
+        mode:
+          type: string
+          description: What `route_type` names, spelled out.
+          example: Bus
+        color:
+          type: string
+          nullable: true
+          description: The feed's own `route_color`, six hex digits with no `#`.
+          example: FF0000
+        text_color:
+          type: string
+          nullable: true
+        agency_id:
+          type: string
+          nullable: true
+        agency_name:
+          type: string
+          nullable: true
+        trips:
+          type: integer
+          format: int64
+        services:
+          type: integer
+          description: Distinct `service_id`s this route's trips use.
+
+    RouteListResponse:
+      type: object
+      required: [routes]
+      properties:
+        routes:
+          type: array
+          description: >-
+            Ordered by `route_sort_order` where the feed states one, then by the
+            numeric part of the short name - so route 2 comes before route 10,
+            which a plain string sort does not manage.
+          items:
+            $ref: "#/components/schemas/RouteSummary"
+
+    RouteDirection:
+      type: object
+      description: >-
+        One half of a route. `direction_id` is optional in GTFS and plenty of
+        feeds leave it empty; such a route comes back as one unnamed direction
+        rather than as nothing.
+      required: [trips, headsigns, shape_ids]
+      properties:
+        direction_id:
+          type: string
+          nullable: true
+        trips:
+          type: integer
+          format: int64
+        headsigns:
+          type: array
+          description: What the vehicle displays, which is what a rider looks for.
+          items:
+            type: string
+        shape_ids:
+          type: array
+          description: >-
+            The shapes this direction's trips draw, capped - a route whose every
+            trip has its own shape would otherwise hand the map thousands of ids
+            to fetch at once.
+          items:
+            type: string
+
+    PatternStop:
+      type: object
+      required: [stop_id]
+      properties:
+        stop_id:
+          type: string
+        stop_name:
+          type: string
+          nullable: true
+
+    RoutePattern:
+      type: object
+      description: >-
+        One distinct stop sequence the route's trips follow. GTFS has no name
+        for this and operators have several - pattern, variant, journey pattern
+        - but it is the thing they check first: a route that looks like one line
+        on a map is usually four slightly different ones, and a sequence
+        followed by a single trip is where the mistakes are.
+      required: [trips, stops]
+      properties:
+        direction_id:
+          type: string
+          nullable: true
+        headsign:
+          type: string
+          nullable: true
+        trips:
+          type: integer
+          format: int64
+        example_trip_id:
+          type: string
+          nullable: true
+          description: One trip that follows it, for opening in the trip rows.
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/PatternStop"
+
+    HourCount:
+      type: object
+      required: [hour, trips]
+      properties:
+        hour:
+          type: integer
+          description: >-
+            Hours run past 23 because GTFS times do: a trip leaving at 25:10
+            belongs to the service day before, not to the next morning.
+        trips:
+          type: integer
+          format: int64
+
+    RouteTimetable:
+      type: object
+      description: When the route starts, when it stops, and when its trips leave.
+      required: [hours]
+      properties:
+        first_departure:
+          type: string
+          nullable: true
+          description: Earliest departure from any trip's first stop.
+          example: "05:12:00"
+        last_arrival:
+          type: string
+          nullable: true
+          description: Latest arrival at any trip's last stop; may exceed 24:00:00.
+          example: "25:40:00"
+        hours:
+          type: array
+          description: >-
+            Each trip counted once, at the hour it leaves its first stop - the
+            count an operator means by "trips per hour".
+          items:
+            $ref: "#/components/schemas/HourCount"
+
+    RouteDay:
+      type: object
+      description: What a route does on one day.
+      required: [service_date, trips]
+      properties:
+        service_date:
+          type: string
+          format: date
+        trips:
+          type: integer
+          format: int64
+          description: >-
+            Zero - rather than the field being absent - on a day the route does
+            not run, which is an answer rather than a gap.
+
+    RouteDetailResponse:
+      type: object
+      required: [route, mode, trips, directions, patterns, timetable, weekdays, service_patterns]
+      properties:
+        day:
+          allOf:
+            - $ref: "#/components/schemas/RouteDay"
+          nullable: true
+          description: >-
+            Present only when `service_date` was given. Additive: a client that
+            does not ask sees exactly what it saw before.
+        route:
+          type: object
+          description: The route's own row, as the columns the feed has.
+          additionalProperties:
+            type: string
+            nullable: true
+        mode:
+          type: string
+        agency_name:
+          type: string
+          nullable: true
+        trips:
+          type: integer
+          format: int64
+        directions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RouteDirection"
+        patterns:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutePattern"
+        timetable:
+          $ref: "#/components/schemas/RouteTimetable"
+        weekdays:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeekdayProfile"
+        service_patterns:
+          type: array
+          description: Only the patterns this route actually runs in.
+          items:
+            $ref: "#/components/schemas/ServicePattern"
+        first_date:
+          type: string
+          format: date
+          nullable: true
+          description: First date the route runs, which may be later than the feed's.
+        last_date:
+          type: string
+          format: date
+          nullable: true
+        days_running:
+          type: integer
+          description: Dates in the window on which at least one trip runs.
+
+    TimetableCall:
+      type: object
+      description: >-
+        One trip's call at one stop. Times are as the feed writes them and may
+        exceed `24:00:00`, which means the service day running into the next.
+      properties:
+        arrival:
+          type: string
+          nullable: true
+          example: "07:21:00"
+        departure:
+          type: string
+          nullable: true
+          example: "07:21:00"
+        stop_sequence:
+          type: integer
+          nullable: true
+          description: As the feed states it; null when it is not a number.
+
+    TimetableTrip:
+      type: object
+      description: One column of the grid.
+      required: [trip_id, calls]
+      properties:
+        trip_id:
+          type: string
+        direction_id:
+          type: string
+          nullable: true
+        headsign:
+          type: string
+          nullable: true
+        service_id:
+          type: string
+          nullable: true
+        block_id:
+          type: string
+          nullable: true
+          description: >-
+            The vehicle working this trip belongs to, where the feed states one.
+            Carried because a block is a dispatcher's unit of work, and it costs
+            nothing to include here.
+        calls:
+          type: array
+          description: >-
+            Aligned to `stops`, one entry per row. Null where this trip does not
+            call at that stop.
+          items:
+            allOf:
+              - $ref: "#/components/schemas/TimetableCall"
+            nullable: true
+
+    TimetableResponse:
+      type: object
+      required: [route_id, service_date, stops, trips, truncated]
+      properties:
+        route_id:
+          type: string
+        direction_id:
+          type: string
+          nullable: true
+          description: The direction asked for, or null when both were.
+        service_date:
+          type: string
+          format: date
+        route_short_name:
+          type: string
+          nullable: true
+        route_long_name:
+          type: string
+          nullable: true
+        stops:
+          type: array
+          description: The row order, covering every trip in `trips`.
+          items:
+            $ref: "#/components/schemas/PatternStop"
+        trips:
+          type: array
+          description: Ordered by the time of each trip's first call.
+          items:
+            $ref: "#/components/schemas/TimetableTrip"
+        truncated:
+          type: boolean
+          description: >-
+            Whether trips were cut. A route-day with more columns than the grid
+            draws is a trunk corridor every two minutes, where the hundredth
+            column says nothing the tenth did not.
+        times_are_windows:
+          type: boolean
+          description: >-
+            Whether a call's `arrival` and `departure` are a booking window
+            rather than a scheduled call. True for a demand-responsive service,
+            which states `start_pickup_drop_off_window` and
+            `end_pickup_drop_off_window` instead of fixed times - so a reader is
+            not shown "05:45" for a service bookable between 05:45 and 19:45.

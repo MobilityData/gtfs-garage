@@ -13,17 +13,25 @@
  */
 
 import type {
+  CalendarSummary,
   FeatureCollection,
   FileMetrics,
   LoadMetrics,
   Filter,
   GeoJsonKind,
+  Overview,
+  RouteDetail,
+  RouteSummary,
+  Timetable,
   ViewerSource,
   PageResponse,
   TablesResponse,
   ValueCount,
 } from "./types";
 import { columnInfo, missingFiles, schemaTables } from "../schema";
+import { createExplore, type Catalogue, type Explore } from "./explore";
+import { createMapGeometry, type MapGeometry } from "./explore/geojson";
+import type { NdjsonMessage } from "./ndjson";
 
 /** The dataset's own description of itself, written by `gtfs-garage --export`. */
 interface Manifest {
@@ -63,8 +71,6 @@ type Connection = {
   query(sql: string): Promise<{ toArray(): Record<string, unknown>[] }>;
   close(): Promise<void>;
 };
-
-const MAPLESS = "ParquetSource cannot draw a map yet - mount without the map part.";
 
 const OPERATORS = new Set(["eq", "ne", "contains", "in", "is_empty", "is_not_empty"]);
 
@@ -117,6 +123,17 @@ export interface ParquetSourceOptions {
 
 export class ParquetSource implements ViewerSource {
   private connection: Connection | null = null;
+  /**
+   * The derived views, built once the table list is known.
+   *
+   * Not in the constructor: every query they run names a column, and which
+   * columns exist is only known after `tables()` has read the dataset.
+   */
+  private explore: Explore | null = null;
+  /** The map's layers, built from the same Parquet. See `explore/geojson.ts`. */
+  private geometry: MapGeometry | null = null;
+  /** An in-flight `tables()` the map is waiting on. See `layers`. */
+  private reading: Promise<void> | null = null;
   private terminate: (() => Promise<void>) | null = null;
   private present: Record<string, string[]> = {};
   private startupMs = 0;
@@ -234,6 +251,46 @@ export class ParquetSource implements ViewerSource {
     return (await connection.query(sql)).toArray().map((row) => ({ ...row }));
   }
 
+  /** What the derived views know about this dataset. See `explore/sql.ts`. */
+  private catalogue(): Catalogue {
+    return {
+      columns: (table: string) => this.present[table],
+      file: (table: string) => this.file(table),
+    };
+  }
+
+  /**
+   * The derived views, or an error naming why there are none.
+   *
+   * `tables()` is always called before any of these - the viewer reads the
+   * feed before it draws anything - so reaching the throw means a caller used
+   * the source directly and out of order.
+   */
+  private views(): Explore {
+    if (!this.explore) throw new Error("Read the dataset's tables before its derived views.");
+    return this.explore;
+  }
+
+  overview(): Promise<Overview> {
+    return this.views().overview();
+  }
+
+  calendar(): Promise<CalendarSummary> {
+    return this.views().calendar();
+  }
+
+  routes(serviceDate?: string): Promise<RouteSummary[]> {
+    return this.views().routes(serviceDate);
+  }
+
+  route(routeId: string, serviceDate?: string): Promise<RouteDetail> {
+    return this.views().route(routeId, serviceDate);
+  }
+
+  timetable(routeId: string, serviceDate: string, directionId?: string | null): Promise<Timetable> {
+    return this.views().timetable(routeId, serviceDate, directionId);
+  }
+
   async tables(): Promise<TablesResponse> {
     const startedAt = performance.now();
     const connection = await this.connect();
@@ -285,6 +342,10 @@ export class ParquetSource implements ViewerSource {
     }
 
     this.firstQueryMs = performance.now() - startedAt - this.startupMs - (this.manifestMs ?? 0);
+
+    // Built here because it needs the column list this pass just read.
+    this.explore = createExplore((sql) => this.rows(sql), this.catalogue());
+    this.geometry = createMapGeometry((sql) => this.rows(sql), this.catalogue());
 
     // The per-file rows come from the manifest, which recorded what each file
     // weighed before conversion - sizes the dataset no longer carries.
@@ -349,15 +410,40 @@ export class ParquetSource implements ViewerSource {
     }));
   }
 
-  // Reached only if the viewer is mounted with a map, which this source does not
-  // support yet - building GeoJSON means porting the layer building, the vertex
-  // budget and the thinning that `core/geojson.py` does. Both throw rather than
-  // return nothing, which would look like a feed with no stops.
-  geojson(_kind: GeoJsonKind, _ids?: string[]): Promise<FeatureCollection> {
-    return Promise.reject(new Error(MAPLESS));
+  /**
+   * The map's layers, from the same Parquet the tables come from.
+   *
+   * Both go through `explore/geojson.ts`, which mirrors `core/geojson.py` -
+   * same layers, same vertex budget, same properties - so a host mounting this
+   * source with a map gets the map the server draws rather than a lesser one.
+   */
+  async geojson(kind: GeoJsonKind, ids?: string[]): Promise<FeatureCollection> {
+    return (await this.layers()).collection(kind, ids);
   }
 
-  geojsonStream(_kind: GeoJsonKind, _onMessage: unknown, _signal?: AbortSignal): Promise<void> {
-    return Promise.reject(new Error(MAPLESS));
+  async geojsonStream(
+    kind: GeoJsonKind,
+    onMessage: (message: NdjsonMessage) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return (await this.layers()).stream(kind, onMessage, signal);
+  }
+
+  /**
+   * The map's builder, reading the dataset first if nothing else has.
+   *
+   * Unlike the derived views, which a screen asks for after the feed is open,
+   * the map starts drawing as soon as it is visible - which can be before the
+   * table list has been read. Waiting here rather than throwing is the
+   * difference between a map that draws a moment later and one that does not
+   * draw at all. Memoised, so four layers starting at once read once.
+   */
+  private async layers(): Promise<MapGeometry> {
+    if (!this.geometry) {
+      this.reading ??= this.tables().then(() => undefined);
+      await this.reading;
+    }
+    if (!this.geometry) throw new Error("This dataset has no readable tables to draw.");
+    return this.geometry;
   }
 }

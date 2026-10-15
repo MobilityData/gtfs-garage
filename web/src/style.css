@@ -111,24 +111,59 @@
    so only the marker is muted. */
 .gtfs-viewer .table-tab.forbidden .count { font-style: italic; }
 
+/* A column: the toolbar, then the panes. Back and the chosen day stay at the
+   top whichever way a screen asks for the map, which a toolbar inside one of
+   the panes does not - it slides under a map laid above it. */
 .gtfs-viewer [data-el="content"] {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gtfs-viewer [data-el="panes"] {
   flex: 1;
   display: flex;
   min-width: 0;
   min-height: 0;
 }
 
-.gtfs-viewer [data-el="table-pane"] {
+/* The file browser and the derived views share a column: one of the two is
+   showing at any time. */
+.gtfs-viewer [data-el="browse-pane"] {
   flex: 1.3;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   border-right: 1px solid var(--border);
+}
+
+.gtfs-viewer [data-el="toolbar"] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+.gtfs-viewer [data-el="table-pane"] {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
 .gtfs-viewer [data-el="map-pane"] {
   flex: 1;
   min-width: 0;
+  /* Needed for the `above` layout: without it a column-flex map refuses to
+     shrink below its content and pushes the screen off the bottom. */
+  min-height: 0;
   position: relative;
 }
 
@@ -628,3 +663,788 @@
 .gtfs-viewer .value-link {
   color: var(--accent);
 }
+
+/* ---------------------------------------------------------------------------
+ * The derived views.
+ *
+ * They share the viewer's tokens rather than introducing their own palette, so
+ * a host that themes the viewer themes these too. The one addition is the
+ * calendar's shading ramp, which has to be a ramp and cannot be derived from a
+ * single accent colour.
+ * ------------------------------------------------------------------------ */
+
+.gtfs-viewer [hidden] { display: none !important; }
+
+.gtfs-viewer [data-el="screen-pane"] {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.gtfs-viewer .sidebar-group {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 10px 4px;
+}
+
+.gtfs-viewer .explore-tab { justify-content: flex-start; }
+
+.gtfs-viewer .explore { padding: 16px 20px 32px; }
+.gtfs-viewer .explore h2 { margin: 0 0 2px; font-size: 18px; }
+.gtfs-viewer .explore h3 { margin: 0 0 2px; font-size: 13px; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted); }
+.gtfs-viewer .explore-hint { color: var(--muted); font-size: 12px; }
+.gtfs-viewer .explore-section { margin-top: 22px; }
+.gtfs-viewer .explore-section > p { margin: 0 0 10px; }
+
+.gtfs-viewer .explore-loading,
+.gtfs-viewer .explore-error { padding: 24px; color: var(--muted); font-size: 13px; }
+.gtfs-viewer .explore-error strong { color: var(--text); }
+
+.gtfs-viewer .explore-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+.gtfs-viewer .explore-link:hover { text-decoration: underline; }
+
+.gtfs-viewer .overview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  /* Without it a long feed name or a wide control sets the width of the whole
+     screen rather than wrapping inside it. */
+  min-width: 0;
+}
+
+.gtfs-viewer .overview-header > div { min-width: 0; }
+.gtfs-viewer .overview-header h2 { overflow-wrap: anywhere; }
+
+/* The feed's remaining life, which is the one figure worth a colour. */
+.gtfs-viewer .window-badge {
+  text-align: right;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  font: inherit;
+  cursor: pointer;
+}
+.gtfs-viewer .window-dates { font-size: 12px; color: var(--muted); }
+.gtfs-viewer .window-remaining { font-weight: 600; font-size: 14px; }
+.gtfs-viewer .window-ok .window-remaining { color: #15803d; }
+.gtfs-viewer .window-warn .window-remaining { color: #b45309; }
+.gtfs-viewer .window-gone .window-remaining { color: #b91c1c; }
+
+.gtfs-viewer .stat-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.gtfs-viewer .stat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 104px;
+}
+.gtfs-viewer .stat-clickable { cursor: pointer; }
+.gtfs-viewer .stat-clickable:hover { border-color: var(--accent); }
+.gtfs-viewer .stat-value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.gtfs-viewer .stat-label { font-size: 12px; color: var(--muted); }
+
+.gtfs-viewer .agency-list { list-style: none; margin: 0; padding: 0; }
+.gtfs-viewer .agency-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.gtfs-viewer .agency-name { font-weight: 600; font-size: 13px; }
+
+.gtfs-viewer .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.gtfs-viewer .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.gtfs-viewer .chip:hover { border-color: var(--accent); }
+.gtfs-viewer .chip-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.gtfs-viewer .feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.gtfs-viewer .feature {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+}
+.gtfs-viewer .feature-off { opacity: 0.55; }
+.gtfs-viewer .feature-name { font-size: 13px; font-weight: 600; }
+/* Wrapped, and each link kept whole: three file names in a narrow card ran
+   past its edge rather than onto a second line. */
+.gtfs-viewer .feature-links {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.gtfs-viewer .feature-links .explore-link { margin-right: 0; }
+
+.gtfs-viewer .explore-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  font-size: 13px;
+}
+.gtfs-viewer .explore-table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+}
+.gtfs-viewer .explore-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.gtfs-viewer .explore-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+.gtfs-viewer .pattern-name { font-weight: 600; }
+.gtfs-viewer .pattern-empty { opacity: 0.6; }
+/* A service_id can be forty characters of no natural break point, and a row
+   of them pushed the whole table past the edge of its pane. They wrap now, and
+   the table scrolls on its own rather than taking the page with it. */
+.gtfs-viewer .service-ids {
+  max-width: 260px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.gtfs-viewer .service-ids .explore-link {
+  margin-right: 0;
+  overflow-wrap: anywhere;
+}
+
+.gtfs-viewer .explore-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.gtfs-viewer .weekday-chart { display: flex; flex-direction: column; gap: 3px; }
+.gtfs-viewer .weekday-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.gtfs-viewer .weekday-name { width: 74px; color: var(--muted); }
+.gtfs-viewer .weekday-track { flex: 1; background: var(--chip-bg); border-radius: 4px; height: 14px; }
+.gtfs-viewer .weekday-bar { display: block; height: 100%; border-radius: 4px; background: var(--accent); min-width: 2px; }
+.gtfs-viewer .weekday-value { width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.gtfs-viewer .gap-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.gtfs-viewer .gap-list li { padding: 3px 0; }
+
+.gtfs-viewer .calendar-months {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 14px;
+}
+.gtfs-viewer .month-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.gtfs-viewer .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.gtfs-viewer .month-weekday { font-size: 9px; color: var(--muted); text-align: center; }
+.gtfs-viewer .day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 9px;
+  color: var(--muted);
+  background: var(--chip-bg);
+}
+/* A ramp rather than one colour at four opacities: the pale end has to stay
+   distinguishable from "nothing runs", which is the whole point of the grid. */
+.gtfs-viewer .day-0 { background: var(--chip-bg); }
+.gtfs-viewer .day-1 { background: #cfe0fb; color: #1e3a8a; }
+.gtfs-viewer .day-2 { background: #9dc1f7; color: #1e3a8a; }
+.gtfs-viewer .day-3 { background: #5d93ee; color: #fff; }
+.gtfs-viewer .day-4 { background: #2563eb; color: #fff; }
+.gtfs-viewer .day-blank { background: none; }
+
+/* Grows into the room it has and gives it back when there is none: a fixed
+   240px minimum pushed the whole screen wider than its pane once the map was
+   beside it. */
+.gtfs-viewer .route-search {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 320px;
+}
+.gtfs-viewer .route-group { margin-top: 18px; }
+.gtfs-viewer .route-group-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.gtfs-viewer .route-row { cursor: pointer; }
+.gtfs-viewer .route-row:hover { background: var(--accent-bg); }
+.gtfs-viewer .route-name { font-weight: 600; }
+
+.gtfs-viewer .route-badge {
+  display: inline-block;
+  min-width: 34px;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--chip-bg);
+}
+.gtfs-viewer .route-title { display: flex; align-items: center; gap: 10px; }
+.gtfs-viewer .route-actions { display: flex; gap: 4px; align-items: center; }
+
+.gtfs-viewer .direction-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.gtfs-viewer .direction {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+  min-width: 180px;
+}
+.gtfs-viewer .direction-label { font-weight: 600; font-size: 13px; }
+.gtfs-viewer .direction .numeric { font-variant-numeric: tabular-nums; margin: 4px 0 6px; font-size: 12px; }
+
+.gtfs-viewer .pattern-list { display: flex; flex-direction: column; gap: 6px; }
+.gtfs-viewer details.pattern {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px 12px;
+}
+.gtfs-viewer details.pattern summary { cursor: pointer; }
+.gtfs-viewer .pattern-head { display: inline-flex; gap: 10px; align-items: baseline; }
+.gtfs-viewer .stop-sequence { margin: 8px 0 0; padding-left: 22px; font-size: 12px; }
+.gtfs-viewer .stop-sequence li { padding: 1px 0; }
+
+.gtfs-viewer .hour-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 110px;
+  padding-top: 8px;
+}
+.gtfs-viewer .hour { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+.gtfs-viewer .hour-bar { display: block; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 1px; }
+.gtfs-viewer .hour-label { font-size: 9px; color: var(--muted); text-align: center; height: 12px; }
+
+/* --- Picking a day, and what it holds ----------------------------------- */
+
+.gtfs-viewer .calendar-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.gtfs-viewer .calendar-legend .day { width: 14px; height: 14px; aspect-ratio: auto; }
+.gtfs-viewer .calendar-legend .explore-hint { margin-right: 6px; }
+
+/* A day is a button now: it selects, so it has to look like it can be hit. */
+.gtfs-viewer .month-grid .day {
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 9px;
+  padding: 0;
+  cursor: pointer;
+}
+.gtfs-viewer .month-grid .day-blank { cursor: default; }
+.gtfs-viewer .month-grid .day:hover { border-color: var(--accent); }
+.gtfs-viewer .day-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.gtfs-viewer .day-panel {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 10px 12px;
+  margin-top: 14px;
+}
+.gtfs-viewer .day-panel-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.gtfs-viewer .day-routes { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.gtfs-viewer .day-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+
+.gtfs-viewer .route-chip {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.gtfs-viewer .route-chip:hover { border-color: var(--accent); }
+
+.gtfs-viewer .agency-more { padding-top: 8px; border-bottom: none; }
+
+/* --- The route card's map controls -------------------------------------- */
+
+.gtfs-viewer .map-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+}
+
+/* --- Stop patterns ------------------------------------------------------- */
+
+.gtfs-viewer .pattern-headsign { font-size: 12px; color: var(--text); }
+.gtfs-viewer .pattern-body { margin-top: 8px; }
+.gtfs-viewer .pattern-links { margin-top: 6px; }
+
+
+/* --- Where the map sits, per screen ------------------------------------- */
+
+/*
+ * `beside` is the default and is the rule above. `above` turns the content row
+ * into a column so a grid of trip columns gets the full width and the map
+ * becomes a band over it; `none` takes the map away for a screen with nothing
+ * to put on it.
+ */
+.gtfs-viewer [data-el="content"][data-layout="above"] [data-el="panes"] {
+  flex-direction: column;
+}
+
+.gtfs-viewer [data-el="content"][data-layout="above"] [data-el="map-pane"] {
+  flex: 0 0 32%;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+  order: -1;
+}
+
+.gtfs-viewer [data-el="content"][data-layout="above"] [data-el="browse-pane"] {
+  border-right: none;
+}
+
+.gtfs-viewer [data-el="content"][data-layout="none"] [data-el="map-pane"] {
+  display: none;
+}
+
+/* --- Explore | Files ----------------------------------------------------- */
+
+.gtfs-viewer [data-el="mode-switch"] {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.gtfs-viewer button.mode {
+  border: none;
+  border-radius: 0;
+  padding: 5px 14px;
+  font-size: 13px;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.gtfs-viewer button.mode.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- The chosen day ------------------------------------------------------ */
+
+/*
+ * A chip rather than a permanent control: nothing is filtered by date until
+ * someone asks, so on an untouched feed there is nothing here at all. When
+ * there is, it sits above the content it governs and carries its own way out.
+ */
+.gtfs-viewer .date-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 6px 4px 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.gtfs-viewer [data-el="date-chip-day"] { font-weight: 600; color: var(--accent); }
+
+.gtfs-viewer .date-chip button {
+  border: none;
+  background: none;
+  padding: 2px 7px;
+  line-height: 1;
+  color: var(--accent);
+  border-radius: 999px;
+}
+
+.gtfs-viewer .date-chip button:hover { background: var(--panel); }
+.gtfs-viewer [data-el="date-clear"] { font-size: 16px; }
+
+/* Anchored to the toolbar rather than the chip, so it does not move as the
+   chip's wording changes width. */
+.gtfs-viewer [data-el="toolbar"] { position: relative; }
+
+.gtfs-viewer .date-menu {
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  z-index: 20;
+  min-width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+}
+
+.gtfs-viewer .date-menu-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.gtfs-viewer .date-menu-item:hover { background: var(--accent-bg); color: var(--accent); }
+.gtfs-viewer .date-menu-date { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* --- Service periods ------------------------------------------------------ */
+
+/*
+ * One band per kind of day across the feed's range. A year grid cannot show a
+ * feed that runs to 2100; a time axis can show any of them, and the thing worth
+ * seeing - where one schedule ends and the next begins - is where the bands
+ * stop and start.
+ */
+.gtfs-viewer .periods { display: flex; flex-direction: column; gap: 4px; }
+
+.gtfs-viewer .period-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.gtfs-viewer .period-name {
+  width: 150px;
+  flex-shrink: 0;
+  text-align: right;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.gtfs-viewer .period-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  background: var(--chip-bg);
+  border-radius: 4px;
+}
+
+.gtfs-viewer .period-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  min-width: 3px;
+}
+
+.gtfs-viewer .period-bar:hover { background: #1d4ed8; }
+
+.gtfs-viewer .period-days {
+  width: 62px;
+  text-align: right;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gtfs-viewer .period-axis .period-track { background: none; height: auto; }
+.gtfs-viewer .axis-start, .gtfs-viewer .axis-end { color: var(--muted); font-size: 11px; }
+.gtfs-viewer .axis-end { float: right; }
+
+.gtfs-viewer .change-list { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+
+.gtfs-viewer .change-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.gtfs-viewer .change-date { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* --- Choosing a day for a timetable --------------------------------------- */
+
+.gtfs-viewer .day-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gtfs-viewer .day-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  text-align: left;
+}
+
+.gtfs-viewer .day-choice:hover { border-color: var(--accent); }
+.gtfs-viewer .day-choice-label { font-weight: 600; font-size: 13px; }
+.gtfs-viewer .day-choice-date { color: var(--muted); font-size: 12px; }
+
+/* --- The timetable grid --------------------------------------------------- */
+
+/*
+ * A stops-by-trips grid is wide by nature, so the trips scroll and the stop
+ * names stay. Sticky rather than a second table: one table keeps the rows
+ * aligned without measuring anything, which two tables cannot promise once a
+ * stop name wraps.
+ */
+.gtfs-viewer .timetable-scroll {
+  overflow: auto;
+  max-height: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.gtfs-viewer table.timetable {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gtfs-viewer table.timetable th,
+.gtfs-viewer table.timetable td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.gtfs-viewer table.timetable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.gtfs-viewer table.timetable .stop-head,
+.gtfs-viewer table.timetable .stop-cell {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  text-align: left;
+  min-width: 170px;
+}
+
+.gtfs-viewer table.timetable thead .stop-head {
+  z-index: 3;
+}
+
+.gtfs-viewer .trip-head {
+  cursor: pointer;
+  font-weight: 600;
+  text-align: right;
+}
+
+.gtfs-viewer .trip-head:hover { background: var(--accent-bg); }
+.gtfs-viewer .trip-head.selected { background: var(--accent-bg); color: var(--accent); }
+
+/* The vehicle working, where the feed states one. Muted: it is context for a
+   dispatcher, not the number the column is read by. */
+.gtfs-viewer .trip-block {
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.gtfs-viewer .time-cell { text-align: right; }
+
+/* A cell is one row of stop_times.txt, and clicking it opens that row. Marked
+   only on hover: an underline on every time in a grid of hundreds would make
+   the timetable unreadable to get one affordance across. */
+.gtfs-viewer .time-linked { cursor: pointer; }
+.gtfs-viewer .time-linked:hover { background: var(--accent-bg); color: var(--accent); }
+
+/* The stop's own label, which puts it on the map above rather than opening a
+   file. Styled as text, not a button: it is a table cell, and a row of grey
+   boxes down the left of a timetable reads as chrome. */
+.gtfs-viewer .stop-name {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gtfs-viewer .stop-name:hover { color: var(--accent); text-decoration: underline; }
+
+/* The other identifier, and the way into stops.txt. */
+.gtfs-viewer .stop-cell a.explore-link {
+  margin-left: 8px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.gtfs-viewer .stop-cell a.explore-link:hover { color: var(--accent); }
+.gtfs-viewer .stop-cell.selected { background: var(--accent-bg); }
+.gtfs-viewer .stop-cell.selected .stop-name { color: var(--accent); font-weight: 600; }
+
+.gtfs-viewer .timetable-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* The toggle sits at the end of the controls row, like the file browser's. */
+.gtfs-viewer .timetable-controls .raw-toggle { margin-left: auto; }
+
+.gtfs-viewer .map-note { margin-top: 8px; }
+
+/*
+ * Where a stop is, once someone asks. A ring that settles rather than a
+ * permanent pin: the answer is "there", and a marker left behind on every
+ * stop a reader has ever clicked is a map covered in their own history.
+ */
+.gtfs-viewer .stop-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: rgba(37, 99, 235, 0.18);
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5);
+  animation: gtfs-stop-mark 1.4s ease-out 3;
+}
+
+@keyframes gtfs-stop-mark {
+  from { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+  to { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); }
+}
+
+/* A reader who asked not to be moved by animation is told once, statically. */
+@media (prefers-reduced-motion: reduce) {
+  .gtfs-viewer .stop-mark { animation: none; }
+}
+
+/* A trip that does not call here. A dot rather than an empty cell, so a short
+   working reads as a deliberate gap rather than as a rendering fault. */
+.gtfs-viewer .time-blank { color: var(--border); }
+
+.gtfs-viewer .timetable-grid-wrap {
+  margin-top: 14px;
+  min-height: 0;
+}
+
+.gtfs-viewer .chip.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* --- Narrowing the route list -------------------------------------------- */
+
+/*
+ * The counts are half the point: a reader learns the feed has eight rail routes
+ * and fourteen without a colour by reading the filter, before clicking it.
+ */
+.gtfs-viewer .facets {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.gtfs-viewer .facet-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gtfs-viewer .facet-label {
+  width: 110px;
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.gtfs-viewer .facet-chip { padding: 3px 10px; font-size: 12px; }
+
+/* A chosen facet is the accent; an option that would leave nothing is still
+   shown, dimmed, rather than vanishing as the reader narrows. */
+.gtfs-viewer .facet-chip.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.gtfs-viewer .facet-chip.active .chip-count { color: rgba(255, 255, 255, 0.8); }
+
+.gtfs-viewer .facet-chip.facet-empty { opacity: 0.45; }
+
+.gtfs-viewer .facet-summary {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gtfs-viewer .facet-summary .explore-hint { font-weight: 400; }

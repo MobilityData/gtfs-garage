@@ -37,16 +37,71 @@ export interface HistoryPort {
   initialView(): View | null;
 }
 
-/** `?table=stops&page=2&filters=[…]` - the shape a shared link has. */
+/**
+ * Parameter names the viewer owns. Everything else in a screen's URL belongs to
+ * that screen, which is what lets a route list carry `&mode=2` without the
+ * navigator needing to know what a mode is.
+ */
+const RESERVED = new Set(["view", "arg", "date", "table", "page", "filters"]);
+
+/**
+ * `?table=stops&page=2&filters=[…]` - the shape a shared link has.
+ *
+ * A screen is `?view=calendar`, or `?view=route&arg=14`. The parameter is named
+ * `arg` rather than after what it holds because the screens are a list a host
+ * can add to, and a host's screen takes its own kind of argument. Two
+ * parameters rather than one path-like value because a GTFS id is any UTF-8
+ * string and routinely contains the characters a path would use as separators.
+ */
 export function urlFor(view: View): string {
+  if (view.screen) {
+    const params = new URLSearchParams({ view: view.screen });
+    if (view.argument) params.set("arg", view.argument);
+    // A screen's own parameters, under their own names: `&mode=2&agency=STM`
+    // reads as what it is. The names below are reserved for the viewer, and a
+    // screen using one of them would be shadowed by it.
+    for (const [name, value] of Object.entries(view.params ?? {})) {
+      if (!RESERVED.has(name) && value) params.set(name, value);
+    }
+    // Absent means "the feed's own default day", so a link written before the
+    // date existed still opens on something sensible.
+    if (view.date) params.set("date", view.date);
+    return `?${params}`;
+  }
   const params = new URLSearchParams({ table: view.table, page: String(view.page || 1) });
   if (view.filters.length) params.set("filters", JSON.stringify(view.filters));
+  if (view.date) params.set("date", view.date);
   return `?${params}`;
 }
+
+
 
 /** Pure counterpart of reading `location.search`, so it is testable. */
 export function parseUrl(search: string): View | null {
   const params = new URLSearchParams(search);
+
+  // Not checked against the known screens here: which exist depends on the
+  // source and on what the host passed, neither of which this module can see.
+  // `Navigator` refuses a screen the feed has no entry for, the way it refuses
+  // a table the feed does not contain.
+  const screen = params.get("view");
+  if (screen) {
+    const extra: Record<string, string> = {};
+    for (const [name, value] of params.entries()) {
+      if (!RESERVED.has(name)) extra[name] = value;
+    }
+
+    return {
+      table: "",
+      filters: [],
+      page: 1,
+      screen,
+      argument: params.get("arg") ?? undefined,
+      date: params.get("date") ?? undefined,
+      params: Object.keys(extra).length ? extra : undefined,
+    };
+  }
+
   const table = params.get("table");
   if (!table) return null;
 
@@ -57,7 +112,12 @@ export function parseUrl(search: string): View | null {
   } catch {
     filters = [];
   }
-  return { table, filters, page: Number(params.get("page")) || 1 };
+  return {
+    table,
+    filters,
+    page: Number(params.get("page")) || 1,
+    date: params.get("date") ?? undefined,
+  };
 }
 
 /** What the state of a browser history entry looks like, namespaced. */

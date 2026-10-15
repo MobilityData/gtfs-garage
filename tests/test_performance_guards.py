@@ -22,6 +22,9 @@ from fastapi.testclient import TestClient
 
 from gtfs_garage.core import geojson as gj
 from gtfs_garage.core.feed import GtfsFeed
+from gtfs_garage.core.network import route_detail, route_list, route_timetable
+from gtfs_garage.core.overview import feed_overview
+from gtfs_garage.core.service import calendar_summary
 from gtfs_garage.server.app import create_app
 from gtfs_garage.server.routes import router
 
@@ -185,3 +188,87 @@ class TestLayersStream:
         this the map payload crosses the wire raw."""
         response = client.get("/api/geojson/stops", headers={"Accept-Encoding": "gzip"})
         assert response.headers.get("content-encoding") == "gzip"
+
+
+@pytest.fixture()
+def watched(explore_feed: GtfsFeed):
+    """A feed whose every cursor records the SQL run through it.
+
+    The derived views open their own cursors, so recording one is not enough -
+    this replaces the factory, which is the only way to see every statement a
+    whole view costs.
+    """
+    statements: list[str] = []
+    original = explore_feed.cursor
+
+    def recording():
+        cursor = RecordingCursor(original())
+        cursor.statements = statements
+        return cursor
+
+    explore_feed.cursor = recording  # type: ignore[method-assign]
+    try:
+        yield explore_feed, statements
+    finally:
+        explore_feed.cursor = original  # type: ignore[method-assign]
+
+
+class TestTheDerivedViewsStayOffTheBigFile:
+    """`stop_times.txt` is the file that makes a feed large - tens of millions
+    of rows where everything else has thousands. A summary that reads it is a
+    summary that stops answering on a real feed, so the three views that open
+    first are built not to.
+    """
+
+    def test_the_overview_never_reads_stop_times_except_to_count_them(self, watched):
+        feed, statements = watched
+        feed_overview(feed)
+        touching = [s for s in statements if "stop_times" in s]
+        assert touching == ["SELECT COUNT(*) FROM stop_times"]
+
+    def test_the_calendar_never_reads_stop_times_at_all(self, watched):
+        """A date's trip count is the per-service trip counts summed over the
+        services active that day - one small group-by, whatever the feed's size.
+        """
+        feed, statements = watched
+        calendar_summary(feed)
+        assert not [s for s in statements if "stop_times" in s]
+
+    def test_the_route_list_never_reads_stop_times_at_all(self, watched):
+        feed, statements = watched
+        route_list(feed)
+        assert not [s for s in statements if "stop_times" in s]
+
+    def test_a_route_card_reaches_stop_times_only_through_its_own_trips(self, watched):
+        """The one view that has to read it. Every statement that does is
+        filtered to this route's trips and names only the columns it needs, so
+        the cost is a filtered scan of two or three columns rather than a read
+        of the file.
+        """
+        feed, statements = watched
+        route_detail(feed, "10")
+
+        reads = [s for s in statements if "stop_times" in s]
+        assert reads, "the card is expected to read stop_times - this guard is about how"
+        for statement in reads:
+            assert "trip_id IN (SELECT trip_id FROM route_trips)" in statement
+            assert "SELECT st.* " not in statement
+
+    def test_a_timetable_reaches_stop_times_only_through_its_own_route_day(self, watched):
+        """The second view that has to read it, and held to the same rule.
+
+        A timetable is a route on a day, so the narrowing by service belongs
+        inside the trips CTE rather than as a second pass over the big file.
+        """
+        from datetime import date
+
+        feed, statements = watched
+        route_timetable(feed, "10", date(2026, 1, 1))
+
+        reads = [s for s in statements if "stop_times" in s]
+        assert reads, "a timetable is expected to read stop_times - this guard is about how"
+        for statement in reads:
+            assert "trip_id IN (SELECT trip_id FROM route_trips)" in statement
+            assert "SELECT st.* " not in statement
+        # One pass, not one per direction or per trip.
+        assert len(reads) == 1

@@ -1,0 +1,3 @@
+location_group_id,location_id,location_group_name
+grp_north,area_1,North zone
+grp_north,area_2,North zone

@@ -39,6 +39,22 @@ export type GeoFeature = Schemas["Feature"];
 export type FeatureCollection = Schemas["FeatureCollection"];
 export type DatasetManifest = Schemas["DatasetManifest"];
 export type Workspace = Schemas["WorkspaceResponse"];
+export type Overview = Schemas["OverviewResponse"];
+export type OverviewAgency = Schemas["OverviewAgency"];
+export type OverviewMode = Schemas["OverviewMode"];
+export type FeedFeature = Schemas["FeedFeature"];
+export type ServiceWindow = Schemas["ServiceWindow"];
+export type CalendarSummary = Schemas["CalendarResponse"];
+export type CalendarDay = Schemas["CalendarDay"];
+export type ServicePattern = Schemas["ServicePattern"];
+export type WeekdayProfile = Schemas["WeekdayProfile"];
+export type RouteSummary = Schemas["RouteSummary"];
+export type RouteDetail = Schemas["RouteDetailResponse"];
+export type RouteDirection = Schemas["RouteDirection"];
+export type RoutePattern = Schemas["RoutePattern"];
+export type Timetable = Schemas["TimetableResponse"];
+export type TimetableTrip = Schemas["TimetableTrip"];
+export type TimetableCall = Schemas["TimetableCall"];
 export type WorkspaceFeed = Schemas["WorkspaceFeed"];
 
 /** Row values are strings or null: every column is read as text. */
@@ -76,6 +92,38 @@ export interface ViewerSource extends GtfsSource {
    * implementation that omits these is not missing anything - there is simply
    * nothing to show.
    */
+  /**
+   * The derived views: the feed read as a network rather than as files.
+   *
+   * All four are optional together, and a source implements either all of them
+   * or none. They are not a different kind of data - every figure is computed
+   * from the rows `query` already serves - but computing them needs SQL the
+   * browser-side Parquet source does not have, so the interface asks first and
+   * shows the file browser alone when the answer is no.
+   */
+  /**
+   * Whether this source can build the GeoJSON a map draws from.
+   *
+   * `geojson` is required, so its presence proves nothing - a source that
+   * cannot draw a map implements it by rejecting, which is what `ParquetSource`
+   * does. Setting this to false says so up front, so the viewer offers no map
+   * action rather than one that fails at the first click. Absent means yes.
+   */
+  drawsGeometry?: boolean;
+  overview?(): Promise<Overview>;
+  calendar?(): Promise<CalendarSummary>;
+  /** `serviceDate` narrows the list to the routes running that day. */
+  routes?(serviceDate?: string): Promise<RouteSummary[]>;
+  /** `serviceDate` adds what the route does on that one day. */
+  route?(routeId: string, serviceDate?: string): Promise<RouteDetail>;
+  /**
+   * One route's departures on one day, as stops by trips.
+   *
+   * Optional **on its own**, unlike the four above which a source implements
+   * together: it arrived later, and a source written against the earlier
+   * contract keeps every view it had and simply does not offer this one.
+   */
+  timetable?(routeId: string, serviceDate: string, directionId?: string | null): Promise<Timetable>;
   workspace?(): Promise<Workspace>;
   /** Serve a feed the workdir already holds, without fetching it again. */
   reloadFeed?(id: string): Promise<TablesResponse>;

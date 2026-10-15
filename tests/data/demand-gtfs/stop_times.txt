@@ -1,0 +1,7 @@
+trip_id,stop_id,stop_sequence,pickup_type,drop_off_type,start_pickup_drop_off_window,end_pickup_drop_off_window,pickup_booking_rule_id
+t-gen-1,grp_north,1,2,1,05:45:00,19:45:00,book_1
+t-gen-1,area_1,2,2,1,05:45:00,19:45:00,book_1
+t-gen-1,grp_north,3,2,1,05:45:00,19:45:00,book_1
+t-gen-2,grp_north,1,2,1,09:00:00,15:00:00,book_1
+t-gen-2,area_1,2,2,1,09:00:00,15:00:00,book_1
+t-sen-1,area_2,1,2,1,08:00:00,16:00:00,book_1

@@ -1,11 +1,21 @@
 import type MapLibre from "maplibre-gl";
 
 import type { Dom } from "../dom";
+import type { FocusResult } from "../mount";
 import type { FeatureCollection, GeoJsonKind, ViewerSource } from "../sources/types";
 import type { AppState } from "../state";
 import { resolveBasemap } from "./basemap";
 import { bboxOf } from "./geo";
-import { buildStyle, EMPTY_FEATURE_COLLECTION, SOURCE_IDS, type SourceId } from "./layers";
+import {
+  buildStyle,
+  EMPTY_FEATURE_COLLECTION,
+  SOURCE_IDS,
+  STOP_OPACITY,
+  STOP_OPACITY_FOCUSED,
+  STOP_RADIUS,
+  STOP_RADIUS_FOCUSED,
+  type SourceId,
+} from "./layers";
 import { createRedrawSchedule } from "./redraw";
 
 const MAP_VISIBLE_KEY = "gtfs-garage.map-visible";
@@ -59,6 +69,35 @@ export class MapController {
   /** Layers the server thinned to fit, and by how much. */
   private readonly simplifiedLayers = new Map<GeoJsonKind, number>();
 
+  /**
+   * The route features as drawn, kept for framing a focus.
+   *
+   * `querySourceFeatures` only returns what is currently in view, so framing
+   * on it cannot move the map to a route that is off screen - which is every
+   * route, the moment a feed covers more than one city. This is the same
+   * object MapLibre already holds, so keeping it costs nothing.
+   */
+  private routeFeatures: FeatureCollection = { type: "FeatureCollection", features: [] };
+  /** The stops as drawn, for framing a focus that has no lines to frame on. */
+  private stopFeatures: FeatureCollection = { type: "FeatureCollection", features: [] };
+
+  /** The mark left by `focusStop`, so the next call can move it. */
+  private stopMark: MapLibre.Marker | null = null;
+
+  /**
+   * What is currently in focus, so a redraw can put it back.
+   *
+   * `isolate` is the difference between "this route and nothing else" and
+   * "this route, picked out against the rest of the network". Both keep the
+   * route emphasised; only the first hides everything around it.
+   */
+  private focus: {
+    routeIds: string[];
+    stopIds: string[];
+    extra: FeatureCollection | null;
+    isolate: boolean;
+  } | null = null;
+
   private constructor(
     private readonly maplibregl: typeof MapLibre,
     private readonly dom: Dom,
@@ -105,6 +144,11 @@ export class MapController {
     this.dom.el("toggle-map-btn").addEventListener("click", () => this.setVisible(!this.isVisible()));
   }
 
+  /** See `MapHandle.resize`. */
+  resize(): void {
+    this.map.resize();
+  }
+
   isVisible(): boolean {
     return !this.dom.el("map-pane").hidden;
   }
@@ -131,15 +175,10 @@ export class MapController {
     if (!visible) return;
 
     this.map.resize();
+    // `refresh` publishes itself as `pendingRefresh`, so anything drawn while
+    // it runs waits for it rather than being wiped by it.
     if (!this.state.mapDataLoaded) {
-      // Kept rather than fired and forgotten, because `refresh` clears every
-      // source on its way in - `highlight` included - so anything drawn while
-      // it runs has to wait for it.
-      this.pendingRefresh = this.refresh()
-        .catch((error) => console.error("Map layers failed to load:", error))
-        .finally(() => {
-          this.pendingRefresh = null;
-        });
+      void this.refresh().catch((error) => console.error("Map layers failed to load:", error));
     }
   }
 
@@ -151,6 +190,172 @@ export class MapController {
   private fitTo(collection: FeatureCollection, maxZoom: number): void {
     const bbox = bboxOf(collection);
     if (bbox) this.map.fitBounds(bbox, { padding: 40, maxZoom, duration: 600 });
+  }
+
+  /**
+   * Show these routes and nothing else, or go back to the whole network.
+   *
+   * The cheap half is a filter on the layer the feed is already drawn into:
+   * the `routes` source carries `route_id` on every feature, so narrowing to
+   * one costs a style update and no request, which is what makes it usable on
+   * a feed whose shapes took half a minute to arrive.
+   *
+   * That layer holds **one representative shape per route**, though, so for a
+   * single route the caller can pass the route's own shapes in `extra` and get
+   * all of its variants rather than one of them. A route whose trips name no
+   * shape at all has neither, which is why this reports how much it drew: an
+   * empty map with a panel claiming to show a route is worse than saying there
+   * is nothing to show.
+   *
+   * `shapes` holds the lines no route claims, and `stops` every stop in the
+   * feed. Neither can be filtered to a route - their features carry no
+   * route_id - so both are hidden while a focus is on, but only when the focus
+   * has something of its own to put there.
+   */
+  async focusRoutes(
+    routeIds: string[] | null,
+    extra?: FeatureCollection | null,
+    isolate = true,
+    stopIds: string[] = [],
+  ): Promise<FocusResult> {
+    await this.ready;
+    // Asked to show something, so show the map - and wait for the first draw if
+    // it is still running, since a filter set before the layer exists applies
+    // to nothing.
+    if (routeIds && !this.isVisible()) this.setVisible(true);
+    if (this.pendingRefresh) await this.pendingRefresh;
+
+    this.focus = routeIds === null ? null : { routeIds, stopIds, extra: extra ?? null, isolate };
+    // The mark belongs to whatever was in focus when it was left. A screen
+    // showing something else should not inherit a pin on someone's stop.
+    if (routeIds === null) {
+      this.stopMark?.remove();
+      this.stopMark = null;
+    }
+    return this.applyFocus();
+  }
+
+  /**
+   * Put the current focus on the map, and say how many features it drew.
+   *
+   * Separate from `focusRoutes` because a redraw has to reapply it: `refresh`
+   * clears every source, and a focus set while the feed was still streaming
+   * would otherwise be wiped by the draw it was waiting for.
+   */
+  private async applyFocus(): Promise<FocusResult> {
+    const focus = this.focus;
+
+    // The highlight carries the focused route's own geometry and is set
+    // whether or not the rest is hidden - that is what keeps the route picked
+    // out when someone asks to see it in context rather than alone.
+    await this.setSourceData("highlight", focus?.extra ?? EMPTY_FEATURE_COLLECTION);
+
+    const wantedRoutes = new Set(focus?.routeIds ?? []);
+    const matchedRoutes = focus
+      ? this.routeFeatures.features.filter((feature) =>
+          wantedRoutes.has((feature.properties as { route_id?: string }).route_id ?? ""),
+        ).length
+      : 0;
+    const lines = (focus?.extra?.features.length ?? 0) + matchedRoutes;
+
+    // Stops are filtered the way routes are, by an id the features already
+    // carry - no fetch, and no limit on how many a route may have.
+    const wantedStops = new Set(focus?.stopIds ?? []);
+    const points = wantedStops.size
+      ? this.stopFeatures.features.filter((feature) =>
+          wantedStops.has((feature.properties as { stop_id?: string }).stop_id ?? ""),
+        ).length
+      : 0;
+
+    // Isolating means hiding everything else - but only when the focus has
+    // something of its own to put there. A route whose trips name no shape and
+    // whose stops are unplaceable has nothing to draw, and an empty map tells a
+    // reader less than the network they can at least orient by.
+    const isolating = Boolean(focus?.isolate) && lines + points > 0;
+
+    const routeFilter = isolating ? ["in", ["get", "route_id"], ["literal", focus!.routeIds]] : null;
+    for (const layer of ["routes", "routes-white"]) this.map.setFilter(layer, routeFilter);
+    this.map.setLayoutProperty("shapes", "visibility", isolating ? "none" : "visible");
+
+    // The stops of the thing in focus are the point of looking at it. Hidden
+    // only when isolating with no stops named - a day's worth of routes, where
+    // every stop in the city would be noise rather than an answer.
+    const showingStops = isolating && points > 0;
+    this.map.setFilter(
+      "stops",
+      showingStops ? ["in", ["get", "stop_id"], ["literal", focus!.stopIds]] : null,
+    );
+    this.map.setLayoutProperty("stops", "visibility", isolating && !showingStops ? "none" : "visible");
+    this.map.setPaintProperty("stops", "circle-radius", showingStops ? STOP_RADIUS_FOCUSED : STOP_RADIUS);
+    this.map.setPaintProperty("stops", "circle-opacity", showingStops ? STOP_OPACITY_FOCUSED : STOP_OPACITY);
+
+    return { lines, points };
+  }
+
+  /**
+   * Frame the map on what the focus is showing.
+   *
+   * `stopsOnly` frames on the focused stops instead of the route's line, for a
+   * caller that has narrowed to part of a route - one trip of it, say. The
+   * line is still drawn, but framing on it would hold the viewport over the
+   * whole route and a short working would move the map not at all, which reads
+   * as a click that did nothing.
+   */
+  async frameFocus(routeIds: string[], options: { stopsOnly?: boolean } = {}): Promise<void> {
+    await this.ready;
+    // A deep link opens a route while the feed's geometry is still streaming;
+    // framing before it lands would frame nothing.
+    if (this.pendingRefresh) await this.pendingRefresh;
+
+    const wanted = new Set(routeIds);
+    const wantedStops = new Set(this.focus?.stopIds ?? []);
+    // A route with no shapes still has stops, and framing on them is the
+    // difference between showing it and showing the whole world.
+    const stops = this.stopFeatures.features.filter((feature) =>
+      wantedStops.has((feature.properties as { stop_id?: string }).stop_id ?? ""),
+    );
+    const lines = [
+      ...(this.focus?.extra?.features ?? []),
+      ...this.routeFeatures.features.filter((feature) =>
+        wanted.has((feature.properties as { route_id?: string }).route_id ?? ""),
+      ),
+    ];
+
+    // Only when there is something to frame on: a stop with no position in the
+    // feed must leave the viewport alone rather than fly to nowhere.
+    const features = options.stopsOnly && stops.length ? stops : [...lines, ...stops];
+    if (features.length) this.fitTo({ type: "FeatureCollection", features }, 14);
+  }
+
+  /**
+   * Centre on one stop and mark it, so a row in a table has a place on the map.
+   *
+   * The mark is a DOM marker rather than a layer: the `highlight` source is
+   * already carrying the focused route's own geometry, and borrowing it here
+   * would erase the route to show one of its stops. Returns whether the stop
+   * has a position at all - plenty of feeds have stops with no coordinates,
+   * and a reader deserves to be told rather than watch nothing happen.
+   */
+  async focusStop(stopId: string): Promise<boolean> {
+    await this.ready;
+    if (!this.isVisible()) this.setVisible(true);
+    if (this.pendingRefresh) await this.pendingRefresh;
+
+    const feature = this.stopFeatures.features.find(
+      (entry) => ((entry.properties as { stop_id?: string }).stop_id ?? "") === stopId,
+    );
+    const centre = (feature?.geometry as { coordinates?: [number, number] } | undefined)?.coordinates;
+    if (!centre) return false;
+
+    this.map.easeTo({ center: centre, zoom: Math.max(this.map.getZoom(), 14), duration: 600 });
+
+    // One mark at a time: clicking down a list of stops should move the mark,
+    // not leave a trail of them.
+    this.stopMark?.remove();
+    const element = document.createElement("div");
+    element.className = "stop-mark";
+    this.stopMark = new this.maplibregl.Marker({ element }).setLngLat(centre).addTo(this.map);
+    return true;
   }
 
   async highlight(collection: FeatureCollection, options: { point?: boolean } = {}): Promise<void> {
@@ -230,6 +435,8 @@ export class MapController {
 
     await redrawing;
     await this.setSourceData(kind, collection);
+    if (kind === "routes") this.routeFeatures = collection;
+    if (kind === "stops") this.stopFeatures = collection;
     if (simplified) this.simplifiedLayers.set(kind, simplified);
   }
 
@@ -240,10 +447,25 @@ export class MapController {
     return `Showing every point of ${reduced.join(" and ")} would not fit in a browser, so their lines are simplified. No shape is missing.`;
   }
 
-  /** Fetch and draw the whole feed. Skipped entirely while the map is hidden. */
+  /**
+   * Fetch and draw the whole feed. Skipped entirely while the map is hidden.
+   *
+   * Publishes itself as `pendingRefresh` for the whole of its run, so anything
+   * that draws - a highlight, a screen's focus - waits for it instead of being
+   * cleared by the pass it was racing. That the *application's* first draw was
+   * not published this way is what made a deep-linked route report "nothing to
+   * draw": it asked an empty layer and believed the answer.
+   */
   async refresh(): Promise<void> {
     if (!this.isVisible()) return;
+    const running = this.draw();
+    this.pendingRefresh = running.finally(() => {
+      if (this.pendingRefresh === running) this.pendingRefresh = null;
+    });
+    return running;
+  }
 
+  private async draw(): Promise<void> {
     // A load arriving mid-draw abandons the previous feed's layers rather than
     // racing them onto the map after the new feed has already been drawn.
     this.drawing?.abort();
@@ -251,12 +473,18 @@ export class MapController {
     this.drawing = controller;
     this.simplifiedLayers.clear();
     this.state.routeShapes.clear();
+    this.routeFeatures = { type: "FeatureCollection", features: [] };
+    this.stopFeatures = { type: "FeatureCollection", features: [] };
 
     for (const id of SOURCE_IDS) await this.setSourceData(id, EMPTY_FEATURE_COLLECTION);
 
     try {
       for (const kind of LAYER_ORDER) await this.drawLayer(kind, controller.signal);
       this.state.mapDataLoaded = true;
+      // A screen opened by a deep link sets its focus while this is still
+      // streaming; drawing clears every source, so the focus is put back
+      // rather than silently lost to the draw it was waiting for.
+      await this.applyFocus();
     } catch (error) {
       if ((error as Error).name !== "AbortError") throw error;
     } finally {
@@ -280,6 +508,7 @@ export class MapController {
    */
   destroy(): void {
     this.drawing?.abort();
+    this.stopMark?.remove();
     this.map.remove();
   }
 }

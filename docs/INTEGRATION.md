@@ -174,6 +174,29 @@ Only `POST /api/load` is optional: it exists so the standalone application can
 open a feed you choose, and an embedded viewer is built without the dialog that
 calls it.
 
+The four `explore` paths - `/api/overview`, `/api/calendar`, `/api/routes` and
+`/api/routes/{route_id}` - are optional as a group. They compute rather than
+report: nothing they return exists in the feed as a column. Omit them and the
+viewer shows the file browser alone, which is the whole of what it did before
+they existed. Implement them and three things are worth getting right:
+
+**Keep them off `stop_times.txt`.** It is the file that makes a feed large, and
+a summary that reads it stops answering on a real one. The first three are
+answerable without it; a date's trip count is the per-service trip counts summed
+over the services active that day. Only `/api/routes/{route_id}` needs it, and
+only for one route's own trips.
+
+**Expand the calendar in the right order.** A removal in `calendar_dates.txt`
+applies to the weekly pattern, and additions are unioned in afterwards - GTFS
+lets a feed remove a date from one service and add it to another, and doing it
+the other way round silently drops the addition.
+
+**Keep the ids.** Every figure the viewer draws is rendered as a link into the
+rows behind it, which it can only do because the payloads carry the
+`service_id`s, `route_id`s, `stop_id`s and `trip_id`s each figure came from. A
+response that drops them still renders - and turns a summary a reader can check
+into one they have to believe.
+
 What the document cannot tell you, which is where integrations actually trip up:
 
 **CORS is yours.** A GTFS Garage server serves the viewer from its own origin
@@ -222,6 +245,21 @@ const source: ViewerSource = {
   config,          // optional: the basemap, if you do not pass one
   close,           // optional: release whatever the source holds
 
+  // Optional: the derived views - the feed read as a network rather than as
+  // files. Each screen asks for the one it needs, so a source implementing
+  // some and not others simply offers fewer entries. `ParquetSource`
+  // implements all four against Parquet in the browser.
+  overview,        // who runs this feed, what they run, when it expires
+  calendar,        // dates, service patterns, and a profile per weekday
+  routes,          // every route, with its mode, operator and size - and
+                   // optionally only those running on one `service_date`
+  route,           // one route: directions, stop patterns, times, days - and
+                   // optionally what it does on one `serviceDate`
+  timetable,       // optional on its own: one route's day as stops by trips
+  drawsGeometry,   // optional: false if `geojson` cannot answer, so no map
+                   // (both sources that ship answer it, so both draw maps)
+                   // action is offered rather than one that rejects
+
   // Optional, and all four together: the workdir the source writes into. Only
   // a local server has one, and the options menu simply omits that section for
   // a source that does not implement them.
@@ -252,6 +290,89 @@ worth weighing: the parts that are easy to get subtly wrong are the
 null-versus-empty filter semantics, resolving links only against files a feed
 actually contains, and the cursor-per-request rule a shared DuckDB connection
 otherwise breaks.
+
+## Changing the derived views
+
+The overview, the calendar and the route pages are **screens**, and the screens
+are a list rather than a fixed set. Pass your own:
+
+```ts
+import { mount, defaultScreens, type Screen } from "gtfs-garage-web";
+
+const fares: Screen<MyFares> = {
+  id: "fares",                       // what `?view=` carries
+  label: "Fares",                    // omit for a detail screen with no sidebar entry
+  title: "What it costs to ride",
+  available: (source) => true,       // asked once per feed
+  fetch: (source, argument) => myApi.fares(argument),
+  render: (data, context) => myPane(data, context),
+};
+
+mount(root, { screens: [...defaultScreens, fares] });            // add one
+mount(root, { screens: defaultScreens.map(swapTheCalendar) });   // replace one
+mount(root, { screens: [] });                                    // the file browser alone
+```
+
+A screen also says **where the map goes** while it is showing - `layout:
+"beside"` (the default), `"above"` for a view that needs the full width, or
+`"none"` for one with nothing to draw.
+
+`render` is handed a `ScreenContext` with what a screen needs to be part of the
+viewer rather than a panel inside it:
+
+| | |
+|---|---|
+| `openTable(table, filters?)` | open a GTFS file in the raw browser, filtered to the rows behind a figure |
+| `openScreen(id, argument?)` | open another screen - the route list opens the route card this way |
+| `source` | the source itself, for a screen that fetches again on a click |
+| `date` / `setDate(date)` | the service date every derived view reads, and how to change it. **Null by default** - nothing is filtered until a reader picks a day, so a screen that filters by it must behave when it is absent |
+| `params` / `setParams(params)` | the screen's own URL parameters - the facets a list is narrowed by. Names are the screen's, except `view`, `arg`, `date`, `table`, `page` and `filters`, which the viewer owns; an empty value removes one. Setting them is a navigation, so Back undoes it, and opening another screen drops them |
+| `focusRoutes(ids \| null, {shapeIds?, stopIds?, isolate?, frame?})` | draw those routes, or null for the whole network. Resolves to `{lines, points}` — what was actually drawn. `frame: "stops"` frames the viewport on the focused stops rather than the route's line, for a focus that is part of a route rather than all of it. Absent when there is no map, or the source cannot build GeoJSON |
+| `focusStop(stopId)` | centre the map on one stop and mark it. Resolves `false` when the feed gives that stop no position. Absent on the same terms as `focusRoutes` |
+
+The pane resets `focusRoutes` to the whole network before every render, so a
+screen that wants one route in focus asks for it while rendering and a screen
+that does not need say nothing.
+
+Two things worth knowing if you draw on the map:
+
+**The `routes` layer holds one representative shape per route.** That is right
+for a day's worth of routes and wrong for a single one, whose directions and
+variants are several shapes. Pass `shapeIds` and those shapes are fetched and
+drawn as well, so the whole route appears rather than half of it.
+
+**Showing the surroundings is not deselecting.** `isolate: false` keeps the
+rest of the network drawn behind the focus; the focused routes stay picked out
+either way. Passing `null` to mean "show everything" would lose the one line
+the reader is looking at.
+
+**Pass the stops too.** Isolating hides every stop in the feed, which is right
+for a day's worth of routes — every stop in the city is noise — and wrong for
+one route, whose stops are the point of looking at it. `stopIds` narrows the
+stops layer to that route's and emphasises them, by the same id-filter the
+routes use, so there is no fetch and no limit on how many a route may have.
+
+**Check what came back.** `focusRoutes` resolves to `{lines, points}`, and the
+three cases read differently: a route with shapes, a route with none but with
+stops (ordinary in a feed without `shapes.txt` — the stops are shown and framed
+instead), and a route with neither. The built-in route card says which; a screen
+that asserts it is showing something without checking leaves a blank map behind
+a confident sentence.
+
+The viewer's own helpers are exported for a screen to build on rather than
+reimplement: `node`, `action`, `section`, `stat` and `append` from the same
+module. They write through `textContent`, so feed-supplied text cannot inject
+markup.
+
+Two rules worth keeping if you write one:
+
+**Link back to the rows.** Every figure the built-in screens draw is a link
+into the file it was computed from. A derived number a reader cannot check is a
+number they have to believe.
+
+**Let `available` do the refusing.** A screen whose source cannot answer it
+should report false rather than render an error, so the sidebar never offers an
+entry that leads nowhere.
 
 ## Datasets that have to be prepared first
 
@@ -336,9 +457,14 @@ Two things to know before you rely on it:
   somewhere that will not answer for it. With neither, the reader has no choice
   but to probe every table GTFS defines, 123 range requests for a seven-table
   feed before its first row appears.
-- **`ParquetSource` cannot draw a map yet.** `geojson` and `geojsonStream` both
-  reject, so mount it without the map part. Building the layers means porting
-  the vertex budget and the thinning that the server does.
+- **Pass `mapPart` if you want the map.** `ParquetSource` builds the map's four
+  layers from the same Parquet it reads tables from, so a bucket with no server
+  behind it still draws stops, routes, shapes and flex zones. It is the same
+  geometry the server produces — same vertex budget, same thinning, same
+  properties — and `scripts/integrations.sh conformance` diffs the two layer by
+  layer over the same feed. The layers are built by DuckDB in its worker and the
+  thinning happens in SQL, so a national feed is an aggregation rather than ten
+  million rows crossing into JavaScript.
 
 ## A worked adapter
 

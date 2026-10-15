@@ -86,6 +86,10 @@ def _route_shapes_sql(con) -> str:
     """One representative shape per route: the first shape any of its trips uses.
 
     DISTINCT ON collapses the trips join before anything touches the geometry.
+    The ORDER BY is what makes "first" mean something: without it DuckDB may
+    keep any of the route's shapes, so the line a route is drawn with could
+    differ between two runs over the same feed - and differ from what the
+    browser implementation picks, which is how it was noticed.
     """
     present = _table_columns(con, "routes")
     selected = ",\n           ".join(
@@ -100,6 +104,7 @@ def _route_shapes_sql(con) -> str:
     FROM routes r
     JOIN trips t ON t.route_id = r.route_id
     WHERE t.shape_id IS NOT NULL AND t.shape_id != ''
+    ORDER BY r.route_id, t.shape_id
     """
 
 
@@ -378,7 +383,10 @@ def iter_routes(con) -> Iterator[list[dict]]:
     """
     try:
         _stage_route_shapes(con)
-        routes = {row[0]: row for row in con.execute("SELECT * FROM _route_shapes").fetchall()}
+        # Keyed by shape_id, so two routes sharing a shape are one line labelled
+        # as the later of them. Ordered, so which one that is does not change
+        # between runs.
+        routes = {row[0]: row for row in con.execute("SELECT * FROM _route_shapes ORDER BY route_id").fetchall()}
     except Exception:
         return
     if not routes:

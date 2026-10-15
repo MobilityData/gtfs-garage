@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Iterator
+from datetime import date
 from contextlib import contextmanager
 from typing import Any, Optional
 
@@ -15,6 +16,14 @@ from fastapi.responses import StreamingResponse
 from gtfs_garage import __version__
 from gtfs_garage.core import geojson as geojson_builders
 from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
+from gtfs_garage.core.network import (
+    UnknownDirectionError,
+    UnknownRouteError,
+    route_detail,
+    route_list,
+    route_timetable,
+)
+from gtfs_garage.core.overview import feed_overview
 from gtfs_garage.core.queries import (
     UnknownColumnError,
     UnknownTableError,
@@ -23,10 +32,16 @@ from gtfs_garage.core.queries import (
     missing_files,
     table_summaries,
 )
+from gtfs_garage.core.service import NoCalendarError, calendar_summary
+from gtfs_garage_gen.models.calendar_response import CalendarResponse
 from gtfs_garage_gen.models.config_response import ConfigResponse
 from gtfs_garage_gen.models.distinct_response import DistinctResponse
 from gtfs_garage_gen.models.load_progress import LoadProgress
+from gtfs_garage_gen.models.overview_response import OverviewResponse
 from gtfs_garage_gen.models.page_response import PageResponse
+from gtfs_garage_gen.models.route_detail_response import RouteDetailResponse
+from gtfs_garage_gen.models.route_list_response import RouteListResponse
+from gtfs_garage_gen.models.timetable_response import TimetableResponse
 from gtfs_garage_gen.models.startup_feed_request import StartupFeedRequest
 from gtfs_garage_gen.models.tables_response import TablesResponse
 from gtfs_garage_gen.models.workspace_response import WorkspaceResponse
@@ -323,6 +338,93 @@ def get_distinct_values(
             return {"values": distinct_values(feed, table, column, limit)}
     except (UnknownTableError, UnknownColumnError):
         raise HTTPException(status_code=404, detail="Unknown table or column")
+
+
+# ---------------------------------------------------------------------------
+# The derived views.
+#
+# Each of these is a reading of rows the table endpoints already serve, so
+# every one of them is also reachable the long way round - which is the point.
+# The interface links each figure back to the rows behind it, and a reader who
+# distrusts a number can go and count it.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/overview", response_model=OverviewResponse, tags=["explore"])
+def get_overview(request: Request) -> dict[str, Any]:
+    """Who runs this feed, what they run, and when it runs."""
+    with _reading(request) as feed:
+        return feed_overview(feed)
+
+
+@router.get("/calendar", response_model=CalendarResponse, tags=["explore"])
+def get_calendar(request: Request) -> dict[str, Any]:
+    """The feed's calendar, expanded to dates and grouped into patterns."""
+    try:
+        with _reading(request) as feed:
+            return calendar_summary(feed)
+    except NoCalendarError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.get("/routes", response_model=RouteListResponse, tags=["explore"])
+def get_routes(request: Request, service_date: Optional[str] = None) -> dict[str, Any]:
+    """Every route, or only the ones running on one day."""
+    on_date = _service_date(service_date) if service_date else None
+    with _reading(request) as feed:
+        return {"routes": route_list(feed, on_date)}
+
+
+def _service_date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="service_date must be an ISO date, YYYY-MM-DD.")
+
+
+@router.get(
+    "/routes/{route_id:path}/timetable",
+    response_model=TimetableResponse,
+    tags=["explore"],
+)
+def get_route_timetable(
+    request: Request,
+    route_id: str,
+    service_date: str,
+    direction_id: Optional[str] = None,
+) -> dict[str, Any]:
+    """One route's departures on one day, as stops by trips.
+
+    Declared before the route-detail path below: `{route_id:path}` is greedy and
+    would otherwise swallow `/timetable` as part of the id.
+    """
+    on_date = _service_date(service_date)
+    try:
+        with _reading(request) as feed:
+            return route_timetable(feed, route_id, on_date, direction_id)
+    except UnknownRouteError:
+        raise HTTPException(status_code=404, detail=f"Unknown route '{route_id}'")
+    except UnknownDirectionError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Route '{route_id}' has no trips in direction '{direction_id}' on {service_date}.",
+        )
+
+
+@router.get("/routes/{route_id:path}", response_model=RouteDetailResponse, tags=["explore"])
+def get_route(request: Request, route_id: str, service_date: Optional[str] = None) -> dict[str, Any]:
+    """One route, gathered back together from the four files that describe it.
+
+    `:path` because a GTFS id is any UTF-8 string and real feeds contain ids
+    with slashes in them; without it such a route is a 404 that looks like a
+    missing feature rather than a routing rule.
+    """
+    on_date = _service_date(service_date) if service_date else None
+    try:
+        with _reading(request) as feed:
+            return route_detail(feed, route_id, on_date)
+    except UnknownRouteError:
+        raise HTTPException(status_code=404, detail=f"Unknown route '{route_id}'")
 
 
 def _ndjson(

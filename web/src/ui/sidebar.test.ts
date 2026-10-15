@@ -75,3 +75,4 @@ describe("describeForbidden", () => {
     expect(describeForbidden(tableInfo({ name: "routes" }))).toBe("");
   });
 });
+

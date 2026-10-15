@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  The page scripts/integrations.sh drives.
+
+  It exists so the embedded and browser-Parquet integrations can be exercised
+  the way a host actually mounts them - not through the standalone application,
+  which always takes the load dialog, the options menu, the map and a REST
+  source. Served by `yarn dev`, so it resolves the viewer's own sources rather
+  than a build, and ignored by `vite build`, whose only input is index.html.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GTFS Garage integration harness</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/integration-harness.ts"></script>
+  </body>
+</html>

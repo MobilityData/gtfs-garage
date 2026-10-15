@@ -1,0 +1,71 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "id": "area_1",
+   "properties": {
+    "stop_name": "Riverside zone"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -119.0,
+       34.4
+      ],
+      [
+       -119.0,
+       34.5
+      ],
+      [
+       -118.9,
+       34.5
+      ],
+      [
+       -118.9,
+       34.4
+      ],
+      [
+       -119.0,
+       34.4
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "area_2",
+   "properties": {},
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -118.8,
+       34.4
+      ],
+      [
+       -118.8,
+       34.5
+      ],
+      [
+       -118.7,
+       34.5
+      ],
+      [
+       -118.7,
+       34.4
+      ],
+      [
+       -118.8,
+       34.4
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

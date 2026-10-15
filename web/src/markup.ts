@@ -28,9 +28,24 @@ export interface ViewerParts {
 
 const EVERYTHING: Required<ViewerParts> = { load: true, options: true, map: true };
 
+/**
+ * Explore or Files, as a top-level choice rather than two groups in one list.
+ *
+ * They answer different questions - what this feed means, and what it literally
+ * contains - and a sidebar that mixed them made an entry ambiguous. Hidden
+ * entirely when the source offers no derived views, which is the case where
+ * there is nothing to switch to.
+ */
+const modes = () => `
+    <div data-el="mode-switch" hidden>
+      <button data-el="mode-explore" class="mode active">Explore</button>
+      <button data-el="mode-files" class="mode">Files</button>
+    </div>`;
+
 const header = (parts: Required<ViewerParts>) => `
   <header>
     <h1>GTFS Garage</h1>
+    ${modes()}
     <div data-el="source-label">No feed loaded</div>
     ${parts.options ? `<button data-el="options-btn" title="Workdir and load report">⚙ Options</button>` : ""}
     ${parts.map ? `<button data-el="toggle-map-btn">Hide map</button>` : ""}
@@ -77,39 +92,74 @@ const browse = (parts: Required<ViewerParts>) => `
   <div data-el="layout">
     <div data-el="sidebar"></div>
     <div data-el="content">
-      <div data-el="table-pane">
-        <div data-el="filter-bar">
-          <button data-el="back-btn" title="Back to the previous view" disabled>&larr; Back</button>
-          <button data-el="add-filter-btn">+ Filter</button>
-          <label data-el="raw-values" class="raw-toggle"
-                 title="Show the characters the feed contains, without formatting">
-            <input data-el="raw-values-input" type="checkbox" /> Raw values
-          </label>
+      <!--
+        Back and the day sit above *both* panes - outside the pane wrapper, not
+        inside the browsing half - because a screen can ask for the map above it
+        rather than beside it, and a toolbar nested in one pane slides under the
+        map when it does. It is also the only back control an embedded viewer
+        has: that one keeps its host's address bar to itself, so there is no
+        browser Back behind it, and a control that moves down the page as the
+        layout changes is one a reader has to go looking for.
+      -->
+      <div data-el="toolbar">
+        <button data-el="back-btn" title="Back to the previous view" disabled>&larr; Back</button>
+        <!--
+          The chosen day, and only when there is one. Nothing is filtered by
+          date until someone asks for it, so on an untouched feed there is no
+          control here at all - and when there is, it sits above the content
+          it governs rather than floating in a toolbar beside Back.
+        -->
+        <div data-el="date-chip" class="date-chip" hidden>
+          <span data-el="date-chip-day"></span>
+          <span data-el="date-chip-note" class="explore-hint"></span>
+          <button data-el="date-prev" title="The day before">&lsaquo;</button>
+          <button data-el="date-next" title="The day after">&rsaquo;</button>
+          <button data-el="date-jump" title="Go to a particular day">Jump to&hellip;</button>
+          <button data-el="date-clear" title="Stop filtering by day">&times;</button>
         </div>
-        <div data-el="add-filter-form">
-          <select data-el="filter-column"></select>
-          <select data-el="filter-op">
-            <option value="eq">is</option>
-            <option value="ne">is not</option>
-            <option value="contains">contains</option>
-            <option value="in">is one of (comma sep.)</option>
-            <option value="is_empty">is empty</option>
-            <option value="is_not_empty">is not empty</option>
-          </select>
-          <input data-el="filter-value" type="text" placeholder="value" />
-          <select data-el="filter-value-picker" style="display:none"></select>
-          <button data-el="filter-apply-btn" class="primary">Add</button>
-          <button data-el="filter-cancel-btn">Cancel</button>
-        </div>
-        <div data-el="table-scroll">
-          <div data-el="empty-state">Load a GTFS feed to start browsing.</div>
-        </div>
-        <div data-el="pager" style="display:none">
-          <button data-el="prev-page">&laquo; Prev</button>
-          <span data-el="page-info"></span>
-          <button data-el="next-page">Next &raquo;</button>
-          <span class="spacer"></span>
-          <span data-el="row-count"></span>
+        <div data-el="date-menu" class="date-menu" hidden></div>
+      </div>
+      <div data-el="panes">
+      <div data-el="browse-pane">
+        <!--
+          The derived views. Hidden whenever the file browser is showing, which
+          is the arrangement the whole feature rests on: they are a second way
+          into the same rows, never a replacement for them.
+        -->
+        <div data-el="screen-pane" hidden></div>
+        <div data-el="table-pane">
+          <div data-el="filter-bar">
+            <button data-el="add-filter-btn">+ Filter</button>
+            <label data-el="raw-values" class="raw-toggle"
+                   title="Show the characters the feed contains, without formatting">
+              <input data-el="raw-values-input" type="checkbox" /> Raw values
+            </label>
+          </div>
+          <div data-el="add-filter-form">
+            <select data-el="filter-column"></select>
+            <select data-el="filter-op">
+              <option value="eq">is</option>
+              <option value="ne">is not</option>
+              <option value="contains">contains</option>
+              <option value="in">is one of (comma sep.)</option>
+              <option value="is_empty">is empty</option>
+              <option value="is_not_empty">is not empty</option>
+            </select>
+            <input data-el="filter-value" type="text" placeholder="value" />
+            <select data-el="filter-value-picker" style="display:none"></select>
+            <button data-el="filter-apply-btn" class="primary">Add</button>
+            <button data-el="filter-cancel-btn">Cancel</button>
+          </div>
+          <div data-el="table-scroll">
+            <div data-el="empty-state">Load a GTFS feed to start browsing.</div>
+          </div>
+          <div data-el="pager" style="display:none">
+            <button data-el="prev-page">&laquo; Prev</button>
+            <span data-el="page-info"></span>
+            <button data-el="next-page">Next &raquo;</button>
+            <span class="spacer"></span>
+            <span data-el="row-count"></span>
+          </div>
         </div>
       </div>
       ${
@@ -121,6 +171,7 @@ const browse = (parts: Required<ViewerParts>) => `
       </div>`
           : ""
       }
+      </div>
     </div>
   </div>`;
 

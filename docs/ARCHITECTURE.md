@@ -30,8 +30,72 @@ gtfs-garage <feed.zip>
                                      ├── schema.py    reads data/gtfs-schema.json
                                      ├── filters.py   UI filters → parameterised SQL
                                      ├── queries.py   table summaries, pages, distinct values
-                                     └── geojson.py   DuckDB rows → GeoJSON
+                                     ├── geojson.py   DuckDB rows → GeoJSON
+                                     ├── service.py   calendars → dates, patterns, weekdays
+                                     ├── overview.py  what the feed is, in counts
+                                     └── network.py   routes and timetables, from four files
 ```
+
+### The two halves of the interface
+
+`queries.py` and `geojson.py` answer *what the feed says*: a page of a file, a
+layer of its geometry. Nothing is computed that the feed does not already
+contain, which is what lets the file browser claim to show a feed exactly as it
+is written.
+
+`service.py`, `overview.py` and `network.py` answer *what the feed means*: which
+dates a service runs on, which dates are the same kind of day as each other,
+what one route looks like when its four files are read together. None of these
+figures exists in the feed as a column.
+
+They are separate modules, and the interface keeps them separate too, because
+the second kind of answer is only trustworthy if the first is reachable from it.
+Every derived figure carries the ids needed to open the rows behind it, and the
+file browser is never more than one click away - a reader who distrusts a number
+can go and count it. That is also why the derived views are optional on the
+source interface: a host that implements only the table endpoints gets the file
+browser alone rather than summaries it cannot substantiate.
+
+### The same answer in two places
+
+The derived views exist twice: in `core/`, served over HTTP, and in
+`web/src/sources/explore/`, computed in a browser against Parquet by DuckDB-WASM.
+That is duplication, and it is deliberate - the static deployment has no server
+of ours anywhere, so there is nobody to ask.
+
+It is kept to the smallest possible surface. The SQL is the same SQL, because
+both runtimes send it to the same engine; only the way tables are named and
+values are bound differs. The genuinely duplicated logic is
+`explore/derive.ts`, a port of the pure functions in `core/service.py` -
+pattern grouping, pattern naming, the weekday profile - and nothing else.
+
+What keeps the two equivalent is `scripts/integrations.sh conformance`, which
+asks both for the same payloads over the same feed and diffs them field by
+field. It is not ceremony: it caught a stop list that decoded to nothing in the
+browser and passed silently, and an `any_value()` in both implementations that
+returned a different example trip on each run. The second was a defect in the
+payload itself rather than in either implementation - a response that changes
+without the data changing cannot be cached, diffed, or checked - and both sides
+now use `min()`.
+
+Two rules fell out of it, and both are worth keeping:
+
+- **No locale anywhere in a payload.** `%b` and `toLocaleDateString` give
+  different month names on different machines, and `localeCompare` gives a
+  different sort order. Pattern names use a spelled-out month table and
+  code-point ordering on both sides.
+- **Nothing non-deterministic in an aggregate.** `any_value` is the obvious way
+  to pick a representative row and the wrong one.
+
+**`stop_times.txt` is the constraint.** It is the file that makes a feed large -
+tens of millions of rows where everything else has thousands - so the three
+views that open first are built never to read it. A date's trip count is the
+per-service trip counts summed over the services active that day: one small
+group-by, whatever the feed's size. Only two views read it - the route card and
+the timetable - and both only through a semi-join on that route's own trips,
+narrowed to the day's services *inside* that join rather than by a second pass.
+`tests/test_performance_guards.py::TestTheDerivedViewsStayOffTheBigFile` asserts
+that rather than trusting it.
 
 `workspace.py` owns every directory the tool creates. A feed does not make its
 own scratch any more; it is handed a slot, which outlives it — that is what lets
@@ -285,6 +349,11 @@ suite and names, per test, the defect it prevents.
 | layers are NDJSON and gzipped | buffering or sending raw is hundreds of MB the browser cannot take |
 | redraws are logarithmic in layer size (`web/src/map/redraw.test.ts`) | `setData` re-indexes everything, so redrawing on a timer is quadratic |
 | drawing the map adds under `MAX_MAP_HEAP_MB` (`tests/browser/`) | the crash was heap, which no server-side test can see |
+| every deployment is driven in a browser (`scripts/integrations.sh`) | a Back button that existed only inside the file browser was invisible in an embedded viewer the moment a derived view opened, and no unit test could see it |
+| the viewer filters nothing by date until a reader picks a day | a page that arrives already narrowed by a day nobody chose reads as a bug in the data |
+| a timetable reads `stop_times` once, through its own route-day | the second view that has to read the big file; a pass per direction or per trip would be the regression |
+| a focused route draws its lines *and* its stops, and says what it drew | three versions of the map focus shipped something wrong - an empty map for a route with no shapes, a deselected route when the network was shown, and a route with no stops on it - each found by a reader rather than by the code |
+| both implementations of the derived views agree (`integrations.sh conformance`) | one answer in two places drifts unless something compares them |
 
 Two things learned writing them, worth keeping:
 

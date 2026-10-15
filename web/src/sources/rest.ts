@@ -3,13 +3,18 @@
 import { readNdjson, type NdjsonMessage } from "./ndjson";
 import type {
   AppConfig,
+  CalendarSummary,
   FeatureCollection,
   Filter,
   GeoJsonKind,
   GtfsSource,
   LoadProgress,
+  Overview,
   PageResponse,
+  RouteDetail,
+  RouteSummary,
   TablesResponse,
+  Timetable,
   ValueCount,
   Workspace,
 } from "./types";
@@ -87,6 +92,35 @@ export class RestSource implements GtfsSource {
     return fetchJson<FeatureCollection>(
       `${this.baseUrl}/api/geojson/${kind}${query ? `?${query}` : ""}`,
     );
+  }
+
+  overview(): Promise<Overview> {
+    return fetchJson<Overview>(`${this.baseUrl}/api/overview`);
+  }
+
+  calendar(): Promise<CalendarSummary> {
+    return fetchJson<CalendarSummary>(`${this.baseUrl}/api/calendar`);
+  }
+
+  async routes(serviceDate?: string): Promise<RouteSummary[]> {
+    const query = serviceDate ? `?service_date=${encodeURIComponent(serviceDate)}` : "";
+    const { routes } = await fetchJson<{ routes: RouteSummary[] }>(`${this.baseUrl}/api/routes${query}`);
+    return routes;
+  }
+
+  timetable(routeId: string, serviceDate: string, directionId?: string | null): Promise<Timetable> {
+    const params = new URLSearchParams({ service_date: serviceDate });
+    if (directionId !== undefined && directionId !== null) params.set("direction_id", directionId);
+    return fetchJson<Timetable>(
+      `${this.baseUrl}/api/routes/${encodeURIComponent(routeId)}/timetable?${params}`,
+    );
+  }
+
+  route(routeId: string, serviceDate?: string): Promise<RouteDetail> {
+    // Encoded per segment: a GTFS id is any UTF-8 string, and the server reads
+    // this path parameter as a `:path` so an id containing a slash survives.
+    const query = serviceDate ? `?service_date=${encodeURIComponent(serviceDate)}` : "";
+    return fetchJson<RouteDetail>(`${this.baseUrl}/api/routes/${encodeURIComponent(routeId)}${query}`);
   }
 
   workspace(): Promise<Workspace> {

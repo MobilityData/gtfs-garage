@@ -1,0 +1,7 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,wheelchair_boarding
+S1,Central Station,45.5017,-73.5673,1,,1
+S1A,Central Station Platform A,45.5018,-73.5674,0,S1,1
+S2,Riverside,45.51,-73.56,0,,1
+S3,Market Square,45.52,-73.55,0,,1
+S4,Hilltop,45.53,-73.54,0,,1
+S5,Airport,45.47,-73.74,0,,1
