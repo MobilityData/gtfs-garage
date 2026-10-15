@@ -161,6 +161,10 @@ def test_browsing_tables_with_the_map_drawn_does_not_exhaust_the_tab(page):
     """The exact sequence that produced "Aw, Snap!": draw everything, then open
     a table. It died because the map had left the tab no headroom."""
     cost = baseline_then_draw(page)
+    # The app lands on Explore when the feed has screens to show; the files
+    # are listed only in Files mode.
+    if page.is_visible('[data-el="mode-files"]'):
+        page.click('[data-el="mode-files"]')
     for table in ("stops", "shapes", "trips", "stop_times"):
         page.click(f".table-tab:has-text('{table}')")
         page.wait_for_timeout(1500)
