@@ -76,6 +76,21 @@ class TestRoutes:
         finally:
             loaded.close()
 
+    def test_a_route_is_drawn_from_the_shape_most_of_its_trips_use(self, variant):
+        # The lowest id used to win, and a short working's shape sorting first
+        # drew the whole route as a stub - the Montreal metro's Orange line
+        # showed as its four-point Laval extension.
+        loaded = variant(
+            "trips.txt",
+            "route_id,service_id,trip_id,direction_id,shape_id\n"
+            "R1,S1,T0,0,SH0\nR1,S1,T1,0,SH1\nR1,S1,T2,1,SH1\nR2,S1,T3,0,\n",
+        )
+        try:
+            [route] = drain(gj.iter_routes(loaded.cursor()))
+            assert route["properties"]["shape_id"] == "SH1"
+        finally:
+            loaded.close()
+
     def test_a_feed_with_no_routes_yields_an_empty_layer(self, variant):
         loaded = variant("routes.txt", "route_id,agency_id,route_short_name,route_long_name,route_type\n")
         try:

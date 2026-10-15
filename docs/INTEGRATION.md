@@ -336,9 +336,10 @@ that does not need say nothing.
 
 Two things worth knowing if you draw on the map:
 
-**The `routes` layer holds one representative shape per route.** That is right
-for a day's worth of routes and wrong for a single one, whose directions and
-variants are several shapes. Pass `shapeIds` and those shapes are fetched and
+**The `routes` layer holds one representative shape per route** - the shape
+most of the route's trips use, so a short working's shape does not stand in for
+the whole line. That is right for a day's worth of routes and wrong for a single
+one, whose directions and variants are several shapes. Pass `shapeIds` and those shapes are fetched and
 drawn as well, so the whole route appears rather than half of it.
 
 **Showing the surroundings is not deselecting.** `isolate: false` keeps the

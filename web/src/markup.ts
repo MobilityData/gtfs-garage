@@ -134,6 +134,10 @@ const browse = (parts: Required<ViewerParts>) => `
                    title="Show the characters the feed contains, without formatting">
               <input data-el="raw-values-input" type="checkbox" /> Raw values
             </label>
+            <label data-el="files-network" class="raw-toggle" hidden
+                   title="Draw every other route behind what this view selects">
+              <input data-el="files-network-input" type="checkbox" /> Show the rest of the network
+            </label>
           </div>
           <div data-el="add-filter-form">
             <select data-el="filter-column"></select>

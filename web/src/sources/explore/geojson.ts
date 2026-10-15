@@ -174,12 +174,14 @@ export function createMapGeometry(run: Run, catalogue: Catalogue): MapGeometry {
   };
 
   /**
-   * One representative shape per route: the first shape any of its trips uses.
+   * One representative shape per route: the shape most of its trips use.
    *
-   * `DISTINCT ON` collapses the trips join before anything touches the geometry,
-   * and the ordering is what makes "first" mean something - without it, which
-   * shape a route is drawn with changes between runs. Mirrors
-   * `_route_shapes_sql`, ordering included.
+   * Most-used rather than lowest id, so a short working's shape cannot stand
+   * in for the whole route; the shape id breaks ties. `DISTINCT ON` collapses
+   * the trips join before anything touches the geometry, and the ordering is
+   * what makes the pick deterministic - without it, which shape a route is
+   * drawn with changes between runs. Mirrors `_route_shapes_sql`, ordering
+   * included.
    */
   const routeShapesSql = (): string => {
     const selected = OPTIONAL_ROUTE_COLUMNS.map((name) =>
@@ -189,14 +191,19 @@ export function createMapGeometry(run: Run, catalogue: Catalogue): MapGeometry {
     ).join(",\n             ");
 
     return `
+      WITH used AS (
+          SELECT route_id, shape_id, COUNT(*) AS trips
+          FROM ${catalogue.file("trips")}
+          WHERE shape_id IS NOT NULL AND shape_id != ''
+          GROUP BY route_id, shape_id
+      )
       SELECT DISTINCT ON (r.route_id)
-             t.shape_id AS shape_id,
+             u.shape_id AS shape_id,
              r.route_id,
              ${selected}
       FROM ${catalogue.file("routes")} r
-      JOIN ${catalogue.file("trips")} t ON t.route_id = r.route_id
-      WHERE t.shape_id IS NOT NULL AND t.shape_id != ''
-      ORDER BY r.route_id, t.shape_id
+      JOIN used u ON u.route_id = r.route_id
+      ORDER BY r.route_id, u.trips DESC, u.shape_id
     `;
   };
 

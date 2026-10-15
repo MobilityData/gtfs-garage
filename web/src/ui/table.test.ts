@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { RelatedLink } from "../sources/types";
-import { describeRelated, type HighlightCallbacks, rowActions } from "./table";
+import { columnInfo, typedColumn } from "../sources/fixtures";
+import type { PageResponse, RelatedLink } from "../sources/types";
+import { describeRelated, type HighlightCallbacks, numericColumns, rowActions } from "./table";
 
 /** What the server sends for a stop_id, taken from the real GTFS schema. */
 const STOP_LINKS: RelatedLink[] = [
@@ -114,5 +115,38 @@ describe("rowActions", () => {
     });
     actions[0].run();
     expect(seen).toEqual(["ST1"]);
+  });
+});
+
+describe("numericColumns", () => {
+  const page = (columns: string[], rows: (string | null)[][]): PageResponse =>
+    ({ columns, rows, total: rows.length, page: 1, page_size: 50 }) as PageResponse;
+
+  const info = {
+    shape_id: typedColumn("ID"),
+    shape_pt_lat: typedColumn("LATITUDE"),
+    shape_pt_sequence: typedColumn("INTEGER"),
+    route_id: columnInfo({ type: "ID", fk_table: "routes", fk_column: "route_id" }),
+  };
+
+  it("marks the columns whose values are drawn as numbers, so their headings align", () => {
+    const shapes = page(
+      ["shape_id", "shape_pt_lat", "shape_pt_sequence"],
+      [
+        ["1_1071", "45.446466", "10001"],
+        ["1_1071", "45.451158", "10002"],
+      ],
+    );
+    expect(numericColumns(shapes, info, false)).toEqual([false, true, true]);
+  });
+
+  it("is not decided by empty cells, and is undone by one value that is not a number", () => {
+    expect(numericColumns(page(["shape_pt_lat"], [[null], ["45.5"]]), info, false)).toEqual([true]);
+    expect(numericColumns(page(["shape_pt_lat"], [[null]]), info, false)).toEqual([false]);
+    expect(numericColumns(page(["shape_pt_lat"], [["45.5"], ["north"]]), info, false)).toEqual([false]);
+  });
+
+  it("leaves link columns alone, whatever their values look like", () => {
+    expect(numericColumns(page(["route_id"], [["2"]]), info, false)).toEqual([false]);
   });
 });

@@ -83,10 +83,14 @@ def _table_columns(con, table: str) -> set[str]:
 
 
 def _route_shapes_sql(con) -> str:
-    """One representative shape per route: the first shape any of its trips uses.
+    """One representative shape per route: the shape most of its trips use.
+
+    Most-used rather than lowest id: a short working's shape can sort first,
+    and a route drawn from it shows as a stub - the Montréal metro's Orange
+    line was drawn as its four-point Laval extension. The shape id breaks ties.
 
     DISTINCT ON collapses the trips join before anything touches the geometry.
-    The ORDER BY is what makes "first" mean something: without it DuckDB may
+    The ORDER BY is what makes the pick deterministic: without it DuckDB may
     keep any of the route's shapes, so the line a route is drawn with could
     differ between two runs over the same feed - and differ from what the
     browser implementation picks, which is how it was noticed.
@@ -97,14 +101,19 @@ def _route_shapes_sql(con) -> str:
         for column in _OPTIONAL_ROUTE_COLUMNS
     )
     return f"""
+    WITH used AS (
+        SELECT route_id, shape_id, COUNT(*) AS trips
+        FROM trips
+        WHERE shape_id IS NOT NULL AND shape_id != ''
+        GROUP BY route_id, shape_id
+    )
     SELECT DISTINCT ON (r.route_id)
-           t.shape_id AS shape_id,
+           u.shape_id AS shape_id,
            r.route_id,
            {selected}
     FROM routes r
-    JOIN trips t ON t.route_id = r.route_id
-    WHERE t.shape_id IS NOT NULL AND t.shape_id != ''
-    ORDER BY r.route_id, t.shape_id
+    JOIN used u ON u.route_id = r.route_id
+    ORDER BY r.route_id, u.trips DESC, u.shape_id
     """
 
 

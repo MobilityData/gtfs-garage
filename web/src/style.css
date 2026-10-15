@@ -628,7 +628,8 @@
 
 /* Type-aware cell rendering. The value itself is always the feed's own text;
    these only affect how it sits on the page. */
-.gtfs-viewer [data-el="table-scroll"] td.value-numeric {
+.gtfs-viewer [data-el="table-scroll"] td.value-numeric,
+.gtfs-viewer [data-el="table-scroll"] th.value-numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -1255,6 +1256,9 @@
 }
 
 .gtfs-viewer table.timetable {
+  /* As wide as its columns: stretched to the pane, a grid of two trips put
+     the times at the far edge of the screen from the stops they belong to. */
+  width: auto;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
@@ -1309,6 +1313,15 @@
 }
 
 .gtfs-viewer .time-cell { text-align: right; }
+
+/* A direction's destinations sit together; the gap between groups is what
+   tells one direction from the other. */
+.gtfs-viewer .destination-chips { gap: 16px; }
+.gtfs-viewer .destination-chips .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* The selected trip's column, all the way down, so it can be followed once its
+   heading has scrolled out of view. */
+.gtfs-viewer .time-cell.col-selected { background: var(--accent-bg); }
 
 /* A cell is one row of stop_times.txt, and clicking it opens that row. Marked
    only on hover: an underline on every time in a grid of hundreds would make
