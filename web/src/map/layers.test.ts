@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BASEMAPS } from "./basemap";
-import { buildStyle, SOURCE_IDS } from "./layers";
+import { buildStyle, routeLineColor, SOURCE_IDS } from "./layers";
 
 type Style = { sources: Record<string, any>; layers: { id: string; source?: string }[] };
 
@@ -78,5 +78,20 @@ describe("buildStyle", () => {
     for (const id of SOURCE_IDS) expect(style.sources[id]).toBeDefined();
     expect(style.layers.map((l) => l.id)).toContain("routes");
     error.mockRestore();
+  });
+});
+
+describe("routeLineColor", () => {
+  it("draws a focused route in its own colour", () => {
+    expect(routeLineColor("F08123")).toBe("#F08123");
+    expect(routeLineColor("#0055aa")).toBe("#0055aa");
+  });
+
+  it("keeps the highlight's colour when the route has none it can use", () => {
+    expect(routeLineColor("")).toBeNull();
+    expect(routeLineColor(undefined)).toBeNull();
+    expect(routeLineColor("orange")).toBeNull();
+    // GTFS defaults route_color to white, which vanishes on a light basemap.
+    expect(routeLineColor("FFFFFF")).toBeNull();
   });
 });

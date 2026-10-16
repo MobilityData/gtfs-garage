@@ -168,11 +168,11 @@ describe("the routes layer", () => {
     expect(feature.geometry).toEqual({ type: "LineString", coordinates: [[1, 1], [2, 2]] });
   });
 
-  it("picks the route's shape deterministically, as the server does", async () => {
+  it("picks the route's most-used shape deterministically, as the server does", async () => {
     const { geometry, asked } = dataset(GTFS, answers);
     await geometry.collection("routes");
     const distinct = asked.find((sql) => sql.includes("DISTINCT ON"))!;
-    expect(distinct).toContain("ORDER BY r.route_id, t.shape_id");
+    expect(distinct).toContain("ORDER BY r.route_id, u.trips DESC, u.shape_id");
   });
 
   it("names a column the feed does not have as empty rather than querying it", async () => {

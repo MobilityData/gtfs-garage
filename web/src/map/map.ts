@@ -9,6 +9,14 @@ import { bboxOf } from "./geo";
 import {
   buildStyle,
   EMPTY_FEATURE_COLLECTION,
+  PALE_ROUTE_COLOR,
+  ROUTE_CASING_WIDTH,
+  ROUTE_CASING_WIDTH_FOCUSED,
+  ROUTE_OPACITY,
+  ROUTE_OPACITY_FOCUSED,
+  ROUTE_WIDTH,
+  ROUTE_WIDTH_FOCUSED,
+  routeLineColor,
   SOURCE_IDS,
   STOP_OPACITY,
   STOP_OPACITY_FOCUSED,
@@ -245,18 +253,41 @@ export class MapController {
   private async applyFocus(): Promise<FocusResult> {
     const focus = this.focus;
 
-    // The highlight carries the focused route's own geometry and is set
-    // whether or not the rest is hidden - that is what keeps the route picked
-    // out when someone asks to see it in context rather than alone.
-    await this.setSourceData("highlight", focus?.extra ?? EMPTY_FEATURE_COLLECTION);
-
     const wantedRoutes = new Set(focus?.routeIds ?? []);
-    const matchedRoutes = focus
+    const focusedRoutes = focus
       ? this.routeFeatures.features.filter((feature) =>
           wantedRoutes.has((feature.properties as { route_id?: string }).route_id ?? ""),
-        ).length
-      : 0;
-    const lines = (focus?.extra?.features.length ?? 0) + matchedRoutes;
+        )
+      : [];
+    const ownLines = focus?.extra?.features.length ?? 0;
+    const lines = ownLines + focusedRoutes.length;
+
+    // The highlight carries the focused route's own geometry and is set
+    // whether or not the rest is hidden - that is what keeps the route picked
+    // out when someone asks to see it in context rather than alone. Drawn in
+    // the route's colour when there is one route to take it from.
+    // A route too pale to see is drawn grey, as the routes layer draws it, so
+    // it looks the same picked out as it does in the network.
+    const color =
+      focusedRoutes.length === 1
+        ? (routeLineColor((focusedRoutes[0].properties as { route_color?: string }).route_color) ??
+          PALE_ROUTE_COLOR)
+        : null;
+    const extra = focus?.extra ?? EMPTY_FEATURE_COLLECTION;
+    await this.setSourceData(
+      "highlight",
+      color
+        ? {
+            ...extra,
+            features: extra.features.map((feature) => ({
+              ...feature,
+              // A colour the caller already gave a feature wins: it knows
+              // which route each shape belongs to, and this only knows one.
+              properties: { highlight_color: color, ...feature.properties },
+            })),
+          }
+        : extra,
+    );
 
     // Stops are filtered the way routes are, by an id the features already
     // carry - no fetch, and no limit on how many a route may have.
@@ -273,8 +304,33 @@ export class MapController {
     // reader less than the network they can at least orient by.
     const isolating = Boolean(focus?.isolate) && lines + points > 0;
 
-    const routeFilter = isolating ? ["in", ["get", "route_id"], ["literal", focus!.routeIds]] : null;
-    for (const layer of ["routes", "routes-white"]) this.map.setFilter(layer, routeFilter);
+    // When the focus brings the route's own shapes, its one representative line
+    // in the `routes` layer is hidden: that line may be a short working or one
+    // branch, and drawn alongside a trip it shows a stretch the trip never runs.
+    const focused = ["in", ["get", "route_id"], ["literal", focus?.routeIds ?? []]];
+    const routeFilter = isolating
+      ? ownLines
+        ? null
+        : focused
+      : ownLines
+        ? ["!", focused]
+        : null;
+    const routesVisible = !(isolating && ownLines);
+    for (const layer of ["routes", "routes-white"]) {
+      this.map.setFilter(layer, routeFilter);
+      this.map.setLayoutProperty(layer, "visibility", routesVisible ? "visible" : "none");
+    }
+    // Routes drawn as the subject are drawn to be seen; see ROUTE_WIDTH. Only
+    // while isolating: picked out against the network, the network's own
+    // widths are what keep the rest of it readable around them.
+    const emphasised = isolating && !ownLines && (focus?.routeIds.length ?? 0) > 0;
+    this.map.setPaintProperty("routes", "line-width", emphasised ? ROUTE_WIDTH_FOCUSED : ROUTE_WIDTH);
+    this.map.setPaintProperty("routes", "line-opacity", emphasised ? ROUTE_OPACITY_FOCUSED : ROUTE_OPACITY);
+    this.map.setPaintProperty(
+      "routes-white",
+      "line-width",
+      emphasised ? ROUTE_CASING_WIDTH_FOCUSED : ROUTE_CASING_WIDTH,
+    );
     this.map.setLayoutProperty("shapes", "visibility", isolating ? "none" : "visible");
 
     // The stops of the thing in focus are the point of looking at it. Hidden

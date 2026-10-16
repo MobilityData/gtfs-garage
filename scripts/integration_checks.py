@@ -548,11 +548,11 @@ def check_local(result: Result) -> None:
                 # Ids when they are wanted: the reason to want them is to go
                 # and look something up with them somewhere else.
                 names = page.locator("table.timetable .stop-name").first.inner_text()
-                page.locator(".timetable-controls input[type=checkbox]").check()
+                page.locator(".timetable-controls label", has_text="GTFS ids").locator("input").check()
                 page.wait_for_timeout(800)
                 ids = page.locator("table.timetable .stop-name").first.inner_text()
                 result.expect("the grid can show GTFS ids instead of names", names != ids, f"{names} -> {ids}")
-                page.locator(".timetable-controls input[type=checkbox]").uncheck()
+                page.locator(".timetable-controls label", has_text="GTFS ids").locator("input").uncheck()
                 page.wait_for_timeout(800)
 
                 # A cell is one row of stop_times.txt, and both ids that

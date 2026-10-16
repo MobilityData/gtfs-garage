@@ -68,12 +68,6 @@ export function renderRouteList(listing: RouteListing, context: ScreenContext): 
   const { routes } = listing;
   const root = node("div", { class: "explore routes" });
 
-  // What the list is showing, on the map beside it.
-  void context.focusRoutes?.(
-    routes.length && routes.length <= FOCUS_LIMIT ? routes.map((route) => route.route_id) : null,
-    { isolate: true },
-  );
-
   // Asked for, not inferred. Guessing "every route has the same operator, so
   // this must be filtered" is true of every single-agency feed, which then
   // showed its own name as a heading and a link to clear a filter nobody set.
@@ -156,6 +150,14 @@ export function renderRouteList(listing: RouteListing, context: ScreenContext): 
           ),
         )
       : narrowed;
+
+    // What the list is showing, on the map beside it - after the facets and
+    // the search, so narrowing the list narrows the map with it. Nothing
+    // matching leaves the network drawn rather than an empty map.
+    void context.focusRoutes?.(
+      matching.length && matching.length <= FOCUS_LIMIT ? matching.map((route) => route.route_id) : null,
+      { isolate: true },
+    );
 
     drawSummary(matching.length, filters, term);
 
@@ -336,7 +338,7 @@ export function renderRoute(detail: RouteDetail, context: ScreenContext): HTMLEl
  * ordinary in feeds without `shapes.txt` - and saying so is the whole reason
  * this waits for an answer instead of asserting one.
  */
-function mapControls(routeId: string, detail: RouteDetail, context: ScreenContext): HTMLElement | null {
+export function mapControls(routeId: string, detail: RouteDetail, context: ScreenContext): HTMLElement | null {
   if (!context.focusRoutes) return null;
 
   const shapeIds = [...new Set(detail.directions.flatMap((direction) => direction.shape_ids))];

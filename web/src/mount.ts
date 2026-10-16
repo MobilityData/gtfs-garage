@@ -21,6 +21,7 @@ import { FilterBar } from "./ui/filters";
 import { type HistoryPort, memoryHistory } from "./ui/history";
 import { initialView, Navigator } from "./ui/navigation";
 import { describeDate, destinations, longDate, patternNames, stepDate } from "./ui/date-bar";
+import { FilesMap, type MapSelection } from "./ui/files-map";
 import { ScreenPane } from "./ui/screen-pane";
 import { availableScreens, defaultScreens, type Screen } from "./ui/screens";
 import { renderSidebar } from "./ui/sidebar";
@@ -257,11 +258,22 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   const map = await options.map?.create(dom, state, source, basemap);
   map?.restoreVisibility();
 
+  // Files mode keeps the map on what the view selects; see FilesMap. Only
+  // with a source that can build the geometry it draws.
+  const filesMap =
+    map && canDrawShapes(source)
+      ? new FilesMap(map, source, dom.el("files-network"), dom.el<HTMLInputElement>("files-network-input"))
+      : null;
+
   const loadPage = async (view: View): Promise<void> => {
     // A screen owns the pane while it is showing, so there is no page to fetch
     // and the file browser is left exactly as the reader left it.
-    if (view.screen) return screenPane.show(view);
+    if (view.screen) {
+      filesMap?.leave();
+      return screenPane.show(view);
+    }
     screenPane.hide();
+    filesMap?.follow(view.table, view.filters);
     try {
       tableView.render(await source.query(view.table, view.filters, view.page, state.pageSize));
     } catch (error) {
@@ -388,10 +400,17 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
         const show = async (kind: "stops" | "shapes" | "locations", id: string, point = false) => {
           await map.highlight(await source.geojson(kind, [id]), { point });
         };
+        // Picked out the way a filter would pick them, rather than laid over
+        // the whole network: the row's thing alone, the rest one checkbox away.
+        const pick = (selection: Partial<MapSelection>) =>
+          filesMap?.pick({ routeIds: [], shapeIds: [], stopIds: [], ...selection });
         return {
-          onHighlightStop: (stopId: string) => void show("stops", stopId, true),
-          onHighlightShape: (shapeId: string) => void show("shapes", shapeId),
+          onHighlightStop: (stopId: string) =>
+            filesMap ? pick({ stopIds: [stopId] }) : void show("stops", stopId, true),
+          onHighlightShape: (shapeId: string) =>
+            filesMap ? pick({ shapeIds: [shapeId] }) : void show("shapes", shapeId),
           onHighlightRoute: (routeId: string) => {
+            if (filesMap) return pick({ routeIds: [routeId] });
             const shapeId = state.routeShapes.get(routeId);
             if (shapeId) void show("shapes", shapeId);
           },

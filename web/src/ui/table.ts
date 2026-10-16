@@ -40,6 +40,35 @@ export function describeRelated(related: RelatedLink[]): RelatedButton[] {
 }
 
 /**
+ * Which columns of a page are drawn as numbers, so their headings can align
+ * with them.
+ *
+ * A column counts when every value it has on the page renders as a number and
+ * it has at least one. Empty cells do not decide it either way, and a single
+ * value that is not a number - a malformed one, say - leaves the heading left
+ * where the plain values are.
+ */
+export function numericColumns(
+  page: PageResponse,
+  infoByName: Record<string, ColumnInfo | undefined>,
+  raw: boolean,
+): boolean[] {
+  return page.columns.map((column, index) => {
+    const info = infoByName[column];
+    // Drawn as links, which are never right-aligned.
+    if (info?.fk_table) return false;
+    let seen = false;
+    for (const row of page.rows) {
+      const value = row[index];
+      if (value === null || value === "") continue;
+      if (renderValue(value, info, raw).kind !== "numeric") return false;
+      seen = true;
+    }
+    return seen;
+  });
+}
+
+/**
  * Showing a row on the map.
  *
  * Every one is optional, and absent means the viewer has no map: a host that
@@ -146,9 +175,13 @@ export class TableView {
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
     if (this.hasActions) headRow.appendChild(document.createElement("th"));
-    for (const column of page.columns) {
+    const numeric = numericColumns(page, this.state.columnInfoByName, this.state.rawValues);
+    for (const [index, column] of page.columns.entries()) {
       const cell = document.createElement("th");
       cell.textContent = column;
+      // Aligned with its values: numbers sit right, and a left-aligned heading
+      // over them read as belonging to the column beside it.
+      if (numeric[index]) cell.classList.add("value-numeric");
       // What the schema knows that the column name does not show: the field
       // type, and why it may be required.
       const description = describeColumn(this.state.columnInfoByName[column]);

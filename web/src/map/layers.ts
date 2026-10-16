@@ -34,6 +34,71 @@ export const STOP_OPACITY = 0.45;
 export const STOP_RADIUS_FOCUSED = ["interpolate", ["linear"], ["zoom"], 6, 3, 12, 5, 16, 7];
 export const STOP_OPACITY_FOCUSED = 0.95;
 
+/**
+ * How routes are drawn: across the network, and when they are the subject.
+ *
+ * Thin across the network, where two hundred routes have to share the map.
+ * Picked out on their own - a filtered list, a route's card - the same widths
+ * left a bus route a 1px line inside its white casing, which read as a white
+ * road rather than a route. Exported in pairs so the map swaps between them
+ * the way it swaps the stops'.
+ */
+export const ROUTE_WIDTH = ["match", ["get", "route_type"], "3", 1, "1", 4, 3];
+export const ROUTE_WIDTH_FOCUSED = ["match", ["get", "route_type"], "3", 3.5, "1", 5, 4];
+export const ROUTE_CASING_WIDTH = ["match", ["get", "route_type"], "3", 5, "1", 10, 7];
+export const ROUTE_CASING_WIDTH_FOCUSED = ["match", ["get", "route_type"], "3", 6, "1", 9, 7];
+export const ROUTE_OPACITY = ["match", ["get", "route_type"], "1", 0.8, "3", 0.6, 0.7];
+export const ROUTE_OPACITY_FOCUSED = 0.95;
+
+/**
+ * What a route whose own colour is too pale to see is drawn in.
+ *
+ * GTFS defaults `route_color` to white, and a white line inside a white casing
+ * is no line at all - which is how route 84 vanished from a filtered map.
+ */
+export const PALE_ROUTE_COLOR = "#6b7280";
+
+/** A route's colour as the map draws it: its own, unless too pale to see. Mirrors `routeLineColor`. */
+const ROUTE_COLOR = [
+  "let",
+  "rgba",
+  ["to-rgba", ["to-color", ["concat", "#", ["get", "route_color"]], "#3388ff"]],
+  [
+    "case",
+    [
+      ">",
+      [
+        "+",
+        ["*", 0.2126, ["at", 0, ["var", "rgba"]]],
+        ["*", 0.7152, ["at", 1, ["var", "rgba"]]],
+        ["*", 0.0722, ["at", 2, ["var", "rgba"]]],
+      ],
+      0.85 * 255,
+    ],
+    PALE_ROUTE_COLOR,
+    ["to-color", ["concat", "#", ["get", "route_color"]], "#3388ff"],
+  ],
+];
+
+/** What the highlight is drawn in when the thing highlighted has no colour of its own. */
+export const HIGHLIGHT_COLOR = "#ff0066";
+
+/**
+ * A route's `route_color` as a line colour for its highlight, or null to keep
+ * the highlight's own.
+ *
+ * Null for a colour the feed leaves empty or states unreadably, and for one too
+ * pale to see against a light basemap: GTFS defaults `route_color` to white,
+ * and a focused route drawn in white is a route that has vanished.
+ */
+export function routeLineColor(raw: unknown): string | null {
+  const hex = typeof raw === "string" ? raw.trim().replace(/^#/, "") : "";
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return null;
+  const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.85 ? null : `#${hex}`;
+}
+
 export const SOURCE_IDS = ["locations", "routes", "shapes", "stops", "highlight"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
@@ -77,7 +142,7 @@ function feedLayers(): Record<string, unknown>[] {
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
         "line-color": "#ffffff",
-        "line-width": ["match", ["get", "route_type"], "3", 5, "1", 10, 7],
+        "line-width": ROUTE_CASING_WIDTH,
         "line-opacity": 0.8,
       },
     },
@@ -87,9 +152,9 @@ function feedLayers(): Record<string, unknown>[] {
       source: "routes",
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": ["concat", "#", ["get", "route_color"]],
-        "line-width": ["match", ["get", "route_type"], "3", 1, "1", 4, 3],
-        "line-opacity": ["match", ["get", "route_type"], "1", 0.8, "3", 0.6, 0.7],
+        "line-color": ROUTE_COLOR,
+        "line-width": ROUTE_WIDTH,
+        "line-opacity": ROUTE_OPACITY,
       },
     },
     {
@@ -107,7 +172,7 @@ function feedLayers(): Record<string, unknown>[] {
       type: "fill",
       source: "highlight",
       filter: ["==", ["geometry-type"], "Polygon"],
-      paint: { "fill-color": "#ff0066", "fill-opacity": 0.25 },
+      paint: { "fill-color": HIGHLIGHT_COLOR, "fill-opacity": 0.25 },
     },
     {
       id: "highlight-line",
@@ -115,7 +180,14 @@ function feedLayers(): Record<string, unknown>[] {
       source: "highlight",
       filter: ["!=", ["geometry-type"], "Point"],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#ff0066", "line-width": 5, "line-opacity": 0.95 },
+      // A focused route's shapes carry its own colour, so the line reads as
+      // the same route it is everywhere else; anything else - a row picked in
+      // a table - has none and keeps the highlight's own.
+      paint: {
+        "line-color": ["coalesce", ["get", "highlight_color"], HIGHLIGHT_COLOR],
+        "line-width": 5,
+        "line-opacity": 0.95,
+      },
     },
     {
       id: "highlight-point-outer",
@@ -129,7 +201,7 @@ function feedLayers(): Record<string, unknown>[] {
       type: "circle",
       source: "highlight",
       filter: ["==", ["geometry-type"], "Point"],
-      paint: { "circle-radius": 6, "circle-color": "#ff0066", "circle-opacity": 1 },
+      paint: { "circle-radius": 6, "circle-color": HIGHLIGHT_COLOR, "circle-opacity": 1 },
     },
   ];
 }
