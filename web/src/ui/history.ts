@@ -42,7 +42,22 @@ export interface HistoryPort {
  * that screen, which is what lets a route list carry `&mode=2` without the
  * navigator needing to know what a mode is.
  */
-const RESERVED = new Set(["view", "arg", "date", "table", "page", "filters"]);
+const RESERVED = new Set(["view", "arg", "date", "table", "page", "filters", "assist", "sample", "step"]);
+
+/** A walkthrough step's parameters, added to either kind of view's URL. */
+function setAssist(params: URLSearchParams, view: View): void {
+  if (!view.assist) return;
+  params.set("assist", view.assist.code);
+  params.set("sample", String(view.assist.sample));
+  params.set("step", String(view.assist.step));
+}
+
+function readAssist(params: URLSearchParams): View["assist"] {
+  const code = params.get("assist");
+  if (!code) return undefined;
+  const whole = (name: string) => Math.max(0, Math.floor(Number(params.get(name)) || 0));
+  return { code, sample: whole("sample"), step: whole("step") };
+}
 
 /**
  * `?table=stops&page=2&filters=[…]` - the shape a shared link has.
@@ -66,11 +81,13 @@ export function urlFor(view: View): string {
     // Absent means "the feed's own default day", so a link written before the
     // date existed still opens on something sensible.
     if (view.date) params.set("date", view.date);
+    setAssist(params, view);
     return `?${params}`;
   }
   const params = new URLSearchParams({ table: view.table, page: String(view.page || 1) });
   if (view.filters.length) params.set("filters", JSON.stringify(view.filters));
   if (view.date) params.set("date", view.date);
+  setAssist(params, view);
   return `?${params}`;
 }
 
@@ -99,6 +116,7 @@ export function parseUrl(search: string): View | null {
       argument: params.get("arg") ?? undefined,
       date: params.get("date") ?? undefined,
       params: Object.keys(extra).length ? extra : undefined,
+      assist: readAssist(params),
     };
   }
 
@@ -117,6 +135,7 @@ export function parseUrl(search: string): View | null {
     filters,
     page: Number(params.get("page")) || 1,
     date: params.get("date") ?? undefined,
+    assist: readAssist(params),
   };
 }
 

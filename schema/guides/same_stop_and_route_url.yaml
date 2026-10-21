@@ -1,0 +1,19 @@
+code: same_stop_and_route_url
+
+locators:
+  stop:  { file: stops,  line: "{{stopCsvRowNumber}}",  key: { stop_id: "{{stopId}}" } }
+  route: { file: routes, line: "{{routeCsvRowNumber}}", key: { route_id: "{{routeId}}" } }
+
+steps:
+  - text: "Stop {{stopId}} links to {{stopUrl}}, the same web page as route {{routeId}}. `stop_url` should be a page about this stop: its departures, its map, how accessible it is."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [stop_url] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+  - text: "This is route {{routeId}} in `routes.txt`, with the same address in `route_url`. A rider who taps the stop's link lands on the route's page instead."
+    actions:
+      - { kind: open_rows, at: route, highlight: [route_url] }
+      - { kind: map_focus, routes: ["{{routeId}}"], stops: ["{{stopId}}"] }
+
+fix:
+  - "Set `stop_url` of {{stopId}} to a page about that stop, or leave it empty if there is none."

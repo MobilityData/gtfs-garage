@@ -1,0 +1,19 @@
+code: service_has_no_active_day_of_the_week
+
+locators:
+  service: { file: calendar, line: "{{csvRowNumber}}", key: { service_id: "{{serviceId}}" } }
+  days:    { file: calendar_dates, key: { service_id: "{{serviceId}}" } }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `calendar.txt`, the weekly pattern of days each service runs, marks service {{serviceId}} for no day of the week: `monday` to `sunday` are all 0."
+    actions:
+      - { kind: open_rows,   at: service, highlight: [monday, tuesday, wednesday, thursday, friday, saturday, sunday] }
+      - { kind: show_record, at: service, fields: [monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date] }
+
+  - text: "Its trips then run only on single days added in `calendar_dates.txt`, if there are any. If {{serviceId}} should run every week, riders will not see its trips."
+    actions:
+      - { kind: open_rows, at: days, expect: any, highlight: [date, exception_type] }
+
+fix:
+  - "Set the weekdays service {{serviceId}} runs to 1 on line {{csvRowNumber}} of `calendar.txt`."
+  - "If it only runs on single days, remove its row from `calendar.txt` and list those days in `calendar_dates.txt` with `exception_type` 1."

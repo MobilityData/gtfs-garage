@@ -72,6 +72,21 @@ tags:
       local process's own disk, which a hosted backend has no equivalent of. The
       viewer only calls them when `GET /api/config` reports `workspace: true`,
       and the interface they drive is simply absent otherwise.
+  - name: quality
+    description: |-
+      Tours saved from the editor, and demo feeds to try them on: each demo a
+      feed and the gtfs-validator report for it, so a tour can be written for
+      a notice whatever feed is open. Built-in demos ship with the server; a
+      user can add their own from a feed in the workdir and its report.
+
+      A demo's feed is read through the same API as the server's own, under
+      `/demos/{demo_id}` - `GET /demos/main/api/tables`, and so on for every
+      reading path - so trying a tour on a demo never replaces the feed being
+      browsed. Those paths are not listed again here.
+
+      **A host embedding the viewer does not implement these.** Like the
+      workspace paths, the viewer only calls them when `GET /api/config`
+      reports `workspace: true`.
 
 paths:
   /api/config:
@@ -151,6 +166,19 @@ paths:
             type: string
             default: "[]"
           example: '[{"column":"route_id","op":"eq","value":"R1"}]'
+        - name: lines
+          in: query
+          description: >-
+            Add `lines` to the response: the line of the file each row was read
+            from, counted the way gtfs-validator counts `csvRowNumber` (the
+            header is line 1, and a record is numbered by the line it ends on).
+            The rows then come in file order. Filtering on the reserved column
+            `_line` with `eq`, `ne` or `in` selects rows by line number and
+            works without this flag.
+          required: false
+          schema:
+            type: boolean
+            default: false
       responses:
         "200":
           description: The requested page.
@@ -521,6 +549,204 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /api/quality/demos:
+    get:
+      summary: The demo feeds
+      description: >-
+        Every demo, built in first, with how many times each notice occurs in
+        its report, so a reader can tell which demos a tour can be tried on.
+      operationId: listDemos
+      tags: [quality]
+      responses:
+        "200":
+          description: The demos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoListResponse"
+    post:
+      summary: Add a demo of your own
+      description: >-
+        Keeps a feed the workdir holds, with a gtfs-validator report for it, as
+        a demo. The feed is then never evicted by the workdir's retention.
+      operationId: addDemo
+      tags: [quality]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AddDemoUpload"
+      responses:
+        "200":
+          description: The demo added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Demo"
+        "400":
+          description: >-
+            No such feed in the workdir, or a report that is not a
+            gtfs-validator report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/quality/demos/{demo_id}:
+    parameters:
+      - $ref: "#/components/parameters/demo_id_path_param"
+    delete:
+      summary: Forget a demo of your own
+      description: >-
+        Removes the demo, not its feed, which stays in the workdir. Built-in
+        demos cannot be removed.
+      operationId: removeDemo
+      tags: [quality]
+      responses:
+        "200":
+          description: The demos, as they now stand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoListResponse"
+        "404":
+          description: No such demo of your own.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/quality/demos/{demo_id}/report:
+    parameters:
+      - $ref: "#/components/parameters/demo_id_path_param"
+    get:
+      summary: A demo's validation report
+      description: The report.json gtfs-validator wrote for the demo's feed, unchanged.
+      operationId: getDemoReport
+      tags: [quality]
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "404":
+          description: No such demo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/quality/demos/{demo_id}/tables:
+    parameters:
+      - $ref: "#/components/parameters/demo_id_path_param"
+    get:
+      summary: A demo's files and their columns
+      description: >-
+        Read without opening the feed, so a tour can be checked against the
+        demo - which rows it would find in which file - before it is run.
+      operationId: getDemoTables
+      tags: [quality]
+      responses:
+        "200":
+          description: The files.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DemoTablesResponse"
+        "404":
+          description: No such demo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/quality/guides:
+    get:
+      summary: Tours saved in the workdir
+      description: >-
+        Every tour saved from the editor, by notice code. A saved tour wins
+        over the one the viewer ships for its notice until it is removed.
+      operationId: listSavedGuides
+      tags: [quality]
+      responses:
+        "200":
+          description: The saved tours.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedGuideListResponse"
+
+  /api/quality/guides/{code}:
+    parameters:
+      - $ref: "#/components/parameters/notice_code_path_param"
+    get:
+      summary: One saved tour
+      operationId: getSavedGuide
+      tags: [quality]
+      responses:
+        "200":
+          description: The tour.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedGuide"
+        "404":
+          description: No tour is saved for that notice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Save a tour
+      description: >-
+        Checks the YAML with the same rules as the build applies to the tours
+        in the repository - every field one the notice's samples carry, every
+        action and argument one the viewer implements - and keeps it under
+        `<workdir>/guides/<code>.yaml`. Refused, saving nothing, when the check
+        fails.
+      operationId: saveGuide
+      tags: [quality]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveGuideRequest"
+      responses:
+        "200":
+          description: The tour, as saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedGuide"
+        "422":
+          description: The tour does not pass the check; `detail` says why.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Forget a saved tour
+      operationId: removeSavedGuide
+      tags: [quality]
+      responses:
+        "200":
+          description: The saved tours, as they now stand.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedGuideListResponse"
+        "404":
+          description: No tour is saved for that notice.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /api/overview:
     get:
       summary: What is in this feed
@@ -721,6 +947,22 @@ components:
       schema:
         type: string
       example: montreal-gtfs-zip-7f3a91c0
+    demo_id_path_param:
+      name: demo_id
+      in: path
+      description: A demo's id, as `GET /api/quality/demos` reports it.
+      required: true
+      schema:
+        type: string
+      example: main
+    notice_code_path_param:
+      name: code
+      in: path
+      description: A gtfs-validator notice code.
+      required: true
+      schema:
+        type: string
+      example: stop_too_far_from_shape
     route_id_path_param:
       name: route_id
       in: path
@@ -816,8 +1058,10 @@ components:
           example: montreal-gtfs.zip
         kind:
           type: string
-          description: How it was obtained.
-          enum: [path, upload, folder, download]
+          description: >-
+            How it was obtained. `demo` is a built-in demo feed opened to try
+            a Quality tour on, which retention neither counts nor evicts.
+          enum: [path, upload, folder, download, demo]
         loaded_at:
           type: string
           format: date-time
@@ -1107,6 +1351,16 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/FileCondition"
+        lines:
+          type: string
+          nullable: true
+          enum: [exact, approximate]
+          description: >-
+            Whether this table's line numbers match the file it was read from.
+            `exact` was checked against the file's lines at conversion;
+            `approximate` could not be, and can be off after a multi-line value,
+            a blank line or a row the loader could not read. Null when the table
+            is not read from lines at all, as with locations.geojson.
 
     FileMetrics:
       type: object
@@ -1198,8 +1452,10 @@ components:
             $ref: "#/components/schemas/LoadPhaseTiming"
         kind:
           type: string
-          enum: [path, upload, folder, download]
-          description: How the feed reached the server. Absent for a non-server source.
+          enum: [path, upload, folder, download, demo]
+          description: >-
+            How the feed reached the server; `demo` for a built-in demo feed.
+            Absent for a non-server source.
         acquire_ms:
           type: number
           nullable: true
@@ -1325,6 +1581,14 @@ components:
           type: integer
         page_size:
           type: integer
+        # One per row when `lines` was asked for and the table has line numbers;
+        # null otherwise. See TableInfo.lines for whether they were checked.
+        lines:
+          type: array
+          nullable: true
+          items:
+            type: integer
+            format: int64
 
     ValueCount:
       type: object
@@ -2243,3 +2507,120 @@ components:
             which states `start_pickup_drop_off_window` and
             `end_pickup_drop_off_window` instead of fixed times - so a reader is
             not shown "05:45" for a service bookable between 05:45 and 19:45.
+
+    Demo:
+      type: object
+      description: A feed to try Quality tours on, with the report gtfs-validator wrote for it.
+      required: [id, title, description, builtin, available, notices]
+      properties:
+        id:
+          type: string
+          example: main
+        title:
+          type: string
+          example: Main network
+        description:
+          type: string
+        builtin:
+          type: boolean
+          description: Shipped with the server, rather than added from the workdir.
+        available:
+          type: boolean
+          description: >-
+            Whether it can be opened. False for a demo of your own whose feed
+            has since been removed from the workdir.
+        feed_id:
+          type: string
+          nullable: true
+          description: For a demo of your own, the workdir feed it is made of.
+        notices:
+          type: object
+          description: How many times each notice code occurs in its report.
+          additionalProperties:
+            type: integer
+          example:
+            stop_too_far_from_shape: 5
+
+    DemoListResponse:
+      type: object
+      required: [demos]
+      properties:
+        demos:
+          type: array
+          items:
+            $ref: "#/components/schemas/Demo"
+
+    DemoTable:
+      type: object
+      required: [name, columns]
+      properties:
+        name:
+          type: string
+          example: stops
+        columns:
+          type: array
+          items:
+            type: string
+
+    DemoTablesResponse:
+      type: object
+      required: [tables]
+      properties:
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemoTable"
+
+    AddDemoUpload:
+      type: object
+      required: [feed_id, report]
+      properties:
+        feed_id:
+          type: string
+          description: The workdir feed to make a demo of.
+        title:
+          type: string
+          description: What to call it; the feed's label when left out.
+        description:
+          type: string
+        report:
+          type: string
+          format: binary
+          description: The report.json gtfs-validator wrote for that feed.
+
+
+    SavedGuide:
+      type: object
+      description: A tour saved from the editor.
+      required: [code, yaml, guide, saved_at]
+      properties:
+        code:
+          type: string
+          example: stop_too_far_from_shape
+        yaml:
+          type: string
+          description: The tour as it was written, comments and all.
+        guide:
+          type: object
+          additionalProperties: true
+          description: The same, read; the shape of a file in `schema/guides/`.
+        saved_at:
+          type: string
+          format: date-time
+
+    SavedGuideListResponse:
+      type: object
+      required: [guides]
+      properties:
+        guides:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedGuide"
+
+    SaveGuideRequest:
+      type: object
+      required: [yaml]
+      properties:
+        yaml:
+          type: string
+          description: The tour, as YAML.

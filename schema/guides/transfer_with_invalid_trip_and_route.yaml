@@ -1,0 +1,19 @@
+code: transfer_with_invalid_trip_and_route
+
+locators:
+  transfer: { file: transfers, line: "{{csvRowNumber}}" }
+  trip:     { file: trips, key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `transfers.txt`, the changes riders can make, names trip {{tripId}} and route {{routeId}}. But trip {{tripId}} runs on route {{expectedRouteId}}, not {{routeId}}."
+    actions:
+      - { kind: open_rows, at: transfer, highlight: ["{{tripFieldName}}", "{{routeFieldName}}"] }
+
+  - text: "In `trips.txt`, the list of trips, {{tripId}} belongs to route {{expectedRouteId}}. With two different routes named, apps cannot tell which one the transfer is for."
+    actions:
+      - { kind: open_rows, at: trip, highlight: [route_id] }
+      - { kind: map_focus, routes: ["{{expectedRouteId}}", "{{routeId}}"] }
+
+fix:
+  - "On line {{csvRowNumber}} of `transfers.txt`, set `{{routeFieldName}}` to {{expectedRouteId}}, or empty it, since the trip already says its route."
+  - "If the trip is the mistake, change `{{tripFieldName}}` to a trip of route {{routeId}}."

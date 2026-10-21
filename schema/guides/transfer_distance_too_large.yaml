@@ -1,0 +1,22 @@
+code: transfer_distance_too_large
+
+locators:
+  transfer:  { file: transfers, line: "{{csvRowNumber}}", key: { from_stop_id: "{{fromStopId}}", to_stop_id: "{{toStopId}}" } }
+  from_stop: { file: stops, key: { stop_id: "{{fromStopId}}" } }
+  to_stop:   { file: stops, key: { stop_id: "{{toStopId}}" } }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `transfers.txt`, the changes riders can make between stops, links {{fromStopId}} to {{toStopId}}, {{distanceKm|km}} apart. Nobody walks over 10 km to change, so apps would offer a connection riders cannot make."
+    point: map
+    actions:
+      - { kind: open_rows,   at: transfer, highlight: [from_stop_id, to_stop_id] }
+      - { kind: map_focus,   stops: ["{{fromStopId}}", "{{toStopId}}"] }
+      - { kind: map_measure, from: { stop: "{{fromStopId}}" }, to: { stop: "{{toStopId}}" }, threshold: 10000 }
+
+  - text: "These are the two stops. If one is in the wrong place, its `stop_lat` and `stop_lon` need correcting; if both are right, the transfer names the wrong stop."
+    actions:
+      - { kind: compare_records, a: from_stop, b: to_stop, fields: [stop_name, stop_lat, stop_lon, parent_station] }
+
+fix:
+  - "Check `stop_lat` and `stop_lon` of {{fromStopId}} and {{toStopId}}, since one of them may be in the wrong place."
+  - "If the transfer names the wrong stop, correct line {{csvRowNumber}} of `transfers.txt`, or delete it if riders do not change there."

@@ -1,0 +1,20 @@
+code: invalid_geometry
+
+locators:
+  zone: { file: locations, key: { id: "{{featureId}}" } }
+
+steps:
+  - text: "The outline of zone {{featureId}} in `locations.geojson`, the file of zones that on-demand trips serve, is not a valid shape. Apps cannot reliably tell whether a rider's address is inside it."
+    point: map
+    actions:
+      - { kind: open_rows,  at: zone, highlight: [geometry_type, geometry] }
+      - { kind: map_focus,  locations: ["{{featureId}}"] }
+      - { kind: show_value, value: "{{message}}", label: "What the validator found wrong" }
+
+  - text: "An outline must be a closed line that never crosses itself. Corners listed in the wrong order make it cross over, like a bow tie."
+    actions:
+      - { kind: show_record, at: zone, fields: [geometry] }
+
+fix:
+  - "Redraw zone {{featureId}} in a map editor such as QGIS or geojson.io so its outline does not cross itself, and export `locations.geojson` again."
+  - "If the zone is really two areas, draw it as a MultiPolygon of two separate outlines."

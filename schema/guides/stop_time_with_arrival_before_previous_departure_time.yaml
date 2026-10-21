@@ -1,0 +1,22 @@
+code: stop_time_with_arrival_before_previous_departure_time
+
+locators:
+  prev:  { file: stop_times, line: "{{prevCsvRowNumber}}", key: { trip_id: "{{tripId}}" } }
+  this:  { file: stop_times, line: "{{csvRowNumber}}",     key: { trip_id: "{{tripId}}" } }
+  pair:  { file: stop_times, line: "{{prevCsvRowNumber}},{{csvRowNumber}}" }
+  calls: { file: stop_times, key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "On trip {{tripId}}, the vehicle leaves a stop at {{departureTime}} and reaches the next one at {{arrivalTime}}, before it has left."
+    actions:
+      - { kind: open_rows,       at: calls, mark: pair, highlight: [arrival_time, departure_time] }
+      - { kind: compare_records, a: prev, b: this, fields: [stop_sequence, stop_id, arrival_time, departure_time] }
+
+  - text: "Played at its scheduled pace, the trip goes back in time on that leg. Apps cannot show such a timetable, and journey planners may drop the trip."
+    actions:
+      - { kind: timetable, trip: "{{tripId}}" }
+      - { kind: map_play,  trip: "{{tripId}}" }
+
+fix:
+  - "Correct `arrival_time` on line {{csvRowNumber}} or `departure_time` on line {{prevCsvRowNumber}} of `stop_times.txt`, so the vehicle arrives at {{departureTime}} or later."
+  - "Check `stop_sequence` too, since two stops listed in the wrong order look the same."

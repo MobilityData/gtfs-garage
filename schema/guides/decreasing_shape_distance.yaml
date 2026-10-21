@@ -1,0 +1,20 @@
+code: decreasing_shape_distance
+
+locators:
+  shape: { file: shapes, key: { shape_id: "{{shapeId}}" } }
+  pair:  { file: shapes, line: "{{prevCsvRowNumber}},{{csvRowNumber}}" }
+
+steps:
+  - text: "Shape {{shapeId}}, a line trips are drawn with, goes backwards: point {{shapePtSequence}} is {{shapeDistTraveled|round}} along it and point {{prevShapePtSequence}}, right next to it, {{prevShapeDistTraveled|round}}. In `shapes.txt`, `shape_dist_traveled` says how far along the line each point is, so it can only grow."
+    actions:
+      - { kind: open_rows, at: shape, mark: pair, highlight: [shape_pt_sequence, shape_dist_traveled] }
+      - { kind: map_focus, shapes: ["{{shapeId}}"] }
+
+  - text: "Distance along the line against the order of the points should only climb; the marked points are where it drops. Apps place stops and vehicles on the line by these distances, so a drop can put a vehicle in the wrong place."
+    actions:
+      - { kind: chart, at: shape, x: shape_pt_sequence, y: shape_dist_traveled, mark: ["{{prevCsvRowNumber}}", "{{csvRowNumber}}"] }
+
+fix:
+  - "Correct `shape_dist_traveled` of point {{shapePtSequence}} or point {{prevShapePtSequence}} of shape {{shapeId}} so the values grow from each point to the next."
+  - "If the points themselves are in the wrong order, correct their `shape_pt_sequence` instead."
+  - "If the distances cannot be trusted, leave `shape_dist_traveled` empty for the whole shape and for the trips that use it in `stop_times.txt`; apps then work the distances out themselves."

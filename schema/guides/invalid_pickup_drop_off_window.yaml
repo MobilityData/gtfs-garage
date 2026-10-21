@@ -1,0 +1,14 @@
+code: invalid_pickup_drop_off_window
+
+locators:
+  row: { file: stop_times, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `stop_times.txt`, the timetable, gives a pickup and drop-off window that starts at {{startPickupDropOffWindow}} and ends at {{endPickupDropOffWindow}}. The end must be later than the start, so there is no time at which riders can be served."
+    actions:
+      - { kind: open_rows, at: row, highlight: [start_pickup_drop_off_window, end_pickup_drop_off_window] }
+      - { kind: timeline,  start: "{{startPickupDropOffWindow}}", end: "{{endPickupDropOffWindow}}", start_label: "Window opens", end_label: "Window closes", count: none }
+
+fix:
+  - "On line {{csvRowNumber}} of `stop_times.txt`, correct the window so it ends after it starts; if the times are swapped, set `start_pickup_drop_off_window` to {{endPickupDropOffWindow}} and `end_pickup_drop_off_window` to {{startPickupDropOffWindow}}."
+  - "A window that runs past midnight is written with hours past 24, for example 22:00:00 to 25:00:00."

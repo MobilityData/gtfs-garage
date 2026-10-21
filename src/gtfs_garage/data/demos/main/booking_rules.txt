@@ -1,0 +1,10 @@
+booking_rule_id,booking_type,prior_notice_duration_min,prior_notice_duration_max,prior_notice_last_day,prior_notice_last_time,prior_notice_start_day,prior_notice_start_time,message,booking_url
+BR0,0,30,,,,,,Book on the app,
+BR1,1,,,1,,,,Book the same day,
+BR2,1,60,30,,,,,,
+BR3,1,30,120,,,2,08:00:00,,
+BR4,2,,,,,,,,
+BR5,2,30,,1,17:00:00,,,,
+BR6,2,,,1,17:00:00,3,,,
+BR7,2,,,1,17:00:00,,08:00:00,,
+BR8,2,,,5,17:00:00,2,08:00:00,,

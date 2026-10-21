@@ -1,0 +1,19 @@
+code: pathway_to_stop_with_access_outside_of_station_pathways
+
+locators:
+  pathway: { file: pathways, line: "{{csvRowNumber}}", key: { pathway_id: "{{pathwayId}}" } }
+  stop:    { file: stops, key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Pathway {{pathwayId}}, line {{csvRowNumber}} of `pathways.txt`, the walkways inside stations, leads to {{stopId}}. But {{stopId}} says riders reach it straight from the street."
+    actions:
+      - { kind: open_rows, at: pathway, highlight: [from_stop_id, to_stop_id] }
+
+  - text: "In `stops.txt`, `stop_access` 1 means reached from the street, not through the station. The pathway says the opposite, so apps cannot tell how riders get there."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [stop_access, parent_station] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+fix:
+  - "If riders reach {{stopId}} through the station, set its `stop_access` to 0 in `stops.txt`."
+  - "If riders reach {{stopId}} from the street, delete pathway {{pathwayId}} from `pathways.txt`."

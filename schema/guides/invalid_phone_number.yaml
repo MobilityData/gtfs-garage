@@ -1,0 +1,18 @@
+code: invalid_phone_number
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` gives `{{fieldName}}` the value \"{{fieldValue}}\", which is not a phone number that can be dialled in the feed's country. Riders who tap it in an app to call reach no one."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it", expect: "+1 514-555-0100" }
+
+  - text: "The number is checked against the country given when the validator was run, so it needs all its digits, as a rider would dial them. Spaces, dashes and brackets are fine."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Replace \"{{fieldValue}}\" in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}` with the full number riders should call, such as +1 514-555-0100."
+  - "If there is no number to give, leave `{{fieldName}}` empty, if the column allows it."

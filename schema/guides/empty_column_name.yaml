@@ -1,0 +1,10 @@
+code: empty_column_name
+
+steps:
+  - text: "Column {{index}} of `{{filename}}` has no name in the header, the file's first line. The validator skips it, and apps cannot tell what its values mean."
+    actions:
+      - { kind: show_columns, file: "{{filename}}", mark: ["{{index}}"] }
+
+fix:
+  - "Give column {{index}} of `{{filename}}` its name in the header, or delete the column if it is not needed."
+  - "Look for two commas in a row in the header, or a comma at its end: that is the usual cause."

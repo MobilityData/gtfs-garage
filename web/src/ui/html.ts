@@ -75,3 +75,13 @@ export function section(title: string, hint?: string, children: Child[] = []): H
     ...children,
   ]);
 }
+
+/**
+ * A sentence with its `code` spans drawn as code: how a tour names a file or a
+ * column. Text only, like everything here, so a value from the feed inside the
+ * backticks is still text.
+ */
+export function prose(text: string): (Node | string)[] {
+  const parts = text.split(/`([^`\n]+)`/);
+  return parts.map((part, index) => (index % 2 ? node("code", { class: "prose-code", text: part }) : part)).filter((part) => part !== "");
+}

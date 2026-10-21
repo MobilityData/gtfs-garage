@@ -20,7 +20,7 @@ import json
 
 
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from gtfs_garage_gen.models.column_info import ColumnInfo
 from gtfs_garage_gen.models.file_condition import FileCondition
@@ -37,7 +37,18 @@ class TableInfo(BaseModel):
     row_count: StrictInt
     columns: List[ColumnInfo]
     forbidden: Optional[FileCondition] = None
-    __properties: ClassVar[List[str]] = ["name", "row_count", "columns", "forbidden"]
+    lines: Optional[StrictStr] = Field(default=None, description="Whether this table's line numbers match the file it was read from. `exact` was checked against the file's lines at conversion; `approximate` could not be, and can be off after a multi-line value, a blank line or a row the loader could not read. Null when the table is not read from lines at all, as with locations.geojson.")
+    __properties: ClassVar[List[str]] = ["name", "row_count", "columns", "forbidden", "lines"]
+
+    @field_validator('lines')
+    def lines_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in ('exact', 'approximate'):
+            raise ValueError("must be one of enum values ('exact', 'approximate')")
+        return value
 
     model_config = {
         "populate_by_name": True,
@@ -91,6 +102,11 @@ class TableInfo(BaseModel):
         if self.forbidden is None and "forbidden" in self.model_fields_set:
             _dict['forbidden'] = None
 
+        # set to None if lines (nullable) is None
+        # and model_fields_set contains the field
+        if self.lines is None and "lines" in self.model_fields_set:
+            _dict['lines'] = None
+
         return _dict
 
     @classmethod
@@ -106,7 +122,8 @@ class TableInfo(BaseModel):
             "name": obj.get("name"),
             "row_count": obj.get("row_count"),
             "columns": [ColumnInfo.from_dict(_item) for _item in obj.get("columns")] if obj.get("columns") is not None else None,
-            "forbidden": FileCondition.from_dict(obj.get("forbidden")) if obj.get("forbidden") is not None else None
+            "forbidden": FileCondition.from_dict(obj.get("forbidden")) if obj.get("forbidden") is not None else None,
+            "lines": obj.get("lines")
         })
         return _obj
 

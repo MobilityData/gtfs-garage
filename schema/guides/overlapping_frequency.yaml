@@ -1,0 +1,21 @@
+code: overlapping_frequency
+
+locators:
+  periods: { file: frequencies, key: { trip_id: "{{tripId}}" } }
+  both: { file: frequencies, line: "{{prevCsvRowNumber}},{{currCsvRowNumber}}" }
+  first: { file: frequencies, line: "{{prevCsvRowNumber}}" }
+  second: { file: frequencies, line: "{{currCsvRowNumber}}" }
+
+steps:
+  - text: "Trip {{tripId}} is in `frequencies.txt`, trips described as \"every N minutes\" between two times. Line {{prevCsvRowNumber}} runs it until {{prevEndTime}}, but line {{currCsvRowNumber}} starts again at {{currStartTime}}."
+    actions:
+      - { kind: open_rows, at: periods, mark: both, highlight: [start_time, end_time] }
+      - { kind: compare_records, a: first, b: second, fields: [start_time, end_time, headway_secs] }
+
+  - text: "From {{currStartTime}} to {{prevEndTime}} both periods apply. Apps count two sets of departures and show the service running more often than it does."
+    actions:
+      - { kind: timeline, start: "{{currStartTime}}", end: "{{prevEndTime}}", start_label: "Line {{currCsvRowNumber}} starts", end_label: "Line {{prevCsvRowNumber}} ends" }
+
+fix:
+  - "Set `start_time` on line {{currCsvRowNumber}} to {{prevEndTime}}, or `end_time` on line {{prevCsvRowNumber}} to {{currStartTime}}, so one period ends where the next starts."
+  - "If lines {{prevCsvRowNumber}} and {{currCsvRowNumber}} describe the same service, merge them into one row."

@@ -1,0 +1,17 @@
+code: forbidden_same_day_booking_field_value
+
+locators:
+  rule: { file: booking_rules, line: "{{csvRowNumber}}", key: { booking_rule_id: "{{bookingRuleId}}" } }
+
+steps:
+  - text: "Booking rule {{bookingRuleId}} (line {{csvRowNumber}} of `booking_rules.txt`, how and when riders must book a trip) is for trips booked earlier the same day (`booking_type` 1). Yet it also fills in `{{fieldNames}}`, used only for trips booked days before."
+    actions:
+      - { kind: open_rows, at: rule, highlight: [booking_type, "{{fieldNames}}"] }
+
+  - text: "A same-day deadline is a number of minutes before the trip (`prior_notice_duration_min`). With a deadline in days as well, an app cannot tell riders which one is true."
+    actions:
+      - { kind: show_record, at: rule, fields: [booking_type, prior_notice_duration_min, "{{fieldNames}}"] }
+
+fix:
+  - "Empty `{{fieldNames}}` for booking rule {{bookingRuleId}}, and give the notice riders must give, in minutes, in `prior_notice_duration_min`."
+  - "If riders actually book one or more days before, set `booking_type` to 2 and empty `prior_notice_duration_min` and `prior_notice_duration_max` instead."

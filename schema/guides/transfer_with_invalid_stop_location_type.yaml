@@ -1,0 +1,18 @@
+code: transfer_with_invalid_stop_location_type
+
+locators:
+  transfer: { file: transfers, line: "{{csvRowNumber}}" }
+  stop:     { file: stops, key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `transfers.txt`, the changes riders can make between stops, has {{stopId}} in `{{stopIdFieldName}}`, and {{stopId}} is an {{locationTypeName|words}}. A change between vehicles has to be at a stop, a platform or a station."
+    actions:
+      - { kind: open_rows, at: transfer, highlight: ["{{stopIdFieldName}}"] }
+
+  - text: "`location_type` is the kind of place: 0 a stop or platform, 1 a station, 2 an entrance, 3 a node inside a station, 4 a boarding area. {{stopId}} is a {{locationTypeValue}}. No vehicle stops at types 2 to 4, so apps cannot offer the change."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [location_type, parent_station] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+fix:
+  - "On line {{csvRowNumber}} of `transfers.txt`, change `{{stopIdFieldName}}` to the stop or station riders change at, usually the `parent_station` of {{stopId}}."

@@ -1,0 +1,19 @@
+code: platform_without_parent_station
+
+locators:
+  stop:     { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+  stations: { file: stops, key: { location_type: "1" } }
+
+steps:
+  - text: "{{stopName}} ({{stopId}}) has a `platform_code`, the number or letter of a platform. But its `parent_station` is empty, so it does not say which station it is part of."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [platform_code, parent_station] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+  - text: "These are the stations in `stops.txt`. Apps group a station's platforms under its name; if {{stopName}} belongs to one of these, riders see it as a stop on its own."
+    actions:
+      - { kind: open_rows, at: stations, highlight: [stop_name, location_type] }
+
+fix:
+  - "If {{stopName}} is part of a station, set its `parent_station` to that station's `stop_id`."
+  - "If {{stopName}} is a stop on its own, there is nothing to fix."

@@ -15,6 +15,7 @@
  */
 
 import type { Filter, ViewerSource } from "../../sources/types";
+import type { QualityContext } from "./quality";
 
 /**
  * What a focus put on the map.
@@ -124,6 +125,13 @@ export interface ScreenContext {
    * answers tables and not geometry.
    */
   focusStop?(stopId: string): Promise<boolean>;
+
+  /**
+   * The validation report being read and the Quality assistant, for the
+   * Quality screen. Supplied by `mount` for every viewer; a host's own screen
+   * can use it too.
+   */
+  quality?: QualityContext;
 }
 
 export interface Screen<T = unknown> {

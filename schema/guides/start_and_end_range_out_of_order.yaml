@@ -1,0 +1,18 @@
+code: start_and_end_range_out_of_order
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "On line {{csvRowNumber}} of `{{filename}}`, `{{endFieldName}}` ({{endValue|date}}) comes before `{{startFieldName}}` ({{startValue|date}}). The period this row describes ends before it begins."
+    actions:
+      - { kind: open_rows,   at: row, highlight: ["{{startFieldName}}", "{{endFieldName}}"] }
+      - { kind: show_record, at: row, fields: ["{{startFieldName}}", "{{endFieldName}}"] }
+
+  - text: "Apps cannot run a service or a trip over a period that goes backwards. They may drop it, and riders then do not see it at all."
+    actions:
+      - { kind: timeline, start: "{{startValue}}", end: "{{endValue}}", start_label: "{{startFieldName}}", end_label: "{{endFieldName}}", count: none }
+
+fix:
+  - "If the two values were entered the wrong way round, swap `{{startFieldName}}` and `{{endFieldName}}` on line {{csvRowNumber}} of `{{filename}}`."
+  - "If only one of them is wrong, correct that one so the period ends after it starts."

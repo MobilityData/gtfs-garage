@@ -1,0 +1,19 @@
+code: missing_timepoint_value
+
+locators:
+  row:   { file: stop_times, line: "{{csvRowNumber}}", key: { trip_id: "{{tripId}}", stop_sequence: "{{stopSequence}}" } }
+  calls: { file: stop_times, key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "Stop {{stopSequence}} of trip {{tripId}} has a time, but its `timepoint` is empty. `timepoint` says whether that time is exact (1) or an estimate (0)."
+    actions:
+      - { kind: open_rows,   at: calls, mark: row, highlight: [arrival_time, departure_time, timepoint] }
+      - { kind: show_record, at: row, fields: [timepoint] }
+
+  - text: "The trip in its timetable. Left empty, apps take every time as exact; if some are estimates, riders expect the vehicle at a time it does not keep."
+    actions:
+      - { kind: timetable, trip: "{{tripId}}" }
+
+fix:
+  - "Set `timepoint` on line {{csvRowNumber}} of `stop_times.txt` to 1 if the vehicle is scheduled to be there at that time, or to 0 if the time is an estimate."
+  - "Fill in `timepoint` for every other stop of trip {{tripId}} that has a time."

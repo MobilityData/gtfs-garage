@@ -1,0 +1,18 @@
+code: feed_valid_beyond_total_service_window
+
+locators:
+  feed: { file: feed_info }
+
+steps:
+  - text: "`feed_info.txt`, the feed's description of itself, says the feed is valid from {{feedStartDate|date}} to {{feedEndDate|date}}. Its services only run from {{serviceWindowStartDate|date}} to {{serviceWindowEndDate|date}}."
+    actions:
+      - { kind: open_rows, at: feed, highlight: [feed_start_date, feed_end_date] }
+      - { kind: timeline,  start: "{{feedStartDate}}", end: "{{feedEndDate}}", start_label: "Feed valid from", end_label: "Feed valid to", other_start: "{{serviceWindowStartDate}}", other_end: "{{serviceWindowEndDate}}", other_label: "Days with service" }
+
+  - text: "So for more than two weeks of the period the feed claims, it has no trips at all. An app trusting those dates would show riders an empty timetable."
+    actions:
+      - { kind: calendar, date: "{{serviceWindowStartDate}}" }
+
+fix:
+  - "Set `feed_start_date` and `feed_end_date` in `feed_info.txt` so they stay within the days with service, {{serviceWindowStartDate|date}} to {{serviceWindowEndDate|date}}."
+  - "If the feed should have service on the other days, add it in `calendar.txt` or `calendar_dates.txt`."

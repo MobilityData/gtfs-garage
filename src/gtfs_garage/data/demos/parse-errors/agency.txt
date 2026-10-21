@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone,agency_email
+RTA,Riverside Transit Authority,https://example.org/rta,Mars/Olympus_Mons,e1!,12,info@example.org

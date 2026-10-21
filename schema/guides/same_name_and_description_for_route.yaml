@@ -1,0 +1,14 @@
+code: same_name_and_description_for_route
+
+locators:
+  route: { file: routes, line: "{{csvRowNumber}}", key: { route_id: "{{routeId}}" } }
+
+steps:
+  - text: "Route {{routeId}}'s description, {{routeDesc}}, only repeats its name in `{{specifiedField}}`. In `routes.txt`, `route_desc` should tell riders more, such as where the route goes or when it runs; a copy of the name tells them nothing."
+    actions:
+      - { kind: open_rows,   at: route, highlight: [route_desc, "{{specifiedField}}"] }
+      - { kind: show_record, at: route, fields: [route_short_name, route_long_name, route_desc] }
+
+fix:
+  - "Write a real description in `route_desc` of route {{routeId}}, such as where it goes and when it runs."
+  - "If there is nothing more to say, leave `route_desc` empty."

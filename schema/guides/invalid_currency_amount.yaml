@@ -1,0 +1,18 @@
+code: invalid_currency_amount
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` gives `{{fieldName}}` the value {{fieldValue}} {{currencyCode}}, which does not have the number of decimal places {{currencyCode}} uses. Apps may show the wrong price, or refuse it."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it", expect: "3.75" }
+
+  - text: "An amount has exactly as many decimals as its currency's smallest coin: two for currencies counted in cents, such as CAD, USD or EUR (3.75), and none for currencies such as JPY (300)."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Write `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}` with the decimals {{currencyCode}} uses, rounding {{fieldValue}} to the price riders actually pay, for example 3.75."
+  - "If the amount is right but the currency is wrong, correct the currency instead."

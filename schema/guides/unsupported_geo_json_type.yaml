@@ -1,0 +1,10 @@
+code: unsupported_geo_json_type
+
+steps:
+  - text: "`locations.geojson`, the file of zones that on-demand trips serve, says at the top that it is a {{geoJsonType}}. GTFS needs a FeatureCollection, a list of zones, so apps cannot read any zone from it."
+    actions:
+      - { kind: show_value, value: "{{geoJsonType}}", label: "The file's type", expect: "FeatureCollection" }
+      - { kind: show_files, mark: [locations.geojson] }
+
+fix:
+  - "Wrap the content of `locations.geojson` in a FeatureCollection, written as { \"type\": \"FeatureCollection\", \"features\": [ ... ] } with each zone inside the brackets."

@@ -1,0 +1,18 @@
+code: point_near_pole
+
+locators:
+  place: { file: "{{filename}}", key: { id: "{{entityId}}" } }
+
+steps:
+  - text: "A place in `{{filename}}` is at {{latFieldValue|coord}}, {{lonFieldValue|coord}}, within a degree of the North or South Pole. No transit runs there, so the latitude is almost certainly wrong."
+    point: map
+    actions:
+      - { kind: map_focus, points: [["{{latFieldValue}}", "{{lonFieldValue}}"]] }
+
+  - text: "It is part of {{entityId}}, an area riders can be picked up or dropped off in. With a point at the pole, apps would stretch the area across half the globe, or not show it."
+    actions:
+      - { kind: open_rows, at: place }
+
+fix:
+  - "Correct the coordinates of this place in `{{filename}}` to where it really is."
+  - "Look for latitude and longitude swapped, or a wrong sign: they are the usual cause."

@@ -7,7 +7,20 @@ never built from arbitrary user input.
 
 from __future__ import annotations
 
+from gtfs_garage.core.lines import LINE_COLUMN
+
 OPERATORS = {"eq", "ne", "contains", "is_empty", "is_not_empty", "in"}
+
+# Operators that make sense on a line number, which is an integer and never empty.
+LINE_OPERATORS = {"eq", "ne", "in"}
+
+
+def _line_values(value) -> list[int] | None:
+    """The line numbers a filter value names, or None if any is not a number."""
+    parts = [part.strip() for part in str(value or "").split(",") if part.strip()]
+    if not parts or not all(part.isdigit() for part in parts):
+        return None
+    return [int(part) for part in parts]
 
 
 def build_where(known_columns: set[str], filters: list[dict]) -> tuple[str, list]:
@@ -23,6 +36,22 @@ def build_where(known_columns: set[str], filters: list[dict]) -> tuple[str, list
             continue
 
         col = f'"{column}"'
+
+        # The line is an integer the caller asked for by number, so it is
+        # compared as one: '10' must not sort or match like text. A value that
+        # is not a number selects nothing rather than erroring.
+        if column == LINE_COLUMN:
+            numbers = _line_values(value)
+            if op not in LINE_OPERATORS or numbers is None:
+                clauses.append("FALSE")
+                continue
+            if op == "ne":
+                clauses.append(f"{col} != ?")
+                params.append(numbers[0])
+            else:
+                clauses.append(f"{col} IN ({', '.join(['?'] * len(numbers))})")
+                params.extend(numbers)
+            continue
 
         # An empty CSV field loads as NULL, so "= (empty)" has to mean "is empty"
         # or picking the "(empty)" entry out of a value picklist matches nothing.

@@ -1,0 +1,20 @@
+code: location_with_unexpected_stop_time
+
+locators:
+  stop:      { file: stops,      line: "{{csvRowNumber}}",         key: { stop_id: "{{stopId}}" } }
+  stop_time: { file: stop_times, line: "{{stopTimeCsvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Line {{stopTimeCsvRowNumber}} of `stop_times.txt`, the timetable, has a vehicle stop at {{stopName}} ({{stopId}}). But {{stopName}} is not a place where vehicles stop, so apps cannot show riders where to board."
+    actions:
+      - { kind: open_rows, at: stop_time, highlight: [stop_id] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+  - text: "In `stops.txt`, the list of stops, its `location_type` marks it as a whole station, an entrance or another part of a station. Only 0 or empty means a stop or platform where riders get on and off."
+    actions:
+      - { kind: open_rows,   at: stop, highlight: [location_type] }
+      - { kind: show_record, at: stop, fields: [location_type] }
+
+fix:
+  - "On line {{stopTimeCsvRowNumber}} of `stop_times.txt`, replace {{stopId}} with the platform inside {{stopName}} where the vehicle stops, a row of `stops.txt` whose `parent_station` is {{stopId}}."
+  - "If {{stopName}} really is a stop, set its `location_type` to 0 in `stops.txt`."

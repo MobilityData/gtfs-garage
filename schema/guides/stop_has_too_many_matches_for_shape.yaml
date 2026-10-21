@@ -1,0 +1,22 @@
+code: stop_has_too_many_matches_for_shape
+
+locators:
+  stop:      { file: stops,      key: { stop_id: "{{stopId}}" } }
+  stop_time: { file: stop_times, line: "{{stopTimeCsvRowNumber}}", key: { trip_id: "{{tripId}}", stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Shape {{shapeId}}, the line trip {{tripId}} is drawn with, passes close to {{stopName}} {{matchCount}} times. An app cannot tell at which pass the vehicle stops."
+    point: map
+    actions:
+      - { kind: open_rows, at: stop, highlight: [stop_lat, stop_lon] }
+      - { kind: map_focus, shapes: ["{{shapeId}}"], stops: ["{{stopId}}"], points: ["{{match}}"] }
+
+  - text: "{{stopName}} among the trip's stops, numbered in order. Look for where the line loops or zigzags near it: apps following the vehicle may show it in the wrong place."
+    actions:
+      - { kind: open_rows,    at: stop_time, highlight: [stop_id, stop_sequence] }
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId}}"] }
+
+fix:
+  - "If shape {{shapeId}} loops or zigzags near {{stopName}} by mistake, redraw it so it passes the stop only as often as the trip does."
+  - "If the stop is in the wrong place, correct `stop_lat` and `stop_lon` for {{stopId}} in `stops.txt`."
+  - "If the trip really passes {{stopName}} several times, add `shape_dist_traveled` to `stop_times.txt` and `shapes.txt` so apps know which pass is meant."

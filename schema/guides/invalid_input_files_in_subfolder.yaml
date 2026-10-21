@@ -1,0 +1,10 @@
+code: invalid_input_files_in_subfolder
+
+steps:
+  - text: "The feed's files are in a folder inside the zip, not at its top level. Apps look only at the top level, so to them the feed has no files."
+    actions:
+      - { kind: show_files }
+
+fix:
+  - "Select the .txt files themselves and zip them, rather than zipping the folder that holds them."
+  - "If a GTFS file is in a subfolder by mistake, move it to the top level, or remove it if it is not needed."

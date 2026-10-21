@@ -1,0 +1,17 @@
+code: service_extends_far_in_the_future
+
+locators:
+  service: { file: calendar, key: { service_id: "{{serviceId}}" } }
+
+steps:
+  - text: "Service {{serviceId}} still has trips on {{serviceWindowEndDate|date}}, more than two years ahead. Schedules are rarely known that far out, so the date is often a placeholder or a typo."
+    actions:
+      - { kind: open_rows, at: service, highlight: [end_date] }
+
+  - text: "Service days, opened on {{serviceWindowEndDate|date}}, the last day {{serviceId}} runs. Riders planning that far ahead would see trips that may never run."
+    actions:
+      - { kind: calendar, date: "{{serviceWindowEndDate}}" }
+
+fix:
+  - "If the schedule is not confirmed that far ahead, set `end_date` for service {{serviceId}} to the last day it is known to run."
+  - "If it really is planned until {{serviceWindowEndDate|date}}, nothing needs to change."

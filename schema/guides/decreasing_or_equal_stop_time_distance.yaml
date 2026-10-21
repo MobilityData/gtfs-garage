@@ -1,0 +1,20 @@
+code: decreasing_or_equal_stop_time_distance
+
+locators:
+  pair:  { file: stop_times, line: "{{prevCsvRowNumber}},{{csvRowNumber}}" }
+  calls: { file: stop_times, key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "Trip {{tripId}} puts its stop {{stopSequence}} ({{stopId}}) at distance {{shapeDistTraveled|round}} along its line, but its stop {{prevStopSequence}} is already at {{prevShapeDistTraveled|round}}. Each stop has to be further along than the one before."
+    actions:
+      - { kind: open_rows,    at: calls, mark: pair, highlight: [stop_sequence, shape_dist_traveled] }
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId}}"] }
+
+  - text: "`shape_dist_traveled`, how far along the line each stop is, should only climb, stop by stop. Apps use it to place the vehicle on the line, and may reject the trip."
+    actions:
+      - { kind: chart, at: calls, x: stop_sequence, y: shape_dist_traveled, mark: ["{{prevCsvRowNumber}}", "{{csvRowNumber}}"] }
+
+fix:
+  - "Correct `shape_dist_traveled` on line {{csvRowNumber}} of `stop_times.txt` so stop {{stopId}} is further along than {{prevShapeDistTraveled|round}}."
+  - "If the two rows are really the same stop, remove the one listed twice by mistake."
+  - "If you cannot measure the distances, leave `shape_dist_traveled` empty for every stop of trip {{tripId}}; apps then place stops by their location."

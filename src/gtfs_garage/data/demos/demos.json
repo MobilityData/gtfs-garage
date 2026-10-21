@@ -1,0 +1,35 @@
+{
+ "comment": "The built-in demo feeds: each directory here is a feed, and <id>.report.json is what gtfs-validator reported for it. The Tours view tries tours on them. See README.md for how they are built and refreshed.",
+ "demos": [
+  {
+   "id": "main",
+   "title": "Main network",
+   "description": "One small network with as many problems as can coexist: a stop off its shape, a 12 km hop in a minute, broken shapes and pathways, flexible trips, Fares v2, and the row-level parse errors."
+  },
+  {
+   "id": "future",
+   "title": "Starts in the future",
+   "description": "Service and feed dates after the validation date, a feed ending within 30 days, and translations problems."
+  },
+  {
+   "id": "no-calendar",
+   "title": "No calendar",
+   "description": "No calendar, calendar dates or agency files; two feed_info rows; a locations.geojson that is not JSON."
+  },
+  {
+   "id": "parse-errors",
+   "title": "Parse errors",
+   "description": "One unreadable value per file, broken headers, an empty file, an over-long value and a malformed GeoJSON feature."
+  },
+  {
+   "id": "crash",
+   "title": "Validator crash",
+   "description": "A calendar that ends before it starts, which stops two validators with an exception, and a GeoJSON root that is a Feature."
+  },
+  {
+   "id": "subfolder",
+   "title": "Files in a subfolder",
+   "description": "A valid feed whose files sit inside a gtfs/ folder."
+  }
+ ]
+}

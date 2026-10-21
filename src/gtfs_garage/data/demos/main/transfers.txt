@@ -1,0 +1,8 @@
+from_stop_id,to_stop_id,from_route_id,to_route_id,from_trip_id,to_trip_id,transfer_type,min_transfer_time
+S101,S300,,,,,2,600
+S101,S301,,,,,0,
+E2,S101,,,,,0,
+S107,S107,R11,,T10-1,TRR-1,1,
+S201,S107,,,T10-2,TRR-1,1,
+S103,S107,R10,RR1,T10-1,TRR-1,4,
+S106,S107,,,,TRR-1,4,

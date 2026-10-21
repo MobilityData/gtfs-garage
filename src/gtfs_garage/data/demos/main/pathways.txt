@@ -1,0 +1,9 @@
+pathway_id,from_stop_id,to_stop_id,pathway_mode,is_bidirectional,traversal_time
+PW1,E1,N1,1,1,30
+PW2,N1,P1,1,1,20
+PW3,N1,ST1,1,1,20
+PW4,N2,N2,2,1,20
+PW5,N1,N3,1,0,20
+PW6,E1,N1,7,1,5
+PW7,N1,P2,5,1,40
+PW8,N1,BA1,1,1,20

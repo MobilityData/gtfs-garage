@@ -1,0 +1,20 @@
+code: route_networks_specified_in_more_than_one_file
+
+locators:
+  file_a: { file: "{{fileNameA}}" }
+  file_b: { file: "{{fileNameB}}" }
+
+steps:
+  - text: "This feed describes its route networks, groups of routes often used for fares, in two ways at once: the `{{fieldName}}` column of `{{fileNameA}}` and the file `{{fileNameB}}`. Only one way is allowed."
+    actions:
+      - { kind: open_rows,    at: file_a, highlight: ["{{fieldName}}"] }
+      - { kind: show_files,   mark: ["{{fileNameA}}", "{{fileNameB}}"] }
+      - { kind: show_columns, file: "{{fileNameA}}", mark: ["{{fieldName}}"] }
+
+  - text: "`{{fileNameB}}`, the other way: `networks.txt` names the networks and `route_networks.txt` puts routes in them. When the two ways disagree, apps cannot tell which is right and may charge the wrong fare."
+    actions:
+      - { kind: open_rows, at: file_b }
+
+fix:
+  - "Keep one way. To keep the network files, remove the `network_id` column from `routes.txt`."
+  - "To keep `network_id` in `routes.txt` instead, remove `networks.txt` and `route_networks.txt`."

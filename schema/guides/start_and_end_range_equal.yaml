@@ -1,0 +1,18 @@
+code: start_and_end_range_equal
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "On line {{csvRowNumber}} of `{{filename}}`, `{{startFieldName}}` and `{{endFieldName}}` are both {{value}}. The period this row describes has no length."
+    actions:
+      - { kind: open_rows,   at: row, highlight: ["{{startFieldName}}", "{{endFieldName}}"] }
+      - { kind: timeline,    start: "{{value}}", end: "{{value}}", start_label: "{{startFieldName}}", end_label: "{{endFieldName}}" }
+
+  - text: "`frequencies.txt` lists trips that repeat every few minutes, from a start time to an end time. With no time in between, GTFS does not say whether this trip runs once or not at all, so apps may disagree."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{startFieldName}}", "{{endFieldName}}", headway_secs] }
+
+fix:
+  - "If the trip runs only once, at {{value}}, remove line {{csvRowNumber}} from `{{filename}}` and give the trip its own times in `stop_times.txt`."
+  - "If the trip repeats over a period, set `{{endFieldName}}` to the time that period ends."

@@ -31,18 +31,20 @@ const screen = (id: string, label?: string, available = true): Screen => ({
 });
 
 describe("defaultScreens", () => {
-  it("ships the three listed views and the detail screens behind them", () => {
+  it("ships the four listed views, the detail screens behind them, and Tours", () => {
     expect(defaultScreens.map((s) => s.id)).toEqual([
       "overview",
       "calendar",
       "routes",
+      "quality",
       "route",
       "timetable",
+      "tours",
     ]);
   });
 
   it("leaves the detail screens out of the sidebar, having no route in mind", () => {
-    expect(listedScreens(defaultScreens).map((s) => s.id)).toEqual(["overview", "calendar", "routes"]);
+    expect(listedScreens(defaultScreens).map((s) => s.id)).toEqual(["overview", "calendar", "routes", "quality"]);
   });
 
   it("says where each screen wants the map", () => {
@@ -53,8 +55,10 @@ describe("defaultScreens", () => {
       overview: "none",
       calendar: "none",
       routes: "beside",
+      quality: "beside",
       route: "beside",
       timetable: "above",
+      tours: "none",
     });
   });
 
@@ -70,12 +74,15 @@ describe("defaultScreens", () => {
  * entries that lead to an error.
  */
 describe("availableScreens", () => {
-  it("offers nothing to a source that only serves tables", () => {
-    expect(availableScreens(defaultScreens, tablesOnly)).toEqual([]);
+  it("offers only Quality to a source that only serves tables", () => {
+    // Quality reads a report and opens rows; a source that serves tables can
+    // do both, so it is the one derived view such a source can still answer.
+    // Tours needs nothing of the feed at all.
+    expect(availableScreens(defaultScreens, tablesOnly).map((s) => s.id)).toEqual(["quality", "tours"]);
   });
 
   it("offers all of them to a source that answers all of them", () => {
-    expect(availableScreens(defaultScreens, everything)).toHaveLength(5);
+    expect(availableScreens(defaultScreens, everything)).toHaveLength(7);
   });
 
   it("leaves out the timetable for a source written before it existed", () => {

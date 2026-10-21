@@ -1,0 +1,13 @@
+code: missing_recommended_field
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` leaves `{{fieldName}}` empty. GTFS does not require a value there but recommends one, and apps show riders less without it."
+    actions:
+      - { kind: open_rows,   at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Fill in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}`."

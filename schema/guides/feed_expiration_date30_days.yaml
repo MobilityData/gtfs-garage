@@ -1,0 +1,18 @@
+code: feed_expiration_date30_days
+
+locators:
+  feed: { file: feed_info, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "`feed_info.txt`, the feed's description of itself, says the feed ends on {{feedEndDate|date}}. It was checked on {{currentDate|date}}, so it covers less than the next 30 days."
+    actions:
+      - { kind: open_rows, at: feed, highlight: [feed_end_date] }
+      - { kind: timeline,  start: "{{currentDate}}", end: "{{feedEndDate}}", checked: "{{currentDate}}", count: none, start_label: "Checked on", end_label: "Feed ends" }
+
+  - text: "A feed should always cover at least the next 30 days, here up to {{suggestedExpirationDate|date}}. After {{feedEndDate|date}}, apps may drop the feed and riders see no trips."
+    actions:
+      - { kind: timeline, start: "{{currentDate}}", end: "{{suggestedExpirationDate}}", checked: "{{currentDate}}", count: none, start_label: "Checked on", end_label: "Should cover at least to", other_start: "{{currentDate}}", other_end: "{{feedEndDate}}", other_label: "What the feed covers" }
+
+fix:
+  - "Publish a feed whose schedule runs at least to {{suggestedExpirationDate|date}}, and set `feed_end_date` in `feed_info.txt` to match."
+  - "If the schedule after {{feedEndDate|date}} is not final yet, publish the expected one now and update it later."

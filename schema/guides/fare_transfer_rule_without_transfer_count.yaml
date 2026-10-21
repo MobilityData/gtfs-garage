@@ -1,0 +1,13 @@
+code: fare_transfer_rule_without_transfer_count
+
+locators:
+  rule: { file: fare_transfer_rules, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `fare_transfer_rules.txt`, what a transfer between two fares costs, is a transfer within one group of fares (`from_leg_group_id` and `to_leg_group_id` are the same). It does not say how many such transfers riders may make (`transfer_count`)."
+    actions:
+      - { kind: open_rows, at: rule, highlight: [from_leg_group_id, to_leg_group_id, transfer_count] }
+      - { kind: show_record, at: rule, fields: [from_leg_group_id, to_leg_group_id, transfer_count] }
+
+fix:
+  - "Set `transfer_count` on line {{csvRowNumber}} to the number of transfers riders may make at this price, or to -1 if there is no limit."

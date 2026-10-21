@@ -1,0 +1,21 @@
+code: equal_shape_distance_diff_coordinates_distance_below_threshold
+
+locators:
+  shape: { file: shapes, key: { shape_id: "{{shapeId}}" } }
+  prev:  { file: shapes, line: "{{prevCsvRowNumber}}", key: { shape_id: "{{shapeId}}", shape_pt_sequence: "{{prevShapePtSequence}}" } }
+  point: { file: shapes, line: "{{csvRowNumber}}",     key: { shape_id: "{{shapeId}}", shape_pt_sequence: "{{shapePtSequence}}" } }
+  pair:  { file: shapes, line: "{{prevCsvRowNumber}},{{csvRowNumber}}" }
+
+steps:
+  - text: "Points {{prevShapePtSequence}} and {{shapePtSequence}} of shape {{shapeId}}, a line trips are drawn with, are only {{actualDistanceBetweenShapePoints|m}} apart, and both are {{shapeDistTraveled|round}} along it. In `shapes.txt`, `shape_dist_traveled` says how far along the line each point is."
+    actions:
+      - { kind: open_rows, at: shape, mark: pair, highlight: [shape_pt_lat, shape_pt_lon, shape_dist_traveled] }
+      - { kind: map_focus, shapes: ["{{shapeId}}"] }
+
+  - text: "Side by side, they differ only in the last digits of their position. Riders will not notice, but it is usually a point added twice by mistake."
+    actions:
+      - { kind: compare_records, a: prev, b: point, fields: [shape_pt_sequence, shape_pt_lat, shape_pt_lon, shape_dist_traveled] }
+
+fix:
+  - "Remove one of the two points, for example line {{csvRowNumber}} of `shapes.txt` (point {{shapePtSequence}} of shape {{shapeId}})."
+  - "If both points are needed, make `shape_dist_traveled` of point {{shapePtSequence}} slightly larger than {{prevShapeDistTraveled|round}}."

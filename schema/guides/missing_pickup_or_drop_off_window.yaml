@@ -1,0 +1,14 @@
+code: missing_pickup_or_drop_off_window
+
+locators:
+  row: { file: stop_times, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `stop_times.txt`, the timetable, gives only one end of its pickup and drop-off window, the time span in which riders can be picked up or dropped off. Without both `start_pickup_drop_off_window` and `end_pickup_drop_off_window`, apps cannot tell when the service runs."
+    actions:
+      - { kind: open_rows,   at: row, highlight: [start_pickup_drop_off_window, end_pickup_drop_off_window] }
+      - { kind: show_record, at: row, fields: [start_pickup_drop_off_window, end_pickup_drop_off_window] }
+
+fix:
+  - "On line {{csvRowNumber}} of `stop_times.txt`, fill in the empty end of the window, so both `start_pickup_drop_off_window` and `end_pickup_drop_off_window` have a time."
+  - "If the row is not meant to have a window, empty both and give it an arrival and departure time instead."

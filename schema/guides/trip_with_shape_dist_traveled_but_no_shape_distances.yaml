@@ -1,0 +1,20 @@
+code: trip_with_shape_dist_traveled_but_no_shape_distances
+
+locators:
+  first:  { file: stop_times, line: "{{stopTimeCsvRowNumber}}", key: { trip_id: "{{tripId}}" } }
+  calls:  { file: stop_times, key: { trip_id: "{{tripId}}" } }
+  points: { file: shapes,     key: { shape_id: "{{shapeId}}" } }
+
+steps:
+  - text: "Trip {{tripId}} gives its stops a distance along its line, in `shape_dist_traveled`, but its line, shape {{shapeId}}, does not give all of its points one."
+    actions:
+      - { kind: open_rows, at: calls, mark: first, highlight: [shape_dist_traveled] }
+
+  - text: "The points of shape {{shapeId}}: some have no distance. Without distances on both sides, apps cannot use them to line the stops up with the line."
+    actions:
+      - { kind: open_rows,    at: points, highlight: [shape_dist_traveled] }
+      - { kind: map_sequence, trip: "{{tripId}}" }
+
+fix:
+  - "Add `shape_dist_traveled` to every point of shape {{shapeId}} in `shapes.txt`, measured in the same unit as `stop_times.txt`."
+  - "If you cannot measure them, remove `shape_dist_traveled` from the stops of trip {{tripId}} in `stop_times.txt`; apps then place the stops by their location."

@@ -1,0 +1,15 @@
+code: unsupported_geometry_type
+
+locators:
+  zone: { file: locations, key: { id: "{{featureId}}" } }
+
+steps:
+  - text: "Zone {{featureId}} in `locations.geojson`, the file of zones that on-demand trips serve, is drawn as a {{geometryType}}. A zone must be an area, a Polygon or MultiPolygon, or apps cannot tell who is inside it."
+    point: map
+    actions:
+      - { kind: open_rows,  at: zone, highlight: [geometry_type] }
+      - { kind: map_focus,  locations: ["{{featureId}}"] }
+      - { kind: show_value, value: "{{geometryType}}", label: "How the zone is drawn", expect: "Polygon or MultiPolygon" }
+
+fix:
+  - "Redraw zone {{featureId}} as a Polygon, or a MultiPolygon for several areas, that encloses the area served, and export `locations.geojson` again."

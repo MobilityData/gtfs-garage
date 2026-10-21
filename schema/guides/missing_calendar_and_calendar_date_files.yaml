@@ -1,0 +1,10 @@
+code: missing_calendar_and_calendar_date_files
+
+steps:
+  - text: "The feed has neither `calendar.txt`, the weekly pattern of days each service runs, nor `calendar_dates.txt`, the list of single days. No trip has a day to run on, so apps show no service and may reject the feed."
+    actions:
+      - { kind: show_files, missing: [calendar, calendar_dates] }
+
+fix:
+  - "Add `calendar.txt`, `calendar_dates.txt` or both, with a row for every `service_id` that the trips in `trips.txt` use."
+  - "If the files exist but sit in a folder inside the zip, move all the files to the top level of the zip."

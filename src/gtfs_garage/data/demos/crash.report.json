@@ -1,0 +1,119 @@
+{
+  "summary": {
+    "validatorVersion": "8.0.1",
+    "validatedAt": "2026-10-15T00:00:00Z",
+    "gtfsInput": "crash.zip",
+    "threads": 1,
+    "outputDirectory": "",
+    "systemErrorsReportName": "system_errors.json",
+    "validationReportName": "report.json",
+    "htmlReportName": "report.html",
+    "countryCode": "CA",
+    "dateForValidation": "2026-10-15",
+    "feedInfo": {
+      "publisherName": "Riverside Transit Authority",
+      "publisherUrl": "https://example.org/rta",
+      "feedLanguage": "English",
+      "feedStartDate": "2026-01-01",
+      "feedEndDate": "2026-12-31",
+      "feedEmail": "data@example.org",
+      "feedServiceWindowStart": "",
+      "feedServiceWindowEnd": ""
+    },
+    "agencies": [
+      {
+        "name": "Riverside Transit Authority",
+        "url": "https://example.org/rta",
+        "phone": "",
+        "email": "",
+        "timezone": "America/Montreal"
+      }
+    ],
+    "files": [
+      "agency.txt",
+      "calendar.txt",
+      "feed_info.txt",
+      "locations.geojson",
+      "routes.txt",
+      "shapes.txt",
+      "stop_times.txt",
+      "stops.txt",
+      "trips.txt"
+    ],
+    "validationTimeSeconds": 0,
+    "counts": {
+      "Shapes": 1,
+      "Stops": 3,
+      "Routes": 1,
+      "Trips": 2,
+      "Agencies": 1,
+      "Blocks": 0
+    },
+    "gtfsFeatures": [
+      "Shapes",
+      "Feed Information",
+      "Route Colors",
+      "Headsigns"
+    ]
+  },
+  "notices": [
+    {
+      "code": "geo_json_unknown_element",
+      "severity": "INFO",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "filename": "locations.geojson",
+          "unknownElement": "id"
+        },
+        {
+          "filename": "locations.geojson",
+          "unknownElement": "properties"
+        },
+        {
+          "filename": "locations.geojson",
+          "unknownElement": "geometry"
+        }
+      ]
+    },
+    {
+      "code": "start_and_end_range_out_of_order",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "calendar.txt",
+          "csvRowNumber": 2,
+          "entityId": "WKDY",
+          "startFieldName": "start_date",
+          "startValue": "20261231",
+          "endFieldName": "end_date",
+          "endValue": "20260101"
+        }
+      ]
+    },
+    {
+      "code": "trip_coverage_not_active_for_next7_days",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "currentDate": "20261015",
+          "serviceWindowStartDate": "20261231",
+          "serviceWindowEndDate": "20261231"
+        }
+      ]
+    },
+    {
+      "code": "unsupported_geo_json_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "geoJsonType": "Feature",
+          "message": "Unsupported GeoJSON type: Feature. Use 'FeatureCollection' instead."
+        }
+      ]
+    }
+  ]
+}

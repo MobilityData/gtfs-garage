@@ -1,0 +1,4 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_email,agency_notes
+RTA,Riverside Transit Authority,https://example.org/rta,America/Montreal,en,info@example.org,
+HFC,Harbour Ferry Company,https://example.org/harbour,America/Toronto,fr,ferry@example.org,
+,Valley Coach Lines,https://example.org/valley,America/Montreal,en,,

@@ -1,0 +1,18 @@
+code: unused_trip
+
+locators:
+  trip:  { file: trips,      line: "{{csvRowNumber}}", key: { trip_id: "{{tripId}}" } }
+  calls: { file: stop_times, key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "Trip {{tripId}} is in `trips.txt`, the list of trips, but it has no stops and no times, so riders never see it."
+    actions:
+      - { kind: open_rows, at: trip, highlight: [trip_id] }
+
+  - text: "Nothing in `stop_times.txt`, the timetable, has `trip_id` {{tripId}}. It is often left over from editing, or a sign the trip's times were lost."
+    actions:
+      - { kind: open_rows, at: calls, expect: empty }
+
+fix:
+  - "If the trip runs, add its stops and times to `stop_times.txt` with `trip_id` {{tripId}}."
+  - "If it does not run, remove line {{csvRowNumber}} from `trips.txt`."

@@ -1,0 +1,14 @@
+code: translation_foreign_key_violation
+
+locators:
+  row: { file: translations, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `translations.txt`, the texts in other languages, translates the row of `{{tableName}}.txt` with id {{recordId}}. No such row exists, so the translation is never used."
+    actions:
+      - { kind: open_rows,   at: row, highlight: [table_name, record_id, record_sub_id] }
+      - { kind: show_record, at: row, fields: [table_name, field_name, record_id, record_sub_id, translation] }
+
+fix:
+  - "Change `record_id` on line {{csvRowNumber}} of `translations.txt` to the id of a row that exists in `{{tableName}}.txt`; a typo is the usual cause."
+  - "If the row it translated was removed, remove the translation too."

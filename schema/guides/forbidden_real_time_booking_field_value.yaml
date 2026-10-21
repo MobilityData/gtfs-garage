@@ -1,0 +1,17 @@
+code: forbidden_real_time_booking_field_value
+
+locators:
+  rule: { file: booking_rules, line: "{{csvRowNumber}}", key: { booking_rule_id: "{{bookingRuleId}}" } }
+
+steps:
+  - text: "Booking rule {{bookingRuleId}} (line {{csvRowNumber}} of `booking_rules.txt`, how and when riders must book a trip) is for trips booked in real time, up to the moment of travel (`booking_type` 0). Yet it also fills in `{{fieldNames}}`, used only when riders must book ahead."
+    actions:
+      - { kind: open_rows, at: rule, highlight: [booking_type, "{{fieldNames}}"] }
+
+  - text: "Booking in real time has no deadline. With one filled in as well, an app cannot tell riders whether they have to book ahead."
+    actions:
+      - { kind: show_record, at: rule, fields: [booking_type, "{{fieldNames}}"] }
+
+fix:
+  - "Empty `{{fieldNames}}` for booking rule {{bookingRuleId}}."
+  - "If riders do have to book ahead, set `booking_type` to 1 (the same day) or 2 (one or more days before) and keep the deadline."

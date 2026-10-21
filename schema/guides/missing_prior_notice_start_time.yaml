@@ -1,0 +1,14 @@
+code: missing_prior_notice_start_time
+
+locators:
+  rule: { file: booking_rules, line: "{{csvRowNumber}}", key: { booking_rule_id: "{{bookingRuleId}}" } }
+
+steps:
+  - text: "Booking rule {{bookingRuleId}} (line {{csvRowNumber}} of `booking_rules.txt`, how and when riders must book a trip) says booking opens {{priorNoticeStartDay|days}} before the trip (`prior_notice_start_day`), but not at what time that day (`prior_notice_start_time`). Apps cannot tell riders when they can first book."
+    actions:
+      - { kind: open_rows, at: rule, highlight: [prior_notice_start_day, prior_notice_start_time] }
+      - { kind: show_record, at: rule, fields: [booking_type, prior_notice_last_day, prior_notice_last_time, prior_notice_start_day, prior_notice_start_time] }
+
+fix:
+  - "Set `prior_notice_start_time` for booking rule {{bookingRuleId}} to the time booking opens, for example 08:00:00 for 8 am."
+  - "If there is no earliest day to book, empty `prior_notice_start_day` instead."

@@ -1,0 +1,14 @@
+code: missing_prior_notice_last_day
+
+locators:
+  rule: { file: booking_rules, line: "{{csvRowNumber}}", key: { booking_rule_id: "{{bookingRuleId}}" } }
+
+steps:
+  - text: "Booking rule {{bookingRuleId}} (line {{csvRowNumber}} of `booking_rules.txt`, how and when riders must book a trip) is for trips booked one or more days before (`booking_type` 2), but it does not say how many days ahead booking closes (`prior_notice_last_day`). Riders cannot tell when it is too late."
+    actions:
+      - { kind: open_rows, at: rule, highlight: [booking_type, prior_notice_last_day] }
+      - { kind: show_record, at: rule }
+
+fix:
+  - "Set `prior_notice_last_day` for booking rule {{bookingRuleId}} to the number of days before the trip that booking closes, for example 1 for the day before."
+  - "If riders can actually book the same day, set `booking_type` to 1 and give the notice in minutes in `prior_notice_duration_min`."

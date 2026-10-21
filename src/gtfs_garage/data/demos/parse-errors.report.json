@@ -1,0 +1,293 @@
+{
+  "summary": {
+    "validatorVersion": "8.0.1",
+    "validatedAt": "2026-10-15T00:00:00Z",
+    "gtfsInput": "parse-errors.zip",
+    "threads": 1,
+    "outputDirectory": "",
+    "systemErrorsReportName": "system_errors.json",
+    "validationReportName": "report.json",
+    "htmlReportName": "report.html",
+    "countryCode": "CA",
+    "dateForValidation": "2026-10-15",
+    "feedInfo": {
+      "publisherName": "",
+      "publisherUrl": "",
+      "feedLanguage": "",
+      "feedEmail": ""
+    },
+    "agencies": [],
+    "files": [
+      "agency.txt",
+      "attributions.txt",
+      "calendar.txt",
+      "fare_attributes.txt",
+      "fare_products.txt",
+      "frequencies.txt",
+      "levels.txt",
+      "locations.geojson",
+      "routes.txt",
+      "shapes.txt",
+      "stop_times.txt",
+      "stops.txt",
+      "trips.txt"
+    ],
+    "validationTimeSeconds": 0,
+    "counts": {
+      "Shapes": 0,
+      "Stops": 0,
+      "Routes": 0,
+      "Trips": 0,
+      "Agencies": 0,
+      "Blocks": 0
+    },
+    "gtfsFeatures": [
+      "Fare Products"
+    ]
+  },
+  "notices": [
+    {
+      "code": "csv_parsing_failed",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "charIndex": 4145,
+          "columnIndex": 1,
+          "lineIndex": 1,
+          "message": "Length of parsed input (4097) exceeds the maximum number of characters defined in your parser settings (4096). \nParser Configuration: CsvParserSettings:\n\tAuto configuration enabled=true\n\tAuto-closing enabled=true\n\tAutodetect column delimiter=false\n\tAutodetect quotes=false\n\tColumn reordering enabled=true\n\tDelimiters for detection=null\n\tEmpty value=null\n\tEscape unquoted values=false\n\tHeader extraction enabled=true\n\tHeaders=null\n\tIgnore leading whitespaces=true\n\tIgnore leading whitespaces in quotes=false\n\tIgnore trailing whitespaces=true\n\tIgnore trailing whitespaces in quotes=false\n\tInput buffer size=1048576\n\tInput reading on separate thread=true\n\tKeep escape sequences=false\n\tKeep quotes=false\n\tLength of content displayed on error=-1\n\tLine separator detection enabled=false\n\tMaximum number of characters per column=4096\n\tMaximum number of columns=512\n\tNormalize escaped line separators=true\n\tNull value=null\n\tNumber of records to read=all\n\tProcessor=none\n\tRestricting data in exceptions=false\n\tRowProcessor error handler=null\n\tSelected fields=none\n\tSkip bits as whitespace=true\n\tSkip empty lines=true\n\tUnescaped quote handling=nullFormat configuration:\n\tCsvFormat:\n\t\tComment character=#\n\t\tField delimiter=,\n\t\tLine separator (normalized)=\\n\n\t\tLine separator sequence=\\n\n\t\tQuote character=\"\n\t\tQuote escape character=\"\n\t\tQuote escape escape character=null\nInternal state when error was thrown: line=1, column=1, record=0, charIndex=4145, headers=[attribution_id, organization_name, is_producer], content parsed=Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Rivers",
+          "parsedContent": "Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Riverside Rivers"
+        }
+      ]
+    },
+    {
+      "code": "duplicated_column",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "trips.txt",
+          "fieldName": "direction_id",
+          "firstIndex": 5,
+          "secondIndex": 6
+        }
+      ]
+    },
+    {
+      "code": "empty_column_name",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "shapes.txt",
+          "index": 3
+        }
+      ]
+    },
+    {
+      "code": "empty_file",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "levels.txt"
+        }
+      ]
+    },
+    {
+      "code": "invalid_color",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "routes.txt",
+          "csvRowNumber": 2,
+          "fieldName": "route_color",
+          "fieldValue": "blue"
+        }
+      ]
+    },
+    {
+      "code": "invalid_currency",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "fare_attributes.txt",
+          "csvRowNumber": 2,
+          "fieldName": "currency_type",
+          "fieldValue": "XYZ"
+        }
+      ]
+    },
+    {
+      "code": "invalid_currency_amount",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "fare_products.txt",
+          "csvRowNumber": 2,
+          "currencyCode": "CAD",
+          "fieldName": "amount",
+          "fieldValue": "3.755"
+        }
+      ]
+    },
+    {
+      "code": "invalid_date",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "calendar.txt",
+          "csvRowNumber": 2,
+          "fieldName": "end_date",
+          "fieldValue": "20261331"
+        }
+      ]
+    },
+    {
+      "code": "invalid_float",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "stops.txt",
+          "csvRowNumber": 3,
+          "fieldName": "stop_lat",
+          "fieldValue": "north"
+        }
+      ]
+    },
+    {
+      "code": "invalid_geometry",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "featureId": "LOC2",
+          "featureIndex": 1,
+          "geometryType": "Polygon",
+          "message": "Self-intersection"
+        }
+      ]
+    },
+    {
+      "code": "invalid_language_code",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "agency.txt",
+          "csvRowNumber": 2,
+          "fieldName": "agency_lang",
+          "fieldValue": "e1!"
+        }
+      ]
+    },
+    {
+      "code": "invalid_phone_number",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "agency.txt",
+          "csvRowNumber": 2,
+          "fieldName": "agency_phone",
+          "fieldValue": "12"
+        }
+      ]
+    },
+    {
+      "code": "invalid_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "stop_times.txt",
+          "csvRowNumber": 3,
+          "fieldName": "arrival_time",
+          "fieldValue": "six"
+        }
+      ]
+    },
+    {
+      "code": "invalid_timezone",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "agency.txt",
+          "csvRowNumber": 2,
+          "fieldName": "agency_timezone",
+          "fieldValue": "Mars/Olympus_Mons"
+        }
+      ]
+    },
+    {
+      "code": "missing_recommended_file",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "feed_info.txt"
+        }
+      ]
+    },
+    {
+      "code": "missing_required_column",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "filename": "frequencies.txt",
+          "fieldName": "end_time"
+        },
+        {
+          "filename": "shapes.txt",
+          "fieldName": "shape_pt_lon"
+        }
+      ]
+    },
+    {
+      "code": "missing_required_element",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "featureIndex": 0,
+          "featureId": "LOC1",
+          "missingElement": "features.properties"
+        }
+      ]
+    },
+    {
+      "code": "number_out_of_range",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "stops.txt",
+          "csvRowNumber": 4,
+          "fieldName": "stop_lat",
+          "fieldType": "latitude within [-90, 90]",
+          "fieldValue": 95.0
+        }
+      ]
+    },
+    {
+      "code": "unknown_column",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "stops.txt",
+          "fieldName": "stop_notes",
+          "index": 5
+        }
+      ]
+    }
+  ]
+}

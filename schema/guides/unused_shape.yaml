@@ -1,0 +1,19 @@
+code: unused_shape
+
+locators:
+  shape: { file: shapes, key: { shape_id: "{{shapeId}}" } }
+  trips: { file: trips,  key: { shape_id: "{{shapeId}}" } }
+
+steps:
+  - text: "Shape {{shapeId}} is a line in `shapes.txt`, the file of lines trips are drawn with on a map, but no trip is drawn with it."
+    actions:
+      - { kind: open_rows, at: shape, highlight: [shape_id] }
+      - { kind: map_focus, shapes: ["{{shapeId}}"] }
+
+  - text: "No row of `trips.txt`, the list of trips, names {{shapeId}} in its `shape_id` column. Riders never see this line: it may be left over, or meant for a trip that lost it."
+    actions:
+      - { kind: open_rows, at: trips, expect: empty }
+
+fix:
+  - "If a trip should follow this line, set its `shape_id` to {{shapeId}} in `trips.txt`."
+  - "If no trip needs it, remove the rows of shape {{shapeId}} from `shapes.txt`."

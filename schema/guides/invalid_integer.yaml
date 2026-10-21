@@ -1,0 +1,17 @@
+code: invalid_integer
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` gives `{{fieldName}}` the value \"{{fieldValue}}\", where a whole number is expected. Apps cannot use the value, and may skip the row or reject the feed."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it", expect: "1" }
+
+  - text: "A whole number is written with digits only: no words, decimals or spaces. Many columns use numbers as codes, such as 1 for yes and 0 for no."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Replace \"{{fieldValue}}\" in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}` with the number it stands for, for example 1 for yes and 0 for no."

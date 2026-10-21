@@ -1,0 +1,19 @@
+code: pathway_unreachable_location
+
+locators:
+  place:    { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+  pathways: { file: pathways }
+
+steps:
+  - text: "{{stopName}} ({{stopId}}), in station {{parentStation}}, is cut off: following the station's walkways, a rider cannot get to it from an entrance, or out of it to an exit."
+    actions:
+      - { kind: open_rows, at: place, highlight: [location_type, parent_station] }
+      - { kind: map_focus, stops: ["{{stopId}}", "{{parentStation}}"] }
+
+  - text: "Reachable from an entrance: {{hasEntrance|yesno}}. Leads to an exit: {{hasExit|yesno}}. These are the station's walkways in `pathways.txt`; a one-way one can only be walked in one direction."
+    actions:
+      - { kind: open_rows, at: pathways, highlight: [from_stop_id, to_stop_id, is_bidirectional] }
+
+fix:
+  - "Add the pathways that connect {{stopId}} to the rest of {{parentStation}}, from an entrance to it and from it back to an exit."
+  - "Check that the one-way pathways point the right way, since one the wrong way round cuts a place off."

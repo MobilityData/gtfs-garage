@@ -1,0 +1,17 @@
+code: service_window_outside_feed_period
+
+locators:
+  feed: { file: feed_info }
+
+steps:
+  - text: "Service {{serviceId}} runs from {{serviceWindowStartDate|date}} to {{serviceWindowEndDate|date}}, partly outside the period the feed says it is valid for. It runs {{daysBeforeFeedStart|days}} before that period starts and {{daysAfterFeedEnd|days}} after it ends."
+    actions:
+      - { kind: timeline, start: "{{serviceWindowStartDate}}", end: "{{serviceWindowEndDate}}", start_label: "First day of service", end_label: "Last day of service" }
+
+  - text: "That period is `feed_start_date` to `feed_end_date` in `feed_info.txt`, the feed's description of itself. Apps may ignore the service outside it, or treat the feed as out of date."
+    actions:
+      - { kind: open_rows, at: feed, highlight: [feed_start_date, feed_end_date] }
+
+fix:
+  - "If service {{serviceId}} really runs until {{serviceWindowEndDate|date}}, widen `feed_start_date` and `feed_end_date` in `feed_info.txt` to cover it."
+  - "If the feed period is right, shorten the service's dates in `calendar.txt`, or remove its days outside the period from `calendar_dates.txt`."

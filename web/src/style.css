@@ -1461,3 +1461,513 @@
 }
 
 .gtfs-viewer .facet-summary .explore-hint { font-weight: 400; }
+
+/* ------------------------------------------------------------------ Quality
+ *
+ * Severity is carried by a pill in form as well as colour, and the assistant
+ * panel docks under both panes so the narration stays put while the table and
+ * the map change above it.
+ */
+.gtfs-viewer {
+  --sev-err: #b42318;
+  --sev-err-bg: #fde8e7;
+  --sev-warn: #8a5a00;
+  --sev-warn-bg: #fdf1d6;
+  --sev-info: #1d4ed8;
+  --sev-info-bg: #e3ebfb;
+  --mark: #d9480f;
+  --mark-bg: #fff1e6;
+}
+
+.gtfs-viewer .pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.gtfs-viewer .pill.err { background: var(--sev-err-bg); color: var(--sev-err); }
+.gtfs-viewer .pill.warn { background: var(--sev-warn-bg); color: var(--sev-warn); }
+.gtfs-viewer .pill.info { background: var(--sev-info-bg); color: var(--sev-info); }
+
+.gtfs-viewer .explore-intro { margin: 4px 0 12px; max-width: 72ch; }
+.gtfs-viewer .quality .stat-row { margin: 12px 0; }
+.gtfs-viewer .quality-header { margin-bottom: 4px; }
+.gtfs-viewer .quality-header p { margin: 4px 0; }
+.gtfs-viewer .quality-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0 2px; }
+.gtfs-viewer .quality-title h2 { margin: 0; }
+.gtfs-viewer .quality-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.gtfs-viewer h2.quality-code { font-size: 16px; }
+.gtfs-viewer .quality-mismatch {
+  border-left: 3px solid var(--sev-warn);
+  background: var(--sev-warn-bg);
+  padding: 6px 10px;
+  font-size: 12px;
+  max-width: 80ch;
+}
+.gtfs-viewer .quality-description { white-space: pre-wrap; max-width: 80ch; font-size: 13px; margin: 4px 0; }
+.gtfs-viewer .quality-scroll { overflow-x: auto; }
+.gtfs-viewer .quality-list,
+.gtfs-viewer .quality-samples { border-collapse: collapse; width: 100%; font-size: 13px; }
+.gtfs-viewer .quality-list th,
+.gtfs-viewer .quality-samples th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.gtfs-viewer .quality-list td,
+.gtfs-viewer .quality-samples td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.gtfs-viewer .quality-samples td { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; }
+.gtfs-viewer .quality-row { cursor: pointer; }
+.gtfs-viewer .quality-row:hover td { background: var(--accent-bg); }
+.gtfs-viewer .quality-list button,
+.gtfs-viewer .quality-samples button { font-size: 12px; padding: 2px 10px; }
+.gtfs-viewer .quality-drop {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  background: var(--panel);
+  max-width: 640px;
+}
+.gtfs-viewer .quality-drop:hover,
+.gtfs-viewer .quality-drop:focus-visible,
+.gtfs-viewer .quality-drop.drag { border-color: var(--accent); outline: none; }
+.gtfs-viewer .quality p.explore-error { padding: 8px 0; color: var(--sev-err); }
+
+/* What a walkthrough step points at in the table. */
+.gtfs-viewer tr.row-marked td { background: var(--mark-bg); }
+.gtfs-viewer td.cell-marked,
+.gtfs-viewer th.cell-marked { outline: 2px solid var(--mark); outline-offset: -2px; }
+.gtfs-viewer th.line-number,
+.gtfs-viewer td.line-number {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-size: 11px;
+}
+
+/*
+ * The assistant's tour: a card floating beside what the step points at, over
+ * a dim with holes for the rows and the map. The dim takes no clicks, so the
+ * table still scrolls and the map still pans mid-step.
+ */
+.gtfs-viewer [data-el="content"] { position: relative; }
+.gtfs-viewer .tour-layer { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.gtfs-viewer .tour-dim { position: absolute; inset: 0; display: block; }
+.gtfs-viewer .tour-shade { fill: rgba(15, 23, 42, 0.38); }
+.gtfs-viewer .tour-ring { fill: none; stroke: var(--mark); stroke-width: 2.5; }
+
+.gtfs-viewer .assistant-card {
+  position: absolute;
+  z-index: 31;
+  width: min(400px, calc(100% - 16px));
+  max-height: min(70%, 560px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--mark);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28), 0 2px 6px rgba(15, 23, 42, 0.18);
+  font-size: 13px;
+  transition: left 0.18s ease, top 0.18s ease;
+}
+.gtfs-viewer .assistant-card[hidden] { display: none; }
+.gtfs-viewer .assistant-card.assistant-docked { right: 16px; bottom: 16px; left: auto; top: auto; width: min(320px, calc(100% - 32px)); }
+@media (prefers-reduced-motion: reduce) {
+  .gtfs-viewer .assistant-card { transition: none; }
+}
+/* The arrow: a square turned 45 degrees, half under the card's facing edge. */
+.gtfs-viewer .assistant-arrow { display: none; position: absolute; width: 12px; height: 12px; background: var(--panel); border: 1px solid var(--border); transform: rotate(45deg); }
+.gtfs-viewer .assistant-card[data-side] .assistant-arrow { display: block; }
+.gtfs-viewer .assistant-card[data-side="bottom"] .assistant-arrow { top: -8px; left: calc(var(--arrow) - 6px); border-right: 0; border-bottom: 0; background: var(--mark); border-color: var(--mark); }
+.gtfs-viewer .assistant-card[data-side="top"] .assistant-arrow { bottom: -7px; left: calc(var(--arrow) - 6px); border-left: 0; border-top: 0; }
+.gtfs-viewer .assistant-card[data-side="right"] .assistant-arrow { left: -7px; top: calc(var(--arrow) - 6px); border-right: 0; border-top: 0; }
+.gtfs-viewer .assistant-card[data-side="left"] .assistant-arrow { right: -7px; top: calc(var(--arrow) - 6px); border-left: 0; border-bottom: 0; }
+
+.gtfs-viewer .assistant-head { display: flex; align-items: center; gap: 8px; }
+.gtfs-viewer .assistant-head button { font-size: 12px; padding: 2px 10px; }
+.gtfs-viewer .assistant-close { border: 0; background: none; font-size: 18px; line-height: 1; padding: 0 4px; color: var(--muted); cursor: pointer; }
+.gtfs-viewer .assistant-close:hover { color: var(--text); }
+.gtfs-viewer .assistant-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gtfs-viewer .assistant-hint { color: var(--muted); font-size: 12px; margin: 0; }
+.gtfs-viewer .assistant-spacer { flex: 1; }
+.gtfs-viewer .assistant-progress { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 11px; }
+.gtfs-viewer .assistant-content { overflow-y: auto; min-height: 0; flex: 0 1 auto; }
+.gtfs-viewer .assistant-content:empty { display: none; }
+.gtfs-viewer .assistant-foot { display: flex; align-items: center; gap: 6px; }
+.gtfs-viewer .assistant-sample { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; }
+.gtfs-viewer .assistant-sample button { padding: 0 6px; }
+.gtfs-viewer .assistant-dots { display: flex; gap: 6px; padding-top: 4px; }
+.gtfs-viewer .assistant-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: var(--border);
+  cursor: pointer;
+}
+.gtfs-viewer .assistant-dot.done { background: var(--mark); opacity: 0.45; }
+.gtfs-viewer .assistant-dot.current { background: var(--mark); transform: scale(1.25); }
+.gtfs-viewer .assistant-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.gtfs-viewer .assistant-text { margin: 0; font-size: 14px; line-height: 1.45; }
+.gtfs-viewer .assistant-note { margin: 4px 0; color: var(--muted); font-size: 12px; max-width: 80ch; }
+.gtfs-viewer .assistant-block { margin-top: 8px; }
+.gtfs-viewer .assistant-reference summary { cursor: pointer; }
+.gtfs-viewer .assistant-reference[open] summary { margin-bottom: 4px; }
+.gtfs-viewer .assistant-block-title { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.gtfs-viewer .assistant-record { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; }
+.gtfs-viewer .assistant-record dt { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+.gtfs-viewer .assistant-record dd { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+.gtfs-viewer .assistant-record code { white-space: pre-wrap; }
+.gtfs-viewer .assistant-empty { color: var(--sev-err); font-style: italic; }
+.gtfs-viewer .assistant-scroll { overflow-x: auto; }
+.gtfs-viewer .assistant-compare { border-collapse: collapse; font-size: 12px; }
+.gtfs-viewer .assistant-compare th,
+.gtfs-viewer .assistant-compare td { padding: 3px 10px 3px 0; text-align: left; border-bottom: 1px solid var(--border); }
+.gtfs-viewer .assistant-compare td { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gtfs-viewer .assistant-same td { color: var(--muted); }
+.gtfs-viewer .assistant-differs td:not(:first-child) { color: var(--mark); font-weight: 600; }
+.gtfs-viewer .assistant-model { margin: 0; padding-left: 18px; }
+.gtfs-viewer .assistant-model li { margin: 2px 0; }
+.gtfs-viewer .assistant-edge { color: var(--mark); font-weight: 600; }
+.gtfs-viewer .assistant-description { white-space: pre-wrap; margin: 0 0 6px; max-width: 80ch; }
+.gtfs-viewer .assistant-links { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; }
+.gtfs-viewer .assistant-links a { color: var(--accent); }
+.gtfs-viewer .assistant-fixes ol { margin: 0; padding-left: 20px; }
+.gtfs-viewer .assistant-fixes li { margin: 3px 0; max-width: 80ch; }
+.gtfs-viewer .assistant-chart { width: 100%; max-width: 560px; height: auto; display: block; }
+.gtfs-viewer .assistant-chart .chart-line { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.gtfs-viewer .assistant-chart .chart-axis { stroke: var(--border); }
+.gtfs-viewer .assistant-chart .chart-mark { fill: var(--mark); stroke: var(--panel); stroke-width: 1.5; }
+.gtfs-viewer .assistant-chart .chart-label { fill: var(--muted); font-size: 10px; }
+
+/* The row a moving marker on the map has just reached. */
+.gtfs-viewer tr.row-playing td { background: color-mix(in srgb, var(--mark) 30%, transparent); transition: background 0.15s; }
+
+/* Labels the assistant pins to the map. */
+.annotation-label {
+  background: var(--mark, #d9480f);
+  color: #fff;
+  font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.annotation-label.annotation-over { background: #c92a2a; }
+.annotation-label.annotation-leg { background: #ffffff; color: #1c1e21; border: 1px solid #6b7280; }
+.annotation-label.annotation-sequence,
+.annotation-label.annotation-marked {
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+.annotation-label.annotation-sequence { background: #ffffff; color: #1c1e21; border: 1px solid #6b7280; }
+.annotation-label.annotation-marked { background: var(--mark, #d9480f); color: #fff; border: 2px solid #fff; }
+
+/* A marker travelling along a walkthrough's trip, with what it is doing beside it. */
+.annotation-vehicle {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--mark, #d9480f);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+.annotation-vehicle-text {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  transform: translateY(-50%);
+  background: #1c1e21;
+  color: #fff;
+  font: 600 12px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 3px 7px;
+  border-radius: 4px;
+  white-space: pre;
+}
+.annotation-vehicle.annotation-flip .annotation-vehicle-text { left: auto; right: calc(100% + 8px); }
+.annotation-vehicle.annotation-over { background: #c92a2a; }
+.annotation-vehicle.annotation-over .annotation-vehicle-text { background: #c92a2a; }
+
+/* ------------------------------------------------------------- Tour editor
+ *
+ * A column beside the panes, so the table and the map stay in view while a
+ * tour runs. The form scrolls between a fixed head and a fixed foot, where
+ * Run and Save always are.
+ */
+/* A summary can carry a long dotted name with nowhere to break; without this
+   it widens the list past its pane and pushes Explain and Edit tour out of view. */
+.gtfs-viewer .quality-list td { white-space: normal; }
+.gtfs-viewer .quality-list td:nth-child(2) { overflow-wrap: anywhere; min-width: 14em; }
+.gtfs-viewer .quality-buttons { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.gtfs-viewer .quality-buttons button { white-space: nowrap; }
+.gtfs-viewer .quality-edit { font-size: 12px; padding: 2px 10px; }
+.gtfs-viewer .quality-origin {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.gtfs-viewer .quality-title .quality-origin { margin-top: 0; }
+.gtfs-viewer .quality-origin-saved { color: var(--accent); font-weight: 600; }
+
+.gtfs-viewer [data-el="tour-editor"] {
+  width: min(460px, 42vw);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 13px;
+}
+.gtfs-viewer [data-el="tour-editor"][hidden] { display: none; }
+
+.gtfs-viewer .editor-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px; }
+.gtfs-viewer .editor-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gtfs-viewer .editor-origin { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.gtfs-viewer .editor-origin-saved { color: var(--accent); font-weight: 600; }
+.gtfs-viewer .editor-intro { margin: 0; padding: 0 12px 6px; color: var(--muted); font-size: 12px; }
+.gtfs-viewer .editor-bar { display: flex; align-items: flex-end; gap: 8px; padding: 6px 12px 8px; border-bottom: 1px solid var(--border); }
+.gtfs-viewer .editor-bar .editor-field { margin: 0; }
+.gtfs-viewer .editor-modes { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.gtfs-viewer .editor-mode { border: 0; border-radius: 0; background: var(--panel); font-size: 12px; padding: 4px 12px; }
+.gtfs-viewer .editor-mode + .editor-mode { border-left: 1px solid var(--border); }
+.gtfs-viewer .editor-mode.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+
+.gtfs-viewer .editor-summary:not(:empty) {
+  margin: 8px 12px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--sev-err);
+  background: var(--sev-err-bg);
+}
+.gtfs-viewer .editor-summary-title { font-weight: 600; margin-bottom: 2px; }
+
+.gtfs-viewer .editor-body { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 12px 16px; }
+.gtfs-viewer .editor-foot { border-top: 1px solid var(--border); padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.gtfs-viewer .editor-foot-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gtfs-viewer .editor-foot button { font-size: 12px; padding: 4px 10px; }
+.gtfs-viewer .editor-status { color: var(--muted); font-size: 12px; }
+
+.gtfs-viewer .editor-section { margin-top: 14px; }
+.gtfs-viewer .editor-section h3 { margin: 0 0 2px; font-size: 13px; }
+.gtfs-viewer .editor-hint { color: var(--muted); font-size: 12px; margin: 0 0 6px; }
+.gtfs-viewer .editor-hint code { font-size: 11px; }
+
+.gtfs-viewer .editor-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 8px 0;
+  background: var(--panel);
+}
+.gtfs-viewer .editor-step { border-left: 3px solid var(--mark); }
+.gtfs-viewer .editor-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.gtfs-viewer .editor-card-head .editor-field { margin: 0; flex-direction: row; align-items: center; gap: 6px; }
+.gtfs-viewer .editor-tool {
+  border: 1px solid transparent;
+  background: none;
+  padding: 0 6px;
+  min-width: 24px;
+  height: 24px;
+  line-height: 1;
+  color: var(--muted);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.gtfs-viewer .editor-tool:hover:not(:disabled) { color: var(--text); border-color: var(--border); background: var(--bg); }
+.gtfs-viewer .editor-tool:disabled { opacity: 0.35; cursor: default; }
+
+.gtfs-viewer .editor-field { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; min-width: 0; }
+.gtfs-viewer .editor-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.gtfs-viewer .editor-required { color: var(--sev-err); }
+.gtfs-viewer .editor-input {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.gtfs-viewer select.editor-input { width: auto; max-width: 100%; }
+.gtfs-viewer .editor-input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.gtfs-viewer .editor-text { resize: vertical; line-height: 1.4; }
+.gtfs-viewer .editor-name { width: 12em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gtfs-viewer .editor-number { width: 8em; }
+.gtfs-viewer .editor-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+.gtfs-viewer .editor-template { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.gtfs-viewer .editor-template-row { display: flex; gap: 4px; align-items: flex-start; min-width: 0; }
+.gtfs-viewer .editor-insert {
+  font-size: 11px;
+  padding: 3px 2px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--accent);
+  max-width: 6.5em;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.gtfs-viewer .editor-add-action { max-width: none; margin-top: 4px; padding: 4px 6px; }
+.gtfs-viewer .editor-preview { font-size: 12px; color: var(--text); background: var(--mark-bg); border-radius: 4px; padding: 3px 6px; }
+.gtfs-viewer .editor-preview:empty { display: none; }
+.gtfs-viewer .editor-preview-missing { background: var(--sev-warn-bg); color: var(--sev-warn); }
+
+.gtfs-viewer .editor-list { display: flex; flex-direction: column; gap: 4px; }
+.gtfs-viewer .editor-list-row,
+.gtfs-viewer .editor-key-row,
+.gtfs-viewer .editor-endpoint,
+.gtfs-viewer .editor-row { display: flex; gap: 4px; align-items: flex-start; min-width: 0; }
+.gtfs-viewer .editor-equals { color: var(--muted); padding-top: 4px; }
+.gtfs-viewer .editor-add {
+  align-self: flex-start;
+  font-size: 12px;
+  padding: 2px 8px;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--accent);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.gtfs-viewer .editor-add:hover { border-color: var(--accent); }
+.gtfs-viewer .editor-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.gtfs-viewer .editor-chip { font-size: 11px; font-weight: 400; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); cursor: pointer; }
+.gtfs-viewer .editor-chip.active { background: var(--mark-bg); border-color: var(--mark); color: var(--mark); font-weight: 600; }
+.gtfs-viewer .editor-chip .editor-tool { height: 16px; min-width: 16px; padding: 0 2px; }
+.gtfs-viewer .editor-check { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; }
+
+.gtfs-viewer .editor-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.gtfs-viewer .editor-action { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; background: var(--bg); }
+.gtfs-viewer .editor-surface { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 4px; background: var(--chip-bg); color: var(--muted); }
+.gtfs-viewer .editor-surface-content { background: var(--accent-bg); color: var(--accent); }
+.gtfs-viewer .editor-surface-map { background: var(--mark-bg); color: var(--mark); }
+.gtfs-viewer .editor-step-options { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.gtfs-viewer .editor-step-options .editor-field { flex-direction: row; align-items: center; gap: 6px; margin: 0; }
+
+.gtfs-viewer .editor-check-badge { font-size: 11px; color: var(--muted); }
+.gtfs-viewer .editor-check-dropped { color: var(--sev-warn); font-weight: 600; }
+.gtfs-viewer .editor-notes:empty { display: none; }
+.gtfs-viewer .editor-note { font-size: 12px; color: var(--sev-warn); background: var(--sev-warn-bg); border-radius: 4px; padding: 3px 6px; margin: 4px 0; }
+.gtfs-viewer .editor-problems:empty { display: none; }
+.gtfs-viewer .editor-problem { color: var(--sev-err); font-size: 12px; margin: 2px 0; }
+
+.gtfs-viewer .editor-start { padding: 12px 0; display: flex; flex-direction: column; gap: 12px; }
+.gtfs-viewer .editor-start p { margin: 0; }
+.gtfs-viewer .editor-start-choice { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+
+.gtfs-viewer .editor-yaml-wrap { display: flex; flex-direction: column; height: 100%; min-height: 360px; padding-top: 8px; }
+.gtfs-viewer .editor-yaml { flex: 1; min-height: 340px; resize: none; white-space: pre-wrap; overflow: auto; tab-size: 2; line-height: 1.45; }
+
+/* A narrow window: the editor takes the width and the panes go under it. */
+@media (max-width: 900px) {
+  .gtfs-viewer [data-el="layout"]:has([data-el="tour-editor"]:not([hidden])) { flex-direction: column; }
+  .gtfs-viewer [data-el="tour-editor"] { width: auto; max-height: 55vh; border-left: 0; border-top: 1px solid var(--border); order: 2; }
+}
+
+/* Rows, inside the action that opens them. */
+.gtfs-viewer .editor-rows-wrap { display: flex; flex-direction: column; gap: 4px; }
+.gtfs-viewer .editor-rows { border-left: 2px solid var(--accent-bg); padding: 2px 0 2px 10px; margin-top: 2px; }
+.gtfs-viewer .editor-rows .editor-field { margin: 4px 0; }
+.gtfs-viewer .editor-shared { font-size: 12px; color: var(--muted); background: var(--accent-bg); border-radius: 4px; padding: 4px 6px; margin: 2px 0 4px; }
+.gtfs-viewer .editor-link { border: 0; background: none; color: var(--accent); padding: 0; font-size: 12px; cursor: pointer; text-decoration: underline; }
+
+/* Tours: every notice, and the tour for each. */
+.gtfs-viewer .tours-search { min-width: 18em; flex: 1; max-width: 32em; padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.gtfs-viewer .tours-demos { display: flex; flex-wrap: wrap; gap: 4px; }
+.gtfs-viewer .tours-demo-chip { font-size: 11px; font-weight: 400; padding: 1px 8px; border-radius: 999px; background: var(--chip-bg); white-space: nowrap; }
+.gtfs-viewer .tours-demo-toggle { margin-left: 0; }
+.gtfs-viewer .tours-list td:nth-child(4) { max-width: 18em; }
+.gtfs-viewer .tours-add { margin-top: 12px; }
+.gtfs-viewer .tours-add h4 { margin: 0 0 2px; font-size: 13px; }
+.gtfs-viewer .tours-add-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.gtfs-viewer .tours-demo-list td:first-child { max-width: 48em; }
+.gtfs-viewer .options-hint { font-size: 12px; color: var(--muted); margin: 2px 0 6px; }
+.gtfs-viewer .editor-demo-note { margin: 0 12px; padding: 6px 10px; font-size: 12px; background: var(--accent-bg); border-radius: 6px; }
+.gtfs-viewer .editor-row select.editor-input { max-width: 100%; }
+.gtfs-viewer .tours-list td:last-child button,
+.gtfs-viewer .tours-demo-list td { white-space: nowrap; }
+.gtfs-viewer .tours-demo-list td:first-child { white-space: normal; }
+
+/* ------------------------------------------------------- Locked to a tour
+ *
+ * While a tour is written or played (quality/session.ts) the header is the
+ * tour's bar, and what navigates is put away: the sidebar, the toolbar, the
+ * filter bar and the pager. The table still scrolls and the map still pans.
+ */
+.gtfs-viewer .tour-bar { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; font-size: 13px; }
+.gtfs-viewer .tour-bar[hidden] { display: none; }
+.gtfs-viewer .tour-bar-back { font-weight: 600; white-space: nowrap; }
+.gtfs-viewer .tour-bar-kind { color: var(--muted); white-space: nowrap; }
+.gtfs-viewer .tour-bar-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gtfs-viewer .tour-bar-demo { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gtfs-viewer.tour-locked header { border-bottom: 3px solid var(--mark); }
+.gtfs-viewer.tour-locked header > :not([data-el="tour-bar"]):not([data-el="toggle-map-btn"]) { display: none !important; }
+.gtfs-viewer.tour-locked [data-el="toolbar"],
+.gtfs-viewer.tour-locked [data-el="filter-bar"],
+.gtfs-viewer.tour-locked [data-el="add-filter-form"],
+.gtfs-viewer.tour-locked [data-el="options-panel"] { display: none !important; }
+.gtfs-viewer.tour-locked [data-el="pager"] button { visibility: hidden; }
+
+/* The files, read-only while locked: the open one lit, nothing to click. */
+.gtfs-viewer.tour-locked [data-el="sidebar"] .table-tab { cursor: default; }
+.gtfs-viewer.tour-locked [data-el="sidebar"] .table-tab:not(.active):hover { background: none; }
+.gtfs-viewer .tour-bar-title { white-space: nowrap; }
+.gtfs-viewer.tour-studio .tour-bar-title { color: var(--mark); }
+
+/* A table in the validator's description of a rule: the speed limits per route type. */
+.gtfs-viewer .rule-table { margin: 4px 0 8px; }
+.gtfs-viewer .rule-table th { font-weight: 600; color: var(--muted); font-size: 11px; }
+.gtfs-viewer .rule-table td { font-family: inherit; }
+.gtfs-viewer .quality-description { white-space: normal; }
+.gtfs-viewer .quality-description p { white-space: pre-wrap; margin: 4px 0 8px; }
+
+/* What a tour shows when the finding is not a row: files, columns, a value, colours, dates. */
+.gtfs-viewer .explain-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.gtfs-viewer .explain-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--border); background: var(--panel); }
+.gtfs-viewer .explain-chip-marked { border-color: var(--mark); background: var(--mark-bg); color: var(--mark); font-weight: 600; }
+.gtfs-viewer .explain-chip-missing { border-style: dashed; border-color: var(--sev-err); color: var(--sev-err); background: none; }
+.gtfs-viewer .explain-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); white-space: pre-wrap; word-break: break-word; }
+.gtfs-viewer .explain-odd { background: var(--mark); color: #fff; border-radius: 3px; padding: 0 3px; margin: 0 1px; font-size: 11px; cursor: help; }
+.gtfs-viewer .explain-expect { margin: 4px 0 0; }
+.gtfs-viewer .explain-swatch { display: inline-block; padding: 6px 16px; border-radius: 6px; font-weight: 700; font-size: 16px; border: 1px solid var(--border); margin: 2px 0 6px; }
+.gtfs-viewer .explain-track { position: relative; height: 14px; margin: 10px 6px 4px; background: var(--chip-bg); border-radius: 7px; }
+.gtfs-viewer .explain-range { position: absolute; top: 0; bottom: 0; min-width: 4px; background: var(--accent); border-radius: 7px; }
+.gtfs-viewer .explain-range-backwards { background: repeating-linear-gradient(45deg, var(--sev-err), var(--sev-err) 4px, var(--sev-err-bg) 4px, var(--sev-err-bg) 8px); }
+.gtfs-viewer .explain-today { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1px; background: var(--mark); border-radius: 2px; }
+.gtfs-viewer .explain-dates { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+.gtfs-viewer .explain-today-label { color: var(--mark); font-weight: 600; }
+.gtfs-viewer .prose-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; background: var(--chip-bg); border-radius: 3px; padding: 0 3px; }
+.gtfs-viewer .explain-range-other { background: var(--sev-info); opacity: 0.7; }
+.gtfs-viewer .explain-overlap { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(45deg, var(--mark), var(--mark) 3px, transparent 3px, transparent 6px); border-radius: 7px; }
+.gtfs-viewer .explain-dates-other { justify-content: flex-start; color: var(--sev-info); }

@@ -1,0 +1,18 @@
+code: mixed_case_recommended_field
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` gives `{{fieldName}}` the value \"{{fieldValue}}\", with no mix of capital and small letters. Riders read this text in apps and on signs."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it", expect: "Galleria Mall" }
+
+  - text: "Text in capitals only is harder to read, and screen readers may spell it out letter by letter. Names read best with capitals only where they belong."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Rewrite \"{{fieldValue}}\" in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}` with capitals only where they belong, as in \"Market Street\"."
+  - "Keep capitals for names that are really written that way, such as JFK Airport, and spell out abbreviations such as St. for Street."

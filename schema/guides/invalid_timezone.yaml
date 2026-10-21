@@ -1,0 +1,18 @@
+code: invalid_timezone
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` gives `{{fieldName}}` the value \"{{fieldValue}}\", which is not a time zone. Every time in the feed is read in this zone, so apps cannot tell riders when anything runs."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it", expect: "America/Toronto" }
+
+  - text: "A time zone is written as its name in the international list (IANA): a region and a city, joined by a slash, with underscores for spaces, such as America/Toronto, Europe/Paris or America/Los_Angeles."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Replace \"{{fieldValue}}\" in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}` with the time zone the service runs in, such as America/Toronto."
+  - "Use the zone of the city that sets the agency's clock, not an abbreviation such as EST or a number such as -05:00."

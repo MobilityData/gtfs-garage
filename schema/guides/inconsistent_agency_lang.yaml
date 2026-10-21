@@ -1,0 +1,14 @@
+code: inconsistent_agency_lang
+
+locators:
+  agencies: { file: agency }
+  agency:   { file: agency, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `agency.txt`, the list of agencies, gives its language as {{actual}}, while the other agencies use {{expected}}. Apps expect one language for the feed, so some texts may be shown or read aloud wrongly."
+    actions:
+      - { kind: open_rows, at: agencies, mark: agency, highlight: [agency_lang] }
+
+fix:
+  - "If the agency's texts are in {{expected}}, set `agency_lang` on line {{csvRowNumber}} of `agency.txt` to {{expected}}."
+  - "If the feed really mixes languages, set `feed_lang` in `feed_info.txt` to mul and add translations in `translations.txt`."

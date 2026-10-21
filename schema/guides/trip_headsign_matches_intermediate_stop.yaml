@@ -1,0 +1,19 @@
+code: trip_headsign_matches_intermediate_stop
+
+locators:
+  trip: { file: trips, line: "{{csvRowNumber}}", key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "Trip {{tripId}} shows \"{{tripHeadsign}}\" as where it is going, in `trip_headsign`, but {{tripHeadsign}} is only its stop {{stopSequence}}: the trip carries on past it."
+    actions:
+      - { kind: open_rows,    at: trip, highlight: [trip_headsign] }
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId1}}", "{{stopId2}}"] }
+
+  - text: "The trip in its timetable, with the stops after {{tripHeadsign}}. Riders boarding there would see a sign for a place the vehicle has already passed."
+    actions:
+      - { kind: timetable, trip: "{{tripId}}" }
+
+fix:
+  - "If the trip really ends at {{tripHeadsign}}, remove its stops after stop {{stopSequence}} from `stop_times.txt`."
+  - "Otherwise set `trip_headsign` on line {{csvRowNumber}} of `trips.txt` to the name of its last stop, {{stopId2}}."
+  - "If the sign should change along the way, as on a loop, set `stop_headsign` in `stop_times.txt` for the stops where it differs."

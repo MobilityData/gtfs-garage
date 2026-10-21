@@ -1,0 +1,14 @@
+code: trip_coverage_not_active_for_next7_days
+
+steps:
+  - text: "Most of the feed's trips run from {{serviceWindowStartDate|date}} to {{serviceWindowEndDate|date}}. Checked on {{currentDate|date}}, that does not cover the next seven days, so apps will have few or no trips to show riders."
+    actions:
+      - { kind: timeline, start: "{{serviceWindowStartDate}}", end: "{{serviceWindowEndDate}}", checked: "{{currentDate}}", start_label: "Most trips from", end_label: "Most trips to" }
+
+  - text: "Service days, opened on {{currentDate|date}}, the day the feed was checked. Look at how many of the days after it have service."
+    actions:
+      - { kind: calendar, date: "{{currentDate}}" }
+
+fix:
+  - "Publish a feed whose services run at least seven days past {{currentDate|date}}, by extending `end_date` in `calendar.txt` or adding the coming days to `calendar_dates.txt`."
+  - "If the schedule is about to change, publish the new one now, with the days it starts on."

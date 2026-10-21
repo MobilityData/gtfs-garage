@@ -1,0 +1,19 @@
+code: pathway_to_wrong_location_type
+
+locators:
+  pathway: { file: pathways, line: "{{csvRowNumber}}", key: { pathway_id: "{{pathwayId}}" } }
+  station: { file: stops, key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Pathway {{pathwayId}}, line {{csvRowNumber}} of `pathways.txt`, leads to {{stopId}}, which is a whole station. A pathway is one walkway or flight of stairs, so both its ends must be places inside the station."
+    actions:
+      - { kind: open_rows, at: pathway, highlight: ["{{fieldName}}"] }
+
+  - text: "`location_type` is the kind of place: 0 a stop or platform, 1 a station, 2 an entrance, 3 a node inside a station, 4 a boarding area. {{stopId}} is a 1. A pathway may end at any of these but a station."
+    actions:
+      - { kind: open_rows, at: station, highlight: [location_type] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+fix:
+  - "On line {{csvRowNumber}} of `pathways.txt`, change `{{fieldName}}` to the platform, entrance, node or boarding area the walkway really reaches."
+  - "If that place is not in `stops.txt` yet, add it with {{stopId}} as its `parent_station`."

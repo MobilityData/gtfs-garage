@@ -20,6 +20,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gtfs_garage import __version__
+from gtfs_garage.core.lines import (
+    APPROXIMATE,
+    BY_COLUMN,
+    BY_POSITION,
+    BY_WINDOW,
+    EXACT,
+    LINE_COLUMN,
+    SLOW_PATH_ROW_LIMIT,
+    kept_record_lines,
+    physical_lines,
+)
 from gtfs_garage.core.workspace import FeedSlot
 
 # Reported through `on_progress` so a caller can say which phase is running.
@@ -43,6 +54,24 @@ class GtfsLoadError(Exception):
 
 def _elapsed_ms(since: float) -> float:
     return (time.perf_counter() - since) * 1000
+
+
+def _sql_path(path: Path) -> str:
+    return "'" + str(path).replace("'", "''") + "'"
+
+
+@dataclass
+class LineNumbers:
+    """How one table's rows map back to the lines of the file they came from.
+
+    See `core/lines.py`. `storage` says how the number is produced and
+    `quality` whether it was checked against the file.
+    """
+
+    storage: str
+    quality: str
+    # The Parquet behind the table, for the two storages that read it directly.
+    parquet: Path | None = None
 
 
 @dataclass
@@ -150,6 +179,11 @@ class GtfsFeed:
         config = {"temp_directory": str(temp_directory)} if temp_directory else {}
         self.con = duckdb.connect(database=":memory:", config=config)
         self.tables: dict[str, list[str]] = {}
+        # Per table, how to recover the line each row was read from. A table
+        # without an entry has none to give - locations.geojson is not lines.
+        self.lines: dict[str, LineNumbers] = {}
+        # The CSV each table was read from, while it still exists.
+        self._csv_paths: dict[str, Path] = {}
         self._load_tables()
         if not self.tables:
             self.close()
@@ -238,7 +272,9 @@ class GtfsFeed:
                         '{escaped_path}',
                         ALL_VARCHAR = TRUE,
                         IGNORE_ERRORS = TRUE,
-                        NULLSTR = ''
+                        NULLSTR = '',
+                        QUOTE = '"',
+                        ESCAPE = '"'
                     )
                     """)
             except Exception:
@@ -247,6 +283,10 @@ class GtfsFeed:
                 continue
             columns = [row[0] for row in self.con.execute(f'DESCRIBE "{table_name}"').fetchall()]
             self.tables[table_name] = columns
+            self._csv_paths[table_name] = txt_file
+            # Until a conversion checks it, a CSV view can only number its rows
+            # by position, which a multi-line value or a dropped row puts off.
+            self.lines[table_name] = LineNumbers(BY_WINDOW, APPROXIMATE)
             self.stats.files.append(
                 FileStats(
                     name=txt_file.name,
@@ -274,14 +314,28 @@ class GtfsFeed:
         original = self._manifest_sizes()
         for parquet_file in sorted(self.data_dir.glob("*.parquet")):
             table_name = parquet_file.stem
-            escaped_path = str(parquet_file).replace("'", "''")
             file_started = time.perf_counter()
             try:
-                self.con.execute(f"""CREATE VIEW "{table_name}" AS SELECT * FROM read_parquet('{escaped_path}')""")
+                stored = [
+                    row[0]
+                    for row in self.con.execute(
+                        f"DESCRIBE SELECT * FROM read_parquet({_sql_path(parquet_file)})"
+                    ).fetchall()
+                ]
+                self._create_parquet_view(table_name, parquet_file, LINE_COLUMN in stored)
             except Exception:
                 continue
             columns = [row[0] for row in self.con.execute(f'DESCRIBE "{table_name}"').fetchall()]
             self.tables[table_name] = columns
+            # A dataset written before line numbers were checked records no
+            # verdict, and its CSVs were read with sniffed quoting - so its
+            # positions are offered, but not as exact.
+            if table_name != LOCATIONS_TABLE:  # a GeoJSON document, not lines
+                self.lines[table_name] = LineNumbers(
+                    BY_COLUMN if LINE_COLUMN in stored else BY_POSITION,
+                    original.get(table_name, {}).get("lines") or APPROXIMATE,
+                    parquet_file,
+                )
             size = parquet_file.stat().st_size
             was = original.get(table_name, {})
             self.stats.files.append(
@@ -311,6 +365,7 @@ class GtfsFeed:
             str(entry.get("name")): {
                 "bytes": entry.get("bytes"),
                 "compressed_bytes": entry.get("compressed_bytes"),
+                "lines": entry.get("lines") if entry.get("lines") in (EXACT, APPROXIMATE) else None,
             }
             for entry in tables
             if isinstance(entry, dict) and entry.get("name")
@@ -332,7 +387,16 @@ class GtfsFeed:
         for table in sorted(self.tables):
             target = destination / f"{table}.parquet"
             escaped = str(target).replace("'", "''")
-            self.con.execute(f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
+            numbered = self.lines.get(table)
+            # A stored line column is the only record of lines a position
+            # cannot give, so it travels with the export. Positions survive the
+            # copy as they are, because COPY keeps the order it reads in.
+            selected = (
+                f"SELECT * FROM read_parquet({_sql_path(numbered.parquet)})"
+                if numbered and numbered.storage == BY_COLUMN and numbered.parquet
+                else f'SELECT * FROM "{table}"'
+            )
+            self.con.execute(f"""COPY ({selected}) TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
             written.append(target)
 
             source = stats_by_table.get(table)
@@ -349,6 +413,7 @@ class GtfsFeed:
                     "bytes": source.bytes if source else None,
                     "compressed_bytes": source.compressed_bytes if source else None,
                     "parquet_bytes": target.stat().st_size,
+                    **self._lines_entry(table),
                 }
             )
 
@@ -475,8 +540,11 @@ class GtfsFeed:
                 self.con.execute(
                     f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)"""
                 )
+                numbered = self._number_lines(table, destination)
                 self.con.execute(f'DROP VIEW "{table}"')
-                self.con.execute(f"""CREATE VIEW "{table}" AS SELECT * FROM read_parquet('{escaped}')""")
+                self._create_parquet_view(table, destination, bool(numbered and numbered.storage == BY_COLUMN))
+                if numbered:
+                    self.lines[table] = numbered
             except Exception:
                 # A table that will not convert keeps its CSV view, so the feed
                 # still opens. That is also why the CSVs are only deleted below
@@ -512,6 +580,7 @@ class GtfsFeed:
                     "bytes": stats.bytes,
                     "compressed_bytes": stats.compressed_bytes,
                     "parquet_bytes": stats.parquet_bytes,
+                    **self._lines_entry(stats.table),
                 }
                 for stats in self.stats.files
                 if stats.parquet_bytes is not None
@@ -521,6 +590,84 @@ class GtfsFeed:
             # A dataset without its manifest still opens; only the report is
             # poorer. Failing the load over it would be the worse trade.
             pass
+
+    def _create_parquet_view(self, table: str, parquet: Path, has_line_column: bool) -> None:
+        """Point a table's view at its Parquet, leaving the line column out.
+
+        The line is not a GTFS field, so it is never one of the table's
+        columns: it is reached only through `line_source`, which is what keeps
+        every existing query, page and export exactly as it was.
+        """
+        exclude = f' EXCLUDE ("{LINE_COLUMN}")' if has_line_column else ""
+        self.con.execute(f'CREATE VIEW "{table}" AS SELECT *{exclude} FROM read_parquet({_sql_path(parquet)})')
+
+    def _number_lines(self, table: str, parquet: Path) -> LineNumbers | None:
+        """Check the converted rows against the file's lines, and fix them if needed.
+
+        See `core/lines.py`. The common case costs one pass over the bytes
+        counting newlines; only a file whose lines and rows disagree is read
+        again, and then its line numbers are stored beside the rows.
+        """
+        if table not in self.lines:
+            return None  # not read from lines, as locations.geojson is not
+        source = self._csv_paths.get(table)
+        if source is None or not source.exists():
+            return LineNumbers(BY_POSITION, APPROXIMATE, parquet)
+
+        rows = self.cursor().execute(f"SELECT COUNT(*) FROM read_parquet({_sql_path(parquet)})").fetchone()[0]
+        lines = physical_lines(source)
+        if lines == rows + 1:
+            return LineNumbers(BY_POSITION, EXACT, parquet)
+        if rows > SLOW_PATH_ROW_LIMIT:
+            return LineNumbers(BY_POSITION, APPROXIMATE, parquet)
+
+        kept = kept_record_lines(source)
+        if kept is None or len(kept) != rows:
+            # The two readers disagree about which records exist, so neither
+            # numbering can be trusted to pair with the right row.
+            return LineNumbers(BY_POSITION, APPROXIMATE, parquet)
+
+        numbered = parquet.with_suffix(".lines.parquet")
+        listing = parquet.with_suffix(".lines.txt")
+        try:
+            listing.write_text("".join(f"{line}\n" for line in kept), encoding="ascii")
+            # A positional join pairs the n-th kept row with the n-th line,
+            # which is exactly the correspondence `kept_record_lines` builds.
+            self.con.execute(f"""COPY (
+                    SELECT r.*, l."{LINE_COLUMN}"
+                    FROM read_parquet({_sql_path(parquet)}) r
+                    POSITIONAL JOIN read_csv({_sql_path(listing)}, HEADER = FALSE,
+                                             COLUMNS = {{'{LINE_COLUMN}': 'BIGINT'}}) l
+                ) TO {_sql_path(numbered)} (FORMAT PARQUET, COMPRESSION ZSTD)""")
+            numbered.replace(parquet)
+        finally:
+            listing.unlink(missing_ok=True)
+            numbered.unlink(missing_ok=True)
+        return LineNumbers(BY_COLUMN, EXACT, parquet)
+
+    def _lines_entry(self, table: str) -> dict:
+        """The manifest's record of a table's line numbers, if it has any."""
+        numbered = self.lines.get(table)
+        return {"lines": numbered.quality} if numbered else {}
+
+    def line_source(self, table: str) -> str | None:
+        """A relation with the table's columns plus `_line`, or None.
+
+        Separate from the view so that the line costs nothing unless a query
+        asks for it - which matters for the window over a CSV view, a scan of
+        the whole file each time.
+        """
+        numbered = self.lines.get(table)
+        if numbered is None:
+            return None
+        if numbered.storage == BY_COLUMN and numbered.parquet:
+            return f"(SELECT * FROM read_parquet({_sql_path(numbered.parquet)}))"
+        if numbered.storage == BY_POSITION and numbered.parquet:
+            return (
+                f'(SELECT * EXCLUDE (file_row_number), file_row_number + 2 AS "{LINE_COLUMN}" '
+                f"FROM read_parquet({_sql_path(numbered.parquet)}, file_row_number = true))"
+            )
+        return f'(SELECT *, row_number() OVER () + 1 AS "{LINE_COLUMN}" FROM "{table}")'
 
     def _drop_extracted_csvs(self) -> None:
         """Release the extracted CSVs, which nothing reads once converted.

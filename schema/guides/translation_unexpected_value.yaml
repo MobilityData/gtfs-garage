@@ -1,0 +1,17 @@
+code: translation_unexpected_value
+
+locators:
+  row: { file: translations, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `translations.txt`, the texts in other languages, sets `{{fieldName}}` to {{fieldValue}}, but on this row it must be empty."
+    actions:
+      - { kind: open_rows,   at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_record, at: row, fields: [table_name, field_name, record_id, record_sub_id, field_value] }
+
+  - text: "A translation names the text it replaces either by the row's id, in `record_id`, or by the original text, in `field_value`, never both. With both, apps may ignore the translation."
+    actions:
+      - { kind: show_record, at: row, fields: [record_id, record_sub_id, field_value] }
+
+fix:
+  - "Empty `{{fieldName}}` on line {{csvRowNumber}} of `translations.txt`, and keep the other way of naming the text."

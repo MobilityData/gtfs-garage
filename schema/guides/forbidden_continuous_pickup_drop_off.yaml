@@ -1,0 +1,19 @@
+code: forbidden_continuous_pickup_drop_off
+
+locators:
+  stop_time: { file: stop_times, line: "{{stopTimeCsvRowNumber}}", key: { trip_id: "{{tripId}}" } }
+  route:     { file: routes,     line: "{{routeCsvRowNumber}}" }
+
+steps:
+  - text: "Trip {{tripId}} is a flex trip: it serves a zone or a time window, booked in advance, rather than fixed stops at fixed times. Line {{stopTimeCsvRowNumber}} of `stop_times.txt`, the timetable, gives it the window {{startPickupDropOffWindow}} to {{endPickupDropOffWindow}}."
+    actions:
+      - { kind: open_rows, at: stop_time, highlight: [start_pickup_drop_off_window, end_pickup_drop_off_window] }
+
+  - text: "But its route, on line {{routeCsvRowNumber}} of `routes.txt`, lets riders get on or off anywhere along the line (`continuous_pickup` or `continuous_drop_off` is 0, 2 or 3). A trip booked by zone has no line to stop along, so apps get conflicting instructions."
+    actions:
+      - { kind: open_rows,   at: route, highlight: [continuous_pickup, continuous_drop_off] }
+      - { kind: show_record, at: route, fields: [continuous_pickup, continuous_drop_off] }
+
+fix:
+  - "On line {{routeCsvRowNumber}} of `routes.txt`, set `continuous_pickup` and `continuous_drop_off` to 1, meaning no stopping along the line, or leave them empty."
+  - "If other trips of the route do stop anywhere along the line, move flex trips such as {{tripId}} to a route of their own."

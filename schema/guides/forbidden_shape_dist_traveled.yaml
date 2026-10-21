@@ -1,0 +1,13 @@
+code: forbidden_shape_dist_traveled
+
+locators:
+  row: { file: stop_times, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `stop_times.txt`, the timetable, gives trip {{tripId}} a `shape_dist_traveled` of {{shapeDistTraveled|round}}, a distance along its line, at a zone rather than a stop. A vehicle can be anywhere in a zone, so no single distance fits, and apps may time the trip wrongly."
+    actions:
+      - { kind: open_rows,   at: row, highlight: [shape_dist_traveled, location_id, location_group_id] }
+      - { kind: show_record, at: row, fields: [shape_dist_traveled, location_id, location_group_id] }
+
+fix:
+  - "Empty `shape_dist_traveled` on line {{csvRowNumber}} of `stop_times.txt`, since it is only for rows that name a stop in `stop_id`."

@@ -1,0 +1,18 @@
+code: feed_info_lang_and_agency_lang_mismatch
+
+locators:
+  agency: { file: agency, line: "{{csvRowNumber}}", key: { agency_id: "{{agencyId}}" } }
+  feed:   { file: feed_info }
+
+steps:
+  - text: "{{agencyName}} gives its language as {{agencyLang}} in `agency.txt`, the list of agencies. The feed as a whole says its texts are in {{feedLang}}."
+    actions:
+      - { kind: open_rows, at: agency, highlight: [agency_lang] }
+
+  - text: "This is `feed_lang` in `feed_info.txt`, the feed's description of itself. Apps use it to know what language stop names and other texts are in, to show them or read them aloud."
+    actions:
+      - { kind: open_rows, at: feed, highlight: [feed_lang] }
+
+fix:
+  - "If all texts are in one language, set `agency_lang` for {{agencyName}} and `feed_lang` to the same code."
+  - "If the feed's texts really are in several languages, set `feed_lang` to mul."

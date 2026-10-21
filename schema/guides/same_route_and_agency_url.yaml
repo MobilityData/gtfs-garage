@@ -1,0 +1,18 @@
+code: same_route_and_agency_url
+
+locators:
+  route:  { file: routes, line: "{{routeCsvRowNumber}}",  key: { route_id: "{{routeId}}" } }
+  agency: { file: agency, line: "{{agencyCsvRowNumber}}", key: { agency_name: "{{agencyName}}" } }
+
+steps:
+  - text: "Route {{routeId}}'s web page is {{routeUrl}}. In `routes.txt`, `route_url` should lead to a page about this route: its map, timetable and service changes."
+    actions:
+      - { kind: open_rows, at: route, highlight: [route_url] }
+
+  - text: "That is the home page of {{agencyName}}, as `agency.txt`, the list of agencies, gives it. A rider who taps the route's link lands there and has to look for the route."
+    actions:
+      - { kind: open_rows, at: agency, highlight: [agency_url] }
+
+fix:
+  - "Set `route_url` of route {{routeId}} to the page about this route on the agency's site."
+  - "If there is no such page, leave `route_url` empty: apps then link to {{routeUrl}} through the agency."

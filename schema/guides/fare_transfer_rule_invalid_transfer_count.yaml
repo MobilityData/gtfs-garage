@@ -1,0 +1,14 @@
+code: fare_transfer_rule_invalid_transfer_count
+
+locators:
+  rule: { file: fare_transfer_rules, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `fare_transfer_rules.txt`, what a transfer between two fares costs, allows {{transferCount}} transfers (`transfer_count`). The number must be 1 or more, or -1 for no limit, so apps cannot use this rule."
+    actions:
+      - { kind: open_rows, at: rule, highlight: [transfer_count] }
+      - { kind: show_record, at: rule, fields: [from_leg_group_id, to_leg_group_id, transfer_count] }
+
+fix:
+  - "Set `transfer_count` on line {{csvRowNumber}} to the number of transfers riders may make at this price, or to -1 if there is no limit."
+  - "If transfers are not allowed at this price at all, delete line {{csvRowNumber}}."

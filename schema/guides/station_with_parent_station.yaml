@@ -1,0 +1,19 @@
+code: station_with_parent_station
+
+locators:
+  station: { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+  parent:  { file: stops, key: { stop_id: "{{parentStation}}" } }
+
+steps:
+  - text: "{{stopName}} ({{stopId}}) is a station, yet its `parent_station` says it is part of {{parentStation}}. Platforms and entrances belong to a station, but a station belongs to nothing."
+    actions:
+      - { kind: open_rows, at: station, highlight: [location_type, parent_station] }
+      - { kind: map_focus, stops: ["{{stopId}}", "{{parentStation}}"] }
+
+  - text: "This is {{parentStation}}, the place it names. If {{stopName}} is really part of it, such as a hall or an entrance, it should not be a station itself."
+    actions:
+      - { kind: open_rows, at: parent, highlight: [location_type, parent_station] }
+
+fix:
+  - "If {{stopName}} is a station of its own, empty its `parent_station` on line {{csvRowNumber}} of `stops.txt`."
+  - "If {{stopName}} is part of {{parentStation}}, change its `location_type` to 0 for a platform, 2 for an entrance or 3 for a point inside the station."

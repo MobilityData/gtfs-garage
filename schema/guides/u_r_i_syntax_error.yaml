@@ -1,0 +1,10 @@
+code: u_r_i_syntax_error
+
+steps:
+  - text: "This is not a problem in the feed's data: the validator was given a web address it could not read, usually the one the feed was to be downloaded from."
+    actions:
+      - { kind: show_value, value: "{{message}}", label: "What the validator reported" }
+
+fix:
+  - "Check the feed's web address, replace spaces and other unusual characters, and run the validator again."
+  - "If the address is correct and it happens again, report it to the gtfs-validator project on GitHub, with the message above and the error name {{exception}}."

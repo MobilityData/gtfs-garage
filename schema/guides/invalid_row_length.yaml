@@ -1,0 +1,17 @@
+code: invalid_row_length
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` has {{rowLength}} values, but the header names {{headerCount}} columns. There is no telling which value belongs in which column, so apps may skip the row."
+    actions:
+      - { kind: show_columns, file: "{{filename}}" }
+
+  - text: "Line {{csvRowNumber}} cannot be read safely, so it is left out of the table. The rows around it each have a value, even an empty one, for every column."
+    actions:
+      - { kind: open_rows, at: row, around: 2 }
+
+fix:
+  - "Open `{{filename}}` in a text editor at line {{csvRowNumber}} and give it {{headerCount}} values, adding empty ones (two commas in a row) where a value is missing."
+  - "If a value contains a comma, put that value in double quotes so it is read as one."

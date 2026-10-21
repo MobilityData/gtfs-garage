@@ -1,0 +1,15 @@
+code: route_color_contrast
+
+locators:
+  route: { file: routes, line: "{{csvRowNumber}}", key: { route_id: "{{routeId}}" } }
+
+steps:
+  - text: "Route {{routeId}}'s label has {{routeTextColor}} text on {{routeColor}}, hard to read for riders with low vision or in bright sun. In `routes.txt`, `route_color` is the colour apps draw the route in and `route_text_color` the colour of the text on its label."
+    actions:
+      - { kind: open_rows,   at: route, highlight: [route_color, route_text_color] }
+      - { kind: show_colors, color: "{{routeColor}}", text: "{{routeTextColor}}", label: "{{routeId}}" }
+      - { kind: map_focus,   routes: ["{{routeId}}"] }
+
+fix:
+  - "Change `route_text_color` of route {{routeId}} to a colour that stands out on {{routeColor}}: black (000000) on a light colour, white (FFFFFF) on a dark one."
+  - "If the text colour has to stay, make `route_color` darker or lighter so the text reads on it."

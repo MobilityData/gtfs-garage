@@ -1,0 +1,30 @@
+code: fast_travel_between_far_stops
+
+locators:
+  calls: { file: stop_times, key: { trip_id: "{{tripId}}" } }
+  pair:  { file: stop_times, line: "{{csvRowNumber1}},{{csvRowNumber2}}" }
+  stop2: { file: stops,      key: { stop_id: "{{stopId2}}" } }
+
+steps:
+  - text: "Trip {{tripId}} leaves {{stopName1}} at {{departureTime1}} and reaches {{stopName2}}, {{distanceKm|km}} on, at {{arrivalTime2}}: an average of {{speedKph|kmh}}. The marker on the map runs the trip at its scheduled pace."
+    actions:
+      - { kind: open_rows, at: calls, mark: pair, highlight: [arrival_time, departure_time, stop_id] }
+      - { kind: map_play,  trip: "{{tripId}}", from: "{{stopId1}}", to: "{{stopId2}}", around: 1, mark: ["{{stopId1}}", "{{stopId2}}"] }
+
+  - text: "Each leg labelled with its speed. Over more than 10 km this is no rounded minute: a time is badly wrong, or a stop is far from where it really is. Riders cannot trust these times, and some apps leave the trip out."
+    actions:
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId1}}", "{{stopId2}}"], speeds: true }
+
+  - text: "{{stopName2}} is {{distanceKm|km}} from {{stopName1}} as the crow flies. If either stop is not where it really is, correct its position in `stops.txt`, the list of stops."
+    actions:
+      - { kind: open_rows,   at: stop2, highlight: [stop_lat, stop_lon] }
+      - { kind: map_measure, from: { stop: "{{stopId1}}" }, to: { stop: "{{stopId2}}" } }
+
+  - text: "Trip {{tripId}} in its route's timetable: compare its times with the trips around it."
+    actions:
+      - { kind: timetable, trip: "{{tripId}}" }
+
+fix:
+  - "Correct the `departure_time` at {{stopName1}} or the `arrival_time` at {{stopName2}} for trip {{tripId}} in `stop_times.txt`, so the trip takes a realistic time to cover {{distanceKm|km}}."
+  - "If a stop is in the wrong place, correct its `stop_lat` and `stop_lon` in `stops.txt`."
+  - "If the vehicle really is that fast, check `route_type` of route {{routeId}}: the speed allowed depends on the kind of vehicle."

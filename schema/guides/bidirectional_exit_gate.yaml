@@ -1,0 +1,17 @@
+code: bidirectional_exit_gate
+
+locators:
+  pathway: { file: pathways, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `pathways.txt`, the walkways, gates and elevators inside stations, is an exit gate that is marked as two-way. An exit gate only lets people out, so it has to be one-way."
+    actions:
+      - { kind: open_rows, at: pathway, highlight: [pathway_mode, is_bidirectional] }
+
+  - text: "`pathway_mode` 7 makes it an exit gate, and `is_bidirectional` 1 makes it two-way. Apps may then route riders into the station through a gate that will not open for them."
+    actions:
+      - { kind: show_record, at: pathway, fields: [pathway_id, from_stop_id, to_stop_id, pathway_mode, is_bidirectional] }
+
+fix:
+  - "Set `is_bidirectional` to 0 on line {{csvRowNumber}} of `pathways.txt`, with `from_stop_id` the inside of the gate and `to_stop_id` the outside."
+  - "If people can also come in through it, give it another `pathway_mode`, such as 6 for a fare gate or 1 for a walkway."

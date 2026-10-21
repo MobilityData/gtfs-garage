@@ -33,7 +33,8 @@ gtfs-garage <feed.zip>
                                      ├── geojson.py   DuckDB rows → GeoJSON
                                      ├── service.py   calendars → dates, patterns, weekdays
                                      ├── overview.py  what the feed is, in counts
-                                     └── network.py   routes and timetables, from four files
+                                     ├── network.py   routes and timetables, from four files
+                                     └── lines.py     each row's line, as gtfs-validator counts it
 ```
 
 ### The two halves of the interface
@@ -294,6 +295,20 @@ footer and reads only the columns a query names - the same counts drop to about
 five milliseconds. `--no-parquet` keeps the read-in-place behaviour for anyone
 who wants it. Only files the tool extracted itself are deleted; a feed opened
 from a folder reads the user's own files and those are never touched.
+
+**Quoting is stated, not sniffed** (`QUOTE = '"'`, `ESCAPE = '"'`). DuckDB's
+sniffer reads the first 20 KB of a file, so a quoted value with a newline in it
+further down was read with no quote character at all, and `IGNORE_ERRORS`
+silently dropped the continuation lines - truncating the value and losing the
+rest of the record. GTFS mandates RFC 4180 quoting, so there is nothing to sniff.
+
+**Every row knows its line.** A validator report locates most findings by
+`csvRowNumber`, so the Quality assistant has to open the row a number names.
+Position plus two answers it for an ordinary file at no cost; a file whose
+physical lines and kept rows disagree gets a stored `_line` column instead,
+computed by a second, Python reading of that file alone. The column is never one
+of the table's columns - it is reached through `GtfsFeed.line_source` - so no
+existing query, page or export changes. See [QUALITY.md](QUALITY.md#line-numbers).
 
 **Every column is read as text** (`ALL_VARCHAR = TRUE`). A feed with a malformed
 number in one row still opens; type errors are something you want to *see* in an

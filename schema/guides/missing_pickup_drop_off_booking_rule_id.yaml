@@ -1,0 +1,18 @@
+code: missing_pickup_drop_off_booking_rule_id
+
+locators:
+  row: { file: stop_times, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `stop_times.txt`, the timetable, says pickup: {{pickupType|words}}, drop-off: {{dropOffType|words}}. Where riders must phone ahead, the row should also say which booking rule applies, and it does not, so riders are not told how or when to book."
+    actions:
+      - { kind: open_rows,   at: row, highlight: [pickup_type, pickup_booking_rule_id, drop_off_type, drop_off_booking_rule_id] }
+      - { kind: show_record, at: row, fields: [pickup_type, pickup_booking_rule_id, drop_off_type, drop_off_booking_rule_id] }
+
+  - text: "The rules are in `booking_rules.txt`: how far ahead to book, until when, and by phone or online."
+    actions:
+      - { kind: show_model, files: [stop_times, booking_rules], edge: { from: stop_times.pickup_booking_rule_id, to: booking_rules.booking_rule_id } }
+
+fix:
+  - "On line {{csvRowNumber}} of `stop_times.txt`, set `pickup_booking_rule_id` (for a phoned pickup) or `drop_off_booking_rule_id` (for a phoned drop-off) to the `booking_rule_id` of the rule riders must follow."
+  - "If no rule in `booking_rules.txt` describes it yet, add one there first."

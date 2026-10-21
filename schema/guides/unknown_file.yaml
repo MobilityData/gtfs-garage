@@ -1,0 +1,14 @@
+code: unknown_file
+
+locators:
+  file: { file: "{{filename}}" }
+
+steps:
+  - text: "`{{filename}}` is not a file GTFS defines. Apps ignore it, so what it holds never reaches riders."
+    actions:
+      - { kind: show_files, mark: ["{{filename}}"] }
+      - { kind: open_rows, at: file }
+
+fix:
+  - "If `{{filename}}` is a misspelling of a GTFS file name, rename it."
+  - "If it is your own extra data, it can stay, because it does no harm."

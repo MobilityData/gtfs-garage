@@ -1,0 +1,10 @@
+code: too_many_rows
+
+steps:
+  - text: "`{{filename}}` is too large: the validator stopped reading it at row {{rowNumber}}, so the rest was not checked. Apps cannot load a file this big in a reasonable time."
+    actions:
+      - { kind: show_files, mark: ["{{filename}}"] }
+
+fix:
+  - "Make `{{filename}}` smaller by removing rows that are no longer used, such as old trips or services."
+  - "If the file is `shapes.txt`, the lines trips are drawn with, simplify the shapes so each has fewer points."

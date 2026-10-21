@@ -1,0 +1,13 @@
+code: same_name_and_description_for_stop
+
+locators:
+  stop: { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: 'Stop {{stopId}} has the same name and description: both are "{{stopDesc}}". `stop_desc`, the description, should tell riders something the name does not, such as which side of the street the stop is on.'
+    actions:
+      - { kind: open_rows, at: stop, highlight: [stop_name, stop_desc] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+fix:
+  - 'Write a `stop_desc` for {{stopId}} that adds something, such as "North side of Main Street, by the library", or leave it empty.'

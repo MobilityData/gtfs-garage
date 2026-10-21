@@ -1,0 +1,16 @@
+code: forbidden_drop_off_type
+
+locators:
+  row: { file: stop_times, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `stop_times.txt`, the timetable, gives a pickup and drop-off window, {{startPickupDropOffWindow}} to {{endPickupDropOffWindow}}. But its `drop_off_type`, how riders get off, is 0: a regular drop-off at a scheduled time."
+    actions:
+      - { kind: open_rows,   at: row, highlight: [drop_off_type, start_pickup_drop_off_window, end_pickup_drop_off_window] }
+      - { kind: show_record, at: row, fields: [drop_off_type, start_pickup_drop_off_window, end_pickup_drop_off_window] }
+
+  - text: "A window is for flex service: a zone or a time window, booked in advance, rather than fixed stops at fixed times. It has no scheduled time to get off at, so the two contradict each other."
+
+fix:
+  - "On line {{csvRowNumber}} of `stop_times.txt`, set `drop_off_type` to 1 if riders cannot get off here, 2 if they must phone to arrange it, or 3 if they arrange it with the driver."
+  - "If this really is a regular scheduled stop, remove the window and give the row an arrival and departure time instead."

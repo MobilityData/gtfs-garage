@@ -1,0 +1,14 @@
+code: stop_access_specified_for_stop_with_no_parent_station
+
+locators:
+  stop: { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "{{stopName}} ({{stopId}}) says \"{{stopAccess|words}}\" in `stop_access`, but its `parent_station` is empty, so it is not part of a station. `stop_access` only says how riders reach a platform inside a station."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [parent_station, stop_access] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+fix:
+  - "If {{stopName}} is a stop on the street, empty its `stop_access` on line {{csvRowNumber}} of `stops.txt`."
+  - "If {{stopName}} is a platform of a station, set its `parent_station` to that station's `stop_id` and keep `stop_access`."

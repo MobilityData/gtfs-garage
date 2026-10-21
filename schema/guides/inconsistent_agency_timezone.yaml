@@ -1,0 +1,18 @@
+code: inconsistent_agency_timezone
+
+locators:
+  agencies: { file: agency }
+  agency:   { file: agency, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `agency.txt`, the list of agencies, gives its time zone as {{actual}}, while the other agencies use {{expected}}. All agencies in one feed must share a time zone, because every time in the timetable is read in it."
+    actions:
+      - { kind: open_rows, at: agencies, mark: agency, highlight: [agency_timezone] }
+
+  - text: "With two time zones, apps cannot tell which one the departure times mean. They may show times shifted, or reject the feed."
+    actions:
+      - { kind: show_record, at: agency, fields: [agency_name, agency_timezone] }
+
+fix:
+  - "If that agency's times are in {{expected}}, set `agency_timezone` on line {{csvRowNumber}} of `agency.txt` to {{expected}}."
+  - "If the agency really runs in {{actual}}, publish it in a separate feed, with its times written in its own zone."

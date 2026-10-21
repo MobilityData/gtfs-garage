@@ -1,0 +1,15 @@
+code: missing_required_element
+
+locators:
+  zone: { file: locations, key: { id: "{{featureId}}" } }
+
+steps:
+  - text: "Zone {{featureId}} in `locations.geojson`, the file of zones that on-demand trips serve, lacks a part GTFS requires: `{{missingElement}}`. Apps may reject the zone, and with it the trips that serve it."
+    actions:
+      - { kind: open_rows,  at: zone }
+      - { kind: map_focus,  locations: ["{{featureId}}"] }
+      - { kind: show_value, value: "{{missingElement}}", label: "The missing part" }
+
+fix:
+  - "Add `{{missingElement}}` to zone {{featureId}} in `locations.geojson`."
+  - "Every zone needs an `id`, a `type` of Feature, `properties` (which may be empty, written as {}) and a `geometry`."

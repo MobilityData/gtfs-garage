@@ -1,0 +1,18 @@
+code: unexpected_enum_value
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` gives `{{fieldName}}` the value {{fieldValue}}, which is not one of the values GTFS allows in this column. Apps may not know what it means, and may skip the row or treat it as something else."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it" }
+
+  - text: "Each value in this column is a code with a fixed meaning. The list below shows the codes GTFS allows and what each one means."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Replace {{fieldValue}} in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}` with the allowed code that describes the row, from the list in the card."
+  - "If the value comes from an extension of GTFS that some apps understand, check that the apps that matter to your riders read it."

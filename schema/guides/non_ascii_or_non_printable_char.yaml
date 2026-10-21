@@ -1,0 +1,18 @@
+code: non_ascii_or_non_printable_char
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` has the id \"{{fieldValue}}\" in `{{columnName}}`, and it contains a character outside plain letters, digits and punctuation: an accented letter, a symbol or an invisible character. The marks below show which."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{columnName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{columnName}}, as the feed has it", expect: "STOP_101" }
+
+  - text: "Riders never see ids, but other files and systems match on them. A character like this can be saved or typed differently elsewhere, and then the ids no longer match."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{columnName}}"] }
+
+fix:
+  - "Change the id \"{{fieldValue}}\" in `{{columnName}}` on line {{csvRowNumber}} of `{{filename}}` to use only plain letters (A to Z), digits, - and _, for example É becomes E."
+  - "Change it everywhere else the feed uses this id too, such as in `stop_times.txt` for a stop, so the files still match."

@@ -56,6 +56,9 @@ export type Timetable = Schemas["TimetableResponse"];
 export type TimetableTrip = Schemas["TimetableTrip"];
 export type TimetableCall = Schemas["TimetableCall"];
 export type WorkspaceFeed = Schemas["WorkspaceFeed"];
+export type Demo = Schemas["Demo"];
+export type DemoTable = Schemas["DemoTable"];
+export type SavedGuideRecord = Schemas["SavedGuide"];
 
 /** Row values are strings or null: every column is read as text. */
 export type Row = (string | null)[];
@@ -140,6 +143,35 @@ export interface ViewerSource extends GtfsSource {
    */
   setStartupFeed?(id: string | null): Promise<Workspace>;
   /**
+   * Demo feeds to try Quality tours on: each a feed and its validator report.
+   *
+   * Optional together, like the workdir: a server has them, a host embedding
+   * the viewer does not, and the Tours view offers no demos without them.
+   */
+  demos?(): Promise<Demo[]>;
+  /** The report gtfs-validator wrote for a demo's feed, as JSON text. */
+  demoReport?(id: string): Promise<string>;
+  /** A demo's files and their columns, read without opening its feed. */
+  demoTables?(id: string): Promise<DemoTable[]>;
+  /**
+   * The same source, reading a demo's feed instead: the server answers the
+   * reading API for each demo beside its own feed, so trying a tour on a demo
+   * never replaces the feed being browsed.
+   */
+  demoSource?(id: string): ViewerSource;
+  /** Keep a workdir feed and its report as a demo of your own. */
+  addDemo?(feedId: string, report: File, title?: string): Promise<Demo>;
+  /** Forget a demo of your own; its feed stays in the workdir. */
+  removeDemo?(id: string): Promise<Demo[]>;
+  /**
+   * Tours saved in the workdir, which win over the built-in ones. Optional
+   * together; without them, tours are saved in the browser instead.
+   */
+  savedGuides?(): Promise<SavedGuideRecord[]>;
+  /** Save a tour, as YAML. Rejects with the reason when it does not pass the server's check. */
+  saveGuide?(code: string, yaml: string): Promise<SavedGuideRecord>;
+  removeSavedGuide?(code: string): Promise<void>;
+  /**
    * Release whatever the source is holding.
    *
    * A REST source holds nothing; one querying Parquet holds a WebAssembly
@@ -151,6 +183,20 @@ export interface ViewerSource extends GtfsSource {
   close?(): Promise<void>;
 }
 
+/**
+ * What a page can carry beyond its rows.
+ *
+ * `lines` asks for the line of the file each row was read from - the number a
+ * validator report calls `csvRowNumber` - and returns the rows in file order.
+ * A source that cannot number its rows ignores it and returns `lines: null`.
+ */
+export interface QueryOptions {
+  lines?: boolean;
+}
+
+/** The reserved filter column that selects rows by the line they were read from. */
+export const LINE_COLUMN = "_line";
+
 export interface GtfsSource {
   tables(): Promise<TablesResponse>;
   query(
@@ -158,6 +204,7 @@ export interface GtfsSource {
     filters: Filter[],
     page: number,
     pageSize: number,
+    options?: QueryOptions,
   ): Promise<PageResponse>;
   distinct(table: string, column: string, limit?: number): Promise<ValueCount[]>;
   geojson(kind: GeoJsonKind, ids?: string[]): Promise<FeatureCollection>;

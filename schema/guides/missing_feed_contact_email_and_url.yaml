@@ -1,0 +1,13 @@
+code: missing_feed_contact_email_and_url
+
+locators:
+  feed: { file: feed_info, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "`feed_info.txt`, the feed's description of itself, gives no way to contact its publisher: neither `feed_contact_email` nor `feed_contact_url` has a value. Apps and riders who find a mistake have nowhere to report it."
+    actions:
+      - { kind: open_rows,    at: feed }
+      - { kind: show_columns, file: feed_info, missing: [feed_contact_email, feed_contact_url] }
+
+fix:
+  - "Add `feed_contact_email`, `feed_contact_url` or both to line {{csvRowNumber}} of `feed_info.txt`, for example the address of the team that maintains the feed."

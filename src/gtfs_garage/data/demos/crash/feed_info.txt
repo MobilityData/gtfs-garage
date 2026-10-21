@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version,feed_contact_email
+Riverside Transit Authority,https://example.org/rta,en,20260101,20261231,2026,data@example.org

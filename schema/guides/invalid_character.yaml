@@ -1,0 +1,18 @@
+code: invalid_character
+
+locators:
+  row: { file: "{{filename}}", line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `{{filename}}` has a broken character in `{{fieldName}}`: \"{{fieldValue}}\". The � sign stands in for a letter that was lost when the file was saved in the wrong text encoding."
+    actions:
+      - { kind: open_rows,  at: row, highlight: ["{{fieldName}}"] }
+      - { kind: show_value, value: "{{fieldValue}}", label: "{{fieldName}}, as the feed has it", expect: "Montréal" }
+
+  - text: "Apps show the � to riders exactly as it is, on screens and in spoken announcements, and the missing letter cannot be guessed back. GTFS requires text saved as UTF-8 so that letters such as é, ñ or ü survive."
+    actions:
+      - { kind: show_record, at: row, fields: ["{{fieldName}}"] }
+
+fix:
+  - "Type the missing letter back in place of the � in `{{fieldName}}` on line {{csvRowNumber}} of `{{filename}}`, taking the right spelling from the system the feed is exported from."
+  - "Save `{{filename}}` as UTF-8, and check the export does not convert text to another encoding on the way, or the letter will be lost again."

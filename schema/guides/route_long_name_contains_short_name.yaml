@@ -1,0 +1,14 @@
+code: route_long_name_contains_short_name
+
+locators:
+  route: { file: routes, line: "{{csvRowNumber}}", key: { route_id: "{{routeId}}" } }
+
+steps:
+  - text: "Route {{routeId}} is numbered {{routeShortName}} in `route_short_name`, and its name in `route_long_name`, {{routeLongName}}, repeats the number. Apps usually show the two together, so riders read \"{{routeShortName}} {{routeLongName}}\"."
+    actions:
+      - { kind: open_rows,   at: route, highlight: [route_short_name, route_long_name] }
+      - { kind: show_record, at: route, fields: [route_short_name, route_long_name] }
+
+fix:
+  - "Take {{routeShortName}} out of `route_long_name` of route {{routeId}}, keeping only the name."
+  - "If the route has no number, leave `route_short_name` empty and keep only `route_long_name`."

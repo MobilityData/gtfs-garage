@@ -1,0 +1,18 @@
+code: stop_access_specified_for_incorrect_location
+
+locators:
+  stop: { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "{{stopName}} ({{stopId}}) is a {{locationType|words}}, yet its `stop_access` says \"{{stopAccess|words}}\". `stop_access` says how riders reach a platform, from the street or through its station, so only platforms may have it."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [location_type, stop_access] }
+      - { kind: map_focus, stops: ["{{stopId}}"] }
+
+  - text: "`location_type` is the kind of place: 0 a stop or platform, 1 a station, 2 an entrance, 3 a node inside a station, 4 a boarding area. On anything but a 0 inside a station, apps cannot make sense of `stop_access`."
+    actions:
+      - { kind: show_record, at: stop, fields: [stop_name, location_type, parent_station, stop_access] }
+
+fix:
+  - "Empty `stop_access` for {{stopId}} on line {{csvRowNumber}} of `stops.txt`."
+  - "If {{stopId}} is really a platform, set its `location_type` to 0 and its `parent_station` to its station, and keep `stop_access`."

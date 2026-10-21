@@ -1,0 +1,27 @@
+code: block_trips_with_overlapping_stop_times
+
+locators:
+  trip_a: { file: trips, line: "{{csvRowNumberA}}", key: { trip_id: "{{tripIdA}}" } }
+  trip_b: { file: trips, line: "{{csvRowNumberB}}", key: { trip_id: "{{tripIdB}}" } }
+  both:   { file: trips, line: "{{csvRowNumberA}},{{csvRowNumberB}}" }
+
+steps:
+  - text: "Trips {{tripIdA}} and {{tripIdB}} share block {{blockId}}, so one vehicle runs them one after the other. On {{intersection|date}} their times overlap: the vehicle would have to be on both at once."
+    actions:
+      - { kind: open_rows,       at: both, highlight: [block_id, service_id] }
+      - { kind: compare_records, a: trip_a, b: trip_b, fields: [trip_id, block_id, service_id, route_id] }
+
+  - text: "The timetable of {{tripIdA}}, the earlier trip. Note when it reaches its last stop."
+    actions:
+      - { kind: timetable,    trip: "{{tripIdA}}" }
+      - { kind: map_sequence, trip: "{{tripIdA}}" }
+
+  - text: "{{tripIdB}} leaves before {{tripIdA}} has finished. Apps that tell riders which trip their vehicle continues as cannot trust this block."
+    actions:
+      - { kind: timetable,    trip: "{{tripIdB}}" }
+      - { kind: map_sequence, trip: "{{tripIdB}}" }
+
+fix:
+  - "If different vehicles run {{tripIdA}} and {{tripIdB}}, give one of them another `block_id`, the column that groups the trips one vehicle runs."
+  - "If one vehicle does run both, correct the times in `stop_times.txt` so {{tripIdA}} ends before {{tripIdB}} starts."
+  - "If services {{serviceIdA}} and {{serviceIdB}} should not run on the same day, correct their days in `calendar.txt` or `calendar_dates.txt` around {{intersection|date}}."

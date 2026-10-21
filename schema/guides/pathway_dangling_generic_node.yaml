@@ -1,0 +1,19 @@
+code: pathway_dangling_generic_node
+
+locators:
+  node:     { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+  pathways: { file: pathways }
+
+steps:
+  - text: "{{stopName}} ({{stopId}}) is a node inside station {{parentStation}}: a point where walkways meet. It is joined to only one other place, so it leads nowhere."
+    actions:
+      - { kind: open_rows, at: node, highlight: [location_type, parent_station] }
+      - { kind: map_focus, stops: ["{{parentStation}}"] }
+
+  - text: "`pathways.txt` lists the walkways, stairs and elevators in stations. Only one of them touches {{stopId}}. A node helps where paths meet or turn; a dead end adds nothing to the directions apps give."
+    actions:
+      - { kind: open_rows, at: pathways, highlight: [from_stop_id, to_stop_id] }
+
+fix:
+  - "If {{stopId}} is a real junction, add the pathways that leave it, so it joins at least two other places."
+  - "If {{stopId}} is only a point along one walkway, delete it and connect the pathway straight to the places at both ends."

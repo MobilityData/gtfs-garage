@@ -1,0 +1,13 @@
+code: stop_without_location
+
+locators:
+  stop: { file: stops, line: "{{csvRowNumber}}", key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "{{stopId}}, line {{csvRowNumber}} of `stops.txt`, has no `stop_lat` or `stop_lon`, its latitude and longitude, so it cannot go on a map. Apps need the position to show the stop and plan the walk to it."
+    actions:
+      - { kind: open_rows, at: stop, highlight: [stop_lat, stop_lon, location_type] }
+
+fix:
+  - "Fill in `stop_lat` and `stop_lon` for {{stopId}} in decimal degrees, as a map app gives them (for example 45.5017 and -73.5673)."
+  - "If {{stopId}} is really a node inside a station or a boarding area, set `location_type` to 3 or 4, which may go without a position."

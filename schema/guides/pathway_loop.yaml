@@ -1,0 +1,18 @@
+code: pathway_loop
+
+locators:
+  pathway: { file: pathways, line: "{{csvRowNumber}}", key: { pathway_id: "{{pathwayId}}" } }
+  place:   { file: stops, key: { stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Pathway {{pathwayId}}, line {{csvRowNumber}} of `pathways.txt`, the walkways and stairs inside stations, starts and ends at the same place, {{stopId}}. A path that goes nowhere cannot help a rider through the station."
+    actions:
+      - { kind: open_rows, at: pathway, highlight: [from_stop_id, to_stop_id] }
+
+  - text: "This is {{stopId}} in `stops.txt`. The pathway was probably meant to lead from here to another place in the same station."
+    actions:
+      - { kind: open_rows, at: place, highlight: [stop_name, parent_station] }
+
+fix:
+  - "Change one end of pathway {{pathwayId}} to the place at the other end of the walkway."
+  - "If the pathway is a mistake, delete line {{csvRowNumber}} of `pathways.txt`."

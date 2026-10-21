@@ -1,7 +1,7 @@
 import type MapLibre from "maplibre-gl";
 
 import type { Dom } from "../dom";
-import type { FocusResult } from "../mount";
+import type { FocusResult, MapAnnotation } from "../mount";
 import type { FeatureCollection, GeoJsonKind, ViewerSource } from "../sources/types";
 import type { AppState } from "../state";
 import { resolveBasemap } from "./basemap";
@@ -24,6 +24,7 @@ import {
   STOP_RADIUS_FOCUSED,
   type SourceId,
 } from "./layers";
+import { positionAt, schedule } from "./motion";
 import { createRedrawSchedule } from "./redraw";
 
 const MAP_VISIBLE_KEY = "gtfs-garage.map-visible";
@@ -41,6 +42,9 @@ const LAYER_NOUNS: Record<GeoJsonKind, string> = {
   locations: "zones",
 };
 
+
+/** How strongly the network is drawn while a tour is open: see `mute`. */
+const MUTED_OPACITY = 0.3;
 
 export class MapController {
   private readonly map: any;
@@ -91,6 +95,11 @@ export class MapController {
 
   /** The mark left by `focusStop`, so the next call can move it. */
   private stopMark: MapLibre.Marker | null = null;
+
+  /** The labels of the current annotation, removed with it. */
+  private annotationLabels: MapLibre.Marker[] = [];
+  /** The motion playing with the current annotation, stopped with it. */
+  private motionFrame: number | null = null;
 
   /**
    * What is currently in focus, so a redraw can put it back.
@@ -325,7 +334,7 @@ export class MapController {
     // widths are what keep the rest of it readable around them.
     const emphasised = isolating && !ownLines && (focus?.routeIds.length ?? 0) > 0;
     this.map.setPaintProperty("routes", "line-width", emphasised ? ROUTE_WIDTH_FOCUSED : ROUTE_WIDTH);
-    this.map.setPaintProperty("routes", "line-opacity", emphasised ? ROUTE_OPACITY_FOCUSED : ROUTE_OPACITY);
+    this.base.set("routes|line-opacity", emphasised ? ROUTE_OPACITY_FOCUSED : ROUTE_OPACITY);
     this.map.setPaintProperty(
       "routes-white",
       "line-width",
@@ -343,9 +352,51 @@ export class MapController {
     );
     this.map.setLayoutProperty("stops", "visibility", isolating && !showingStops ? "none" : "visible");
     this.map.setPaintProperty("stops", "circle-radius", showingStops ? STOP_RADIUS_FOCUSED : STOP_RADIUS);
-    this.map.setPaintProperty("stops", "circle-opacity", showingStops ? STOP_OPACITY_FOCUSED : STOP_OPACITY);
+    this.base.set("stops|circle-opacity", showingStops ? STOP_OPACITY_FOCUSED : STOP_OPACITY);
+    this.isolating = isolating;
+    this.applyMute();
 
     return { lines, points };
+  }
+
+  /**
+   * Draw the network faintly, or as usual again.
+   *
+   * While a tour is open the map is there to show what its steps draw; the
+   * network at full strength reads as something selected, and a dense line
+   * can look like a block picked out. Not while a step isolates what it
+   * focuses on: that is the subject, and the rest is hidden already.
+   */
+  mute(on: boolean): void {
+    if (this.muted === on) return;
+    this.muted = on;
+    this.applyMute();
+  }
+
+  private muted = false;
+  private isolating = false;
+  /** Each network layer's opacity as last set, before muting. */
+  private readonly base = new Map<string, unknown>([
+    ["routes|line-opacity", ROUTE_OPACITY],
+    ["routes-white|line-opacity", 0.8],
+    ["shapes|line-opacity", 0.6],
+    ["stops|circle-opacity", STOP_OPACITY],
+    ["locations-fill|fill-opacity", 0.12],
+    ["locations-outline|line-opacity", 0.5],
+  ]);
+
+  private applyMute(): void {
+    // Asked before the style is in: done once it is.
+    if (!this.map.isStyleLoaded()) {
+      this.map.once("idle", () => this.applyMute());
+      return;
+    }
+    const factor = this.muted && !this.isolating ? MUTED_OPACITY : 1;
+    for (const [key, value] of this.base) {
+      const [layer, property] = key.split("|");
+      if (!this.map.getLayer(layer)) continue;
+      this.map.setPaintProperty(layer, property, factor === 1 ? value : ["*", factor, value]);
+    }
   }
 
   /**
@@ -412,6 +463,89 @@ export class MapController {
     element.className = "stop-mark";
     this.stopMark = new this.maplibregl.Marker({ element }).setLngLat(centre).addTo(this.map);
     return true;
+  }
+
+  /** See `MapHandle.annotate`. */
+  async annotate(annotation: MapAnnotation | null, options: { frame?: boolean } = {}): Promise<void> {
+    this.stopMotion();
+    for (const label of this.annotationLabels) label.remove();
+    this.annotationLabels = [];
+    if (!annotation) {
+      await this.setSourceData("annotation", EMPTY_FEATURE_COLLECTION);
+      return;
+    }
+    if (!this.isVisible()) this.setVisible(true);
+    if (this.pendingRefresh) await this.pendingRefresh;
+    await this.setSourceData("annotation", annotation.features);
+
+    for (const label of annotation.labels) {
+      const element = document.createElement("div");
+      element.className = `annotation-label${label.tone ? ` annotation-${label.tone}` : ""}`;
+      // Text only: a label can carry a stop name, which is the feed's to choose.
+      element.textContent = label.text;
+      this.annotationLabels.push(new this.maplibregl.Marker({ element }).setLngLat(label.at).addTo(this.map));
+    }
+
+    if (options.frame) {
+      const points = annotation.labels.map((label) => ({
+        type: "Feature" as const,
+        properties: {},
+        geometry: { type: "Point" as const, coordinates: label.at },
+      }));
+      this.fitTo({ type: "FeatureCollection", features: [...annotation.features.features, ...points] } as FeatureCollection, 16);
+    }
+    if (annotation.motion) this.play(annotation.motion);
+  }
+
+  private stopMotion(): void {
+    if (this.motionFrame !== null) cancelAnimationFrame(this.motionFrame);
+    this.motionFrame = null;
+  }
+
+  /** Move a marker along `motion` until the annotation changes. See `MapMotion`. */
+  private play(motion: MapAnnotation["motion"] & object): void {
+    const path = motion.path;
+    if (path.length < 2) return;
+    if (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const plan = schedule(motion);
+
+    // The dot is the marker; its text hangs beside it, on the left once it
+    // nears the right edge, where it would otherwise run off the map.
+    const element = document.createElement("div");
+    element.className = "annotation-vehicle";
+    const bubble = document.createElement("span");
+    bubble.className = "annotation-vehicle-text";
+    element.append(bubble);
+    const marker = new this.maplibregl.Marker({ element }).setLngLat(path[0].at).addTo(this.map);
+    this.annotationLabels.push(marker);
+
+    let started: number | null = null;
+    let pass = -1;
+    let reached = -1;
+    const frame = (now: number) => {
+      started ??= now;
+      const elapsed = now - started;
+      const thisPass = Math.floor(elapsed / plan.total);
+      if (thisPass !== pass) {
+        pass = thisPass;
+        reached = -1;
+        motion.onReach?.(-1);
+      }
+      const { at, from } = positionAt(path, plan, elapsed);
+      marker.setLngLat(at);
+      // Reaching an entry is passing it, or arriving at the last one.
+      while (reached < from) {
+        reached += 1;
+        motion.onReach?.(reached);
+      }
+      const entry = path[from];
+      // Text only: it can carry a stop name, which is the feed's to choose.
+      if (bubble.textContent !== entry.text) bubble.textContent = entry.text;
+      element.classList.toggle("annotation-over", entry.tone === "over");
+      element.classList.toggle("annotation-flip", this.map.project(at).x > this.map.getContainer().clientWidth - bubble.offsetWidth - 32);
+      this.motionFrame = requestAnimationFrame(frame);
+    };
+    this.motionFrame = requestAnimationFrame(frame);
   }
 
   async highlight(collection: FeatureCollection, options: { point?: boolean } = {}): Promise<void> {
@@ -565,6 +699,8 @@ export class MapController {
   destroy(): void {
     this.drawing?.abort();
     this.stopMark?.remove();
+    this.stopMotion();
+    for (const label of this.annotationLabels) label.remove();
     this.map.remove();
   }
 }

@@ -21,7 +21,8 @@ from pathlib import Path
 
 from gtfs_garage import __version__
 from gtfs_garage.core.feed import FeedStats, GtfsFeed, GtfsLoadError
-from gtfs_garage.core.workspace import FeedSlot, Workspace
+from gtfs_garage.core import demos
+from gtfs_garage.core.workspace import DEMO_KIND, FeedSlot, Workspace
 
 DOWNLOAD_TIMEOUT_SECONDS = 60
 # Generous enough for any real feed, low enough that a wrong URL cannot fill the
@@ -243,8 +244,9 @@ class FeedRegistry:
                 else:
                     previous.close()
         # After the replacement, so the slot of the feed now being served is
-        # counted as the newest and the oldest is what goes.
-        self.workspace.enforce_retention(self.held_slots())
+        # counted as the newest and the oldest is what goes. A feed an own
+        # demo is made of is kept like an open one.
+        self.workspace.enforce_retention(self.held_slots() | demos.protected_feeds(self.workspace))
         return feed
 
     def reopen(self, slot_id: str) -> GtfsFeed:
@@ -260,6 +262,13 @@ class FeedRegistry:
             raise GtfsLoadError("That feed is no longer in the workdir.")
         self._acquire = None
         return self.load(str(slot.parquet_dir), entry.label, slot=slot, kind=entry.kind)
+
+    def load_demo(self, demo: demos.Demo) -> GtfsFeed:
+        """Serve a demo feed: a built-in one from the package, an own one from its workdir slot."""
+        if demo.builtin:
+            self._acquire = None
+            return self.load(str(demo.feed_path), f"Demo: {demo.title}", kind=DEMO_KIND)
+        return self.reopen(demo.feed_id or "")
 
     def held_slots(self) -> set[str]:
         """Slots whose files are open, and so must not be deleted."""

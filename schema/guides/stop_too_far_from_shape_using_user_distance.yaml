@@ -1,0 +1,24 @@
+code: stop_too_far_from_shape_using_user_distance
+
+locators:
+  stop_time: { file: stop_times, line: "{{stopTimeCsvRowNumber}}", key: { trip_id: "{{tripId}}", stop_id: "{{stopId}}" } }
+  calls:     { file: stop_times, key: { trip_id: "{{tripId}}" } }
+  points:    { file: shapes,     key: { shape_id: "{{shapeId}}" } }
+
+steps:
+  - text: "Trip {{tripId}} gives {{stopName}} a distance along its line, shape {{shapeId}}. The point of the line at that distance is {{geoDistanceToShape|m}} from the stop itself."
+    point: map
+    actions:
+      - { kind: open_rows,   at: calls, mark: stop_time, highlight: [stop_id, shape_dist_traveled] }
+      - { kind: map_focus,   shapes: ["{{shapeId}}"], stops: ["{{stopId}}"], points: ["{{match}}"] }
+      - { kind: map_measure, from: { stop: "{{stopId}}" }, to: { point: "{{match}}" } }
+
+  - text: "The points of shape {{shapeId}}, each with its own `shape_dist_traveled`. The trip's distances must be measured the same way, or apps place the vehicle in the wrong spot."
+    actions:
+      - { kind: open_rows,    at: points, highlight: [shape_pt_sequence, shape_dist_traveled] }
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId}}"] }
+
+fix:
+  - "Correct `shape_dist_traveled` on line {{stopTimeCsvRowNumber}} of `stop_times.txt` to the distance along shape {{shapeId}} where {{stopName}} is."
+  - "Check that `stop_times.txt` and `shapes.txt` use the same unit, since metres in one and kilometres in the other is a common cause."
+  - "If the stop itself is in the wrong place, correct `stop_lat` and `stop_lon` for {{stopId}} in `stops.txt`."

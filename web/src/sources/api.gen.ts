@@ -326,6 +326,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/quality/demos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The demo feeds
+         * @description Every demo, built in first, with how many times each notice occurs in its report, so a reader can tell which demos a tour can be tried on.
+         */
+        get: operations["listDemos"];
+        put?: never;
+        /**
+         * Add a demo of your own
+         * @description Keeps a feed the workdir holds, with a gtfs-validator report for it, as a demo. The feed is then never evicted by the workdir's retention.
+         */
+        post: operations["addDemo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quality/demos/{demo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A demo's id, as `GET /api/quality/demos` reports it.
+                 * @example main
+                 */
+                demo_id: components["parameters"]["demo_id_path_param"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget a demo of your own
+         * @description Removes the demo, not its feed, which stays in the workdir. Built-in demos cannot be removed.
+         */
+        delete: operations["removeDemo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quality/demos/{demo_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A demo's id, as `GET /api/quality/demos` reports it.
+                 * @example main
+                 */
+                demo_id: components["parameters"]["demo_id_path_param"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A demo's validation report
+         * @description The report.json gtfs-validator wrote for the demo's feed, unchanged.
+         */
+        get: operations["getDemoReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quality/demos/{demo_id}/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A demo's id, as `GET /api/quality/demos` reports it.
+                 * @example main
+                 */
+                demo_id: components["parameters"]["demo_id_path_param"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A demo's files and their columns
+         * @description Read without opening the feed, so a tour can be checked against the demo - which rows it would find in which file - before it is run.
+         */
+        get: operations["getDemoTables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quality/guides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tours saved in the workdir
+         * @description Every tour saved from the editor, by notice code. A saved tour wins over the one the viewer ships for its notice until it is removed.
+         */
+        get: operations["listSavedGuides"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/quality/guides/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A gtfs-validator notice code.
+                 * @example stop_too_far_from_shape
+                 */
+                code: components["parameters"]["notice_code_path_param"];
+            };
+            cookie?: never;
+        };
+        /** One saved tour */
+        get: operations["getSavedGuide"];
+        /**
+         * Save a tour
+         * @description Checks the YAML with the same rules as the build applies to the tours in the repository - every field one the notice's samples carry, every action and argument one the viewer implements - and keeps it under `<workdir>/guides/<code>.yaml`. Refused, saving nothing, when the check fails.
+         */
+        put: operations["saveGuide"];
+        post?: never;
+        /** Forget a saved tour */
+        delete: operations["removeSavedGuide"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/overview": {
         parameters: {
             query?: never;
@@ -483,10 +633,10 @@ export interface components {
              */
             label: string;
             /**
-             * @description How it was obtained.
+             * @description How it was obtained. `demo` is a built-in demo feed opened to try a Quality tour on, which retention neither counts nor evicts.
              * @enum {string}
              */
-            kind?: "path" | "upload" | "folder" | "download";
+            kind?: "path" | "upload" | "folder" | "download" | "demo";
             /**
              * Format: date-time
              * @description When it was last loaded.
@@ -646,6 +796,11 @@ export interface components {
             row_count: number;
             columns: components["schemas"]["ColumnInfo"][];
             forbidden?: components["schemas"]["FileCondition"] | null;
+            /**
+             * @description Whether this table's line numbers match the file it was read from. `exact` was checked against the file's lines at conversion; `approximate` could not be, and can be off after a multi-line value, a blank line or a row the loader could not read. Null when the table is not read from lines at all, as with locations.geojson.
+             * @enum {string|null}
+             */
+            lines?: "exact" | "approximate" | null;
         };
         /** @description What one file cost to open. */
         FileMetrics: {
@@ -708,10 +863,10 @@ export interface components {
             /** @description Phases this source actually performed. Present only for a source that is not a server load. */
             phases?: components["schemas"]["LoadPhaseTiming"][];
             /**
-             * @description How the feed reached the server. Absent for a non-server source.
+             * @description How the feed reached the server; `demo` for a built-in demo feed. Absent for a non-server source.
              * @enum {string}
              */
-            kind?: "path" | "upload" | "folder" | "download";
+            kind?: "path" | "upload" | "folder" | "download" | "demo";
             /** @description Downloading or receiving the upload; null for a local path. */
             acquire_ms?: number | null;
             /** Format: int64 */
@@ -783,6 +938,7 @@ export interface components {
             total: number;
             page: number;
             page_size: number;
+            lines?: number[] | null;
         };
         ValueCount: {
             /** @description Null means the field is empty in the feed. */
@@ -1269,6 +1425,72 @@ export interface components {
             /** @description Whether a call's `arrival` and `departure` are a booking window rather than a scheduled call. True for a demand-responsive service, which states `start_pickup_drop_off_window` and `end_pickup_drop_off_window` instead of fixed times - so a reader is not shown "05:45" for a service bookable between 05:45 and 19:45. */
             times_are_windows?: boolean;
         };
+        /** @description A feed to try Quality tours on, with the report gtfs-validator wrote for it. */
+        Demo: {
+            /** @example main */
+            id: string;
+            /** @example Main network */
+            title: string;
+            description: string;
+            /** @description Shipped with the server, rather than added from the workdir. */
+            builtin: boolean;
+            /** @description Whether it can be opened. False for a demo of your own whose feed has since been removed from the workdir. */
+            available: boolean;
+            /** @description For a demo of your own, the workdir feed it is made of. */
+            feed_id?: string | null;
+            /**
+             * @description How many times each notice code occurs in its report.
+             * @example {
+             *       "stop_too_far_from_shape": 5
+             *     }
+             */
+            notices: {
+                [key: string]: number;
+            };
+        };
+        DemoListResponse: {
+            demos: components["schemas"]["Demo"][];
+        };
+        DemoTable: {
+            /** @example stops */
+            name: string;
+            columns: string[];
+        };
+        DemoTablesResponse: {
+            tables: components["schemas"]["DemoTable"][];
+        };
+        AddDemoUpload: {
+            /** @description The workdir feed to make a demo of. */
+            feed_id: string;
+            /** @description What to call it; the feed's label when left out. */
+            title?: string;
+            description?: string;
+            /**
+             * Format: binary
+             * @description The report.json gtfs-validator wrote for that feed.
+             */
+            report: string;
+        };
+        /** @description A tour saved from the editor. */
+        SavedGuide: {
+            /** @example stop_too_far_from_shape */
+            code: string;
+            /** @description The tour as it was written, comments and all. */
+            yaml: string;
+            /** @description The same, read; the shape of a file in `schema/guides/`. */
+            guide: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            saved_at: string;
+        };
+        SavedGuideListResponse: {
+            guides: components["schemas"]["SavedGuide"][];
+        };
+        SaveGuideRequest: {
+            /** @description The tour, as YAML. */
+            yaml: string;
+        };
     };
     responses: {
         /** @description No feed is loaded. A GTFS Garage server started without one answers this until `POST /api/load` succeeds; a host that always has a feed never returns it. */
@@ -1297,6 +1519,16 @@ export interface components {
          * @example montreal-gtfs-zip-7f3a91c0
          */
         feed_id_path_param: string;
+        /**
+         * @description A demo's id, as `GET /api/quality/demos` reports it.
+         * @example main
+         */
+        demo_id_path_param: string;
+        /**
+         * @description A gtfs-validator notice code.
+         * @example stop_too_far_from_shape
+         */
+        notice_code_path_param: string;
         /**
          * @description A `route_id` as it appears in `routes.txt`.
          * @example R1
@@ -1367,6 +1599,8 @@ export interface operations {
                  * @example [{"column":"route_id","op":"eq","value":"R1"}]
                  */
                 filters?: string;
+                /** @description Add `lines` to the response: the line of the file each row was read from, counted the way gtfs-validator counts `csvRowNumber` (the header is line 1, and a record is numbered by the line it ends on). The rows then come in file order. Filtering on the reserved column `_line` with `eq`, `ne` or `in` selects rows by line number and works without this flag. */
+                lines?: boolean;
             };
             header?: never;
             path: {
@@ -1725,6 +1959,295 @@ export interface operations {
                 };
             };
             /** @description No such feed in the workdir, or one with no Parquet to reopen - a feed loaded with `--no-parquet`, or a load that was interrupted. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listDemos: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The demos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoListResponse"];
+                };
+            };
+        };
+    };
+    addDemo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AddDemoUpload"];
+            };
+        };
+        responses: {
+            /** @description The demo added. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Demo"];
+                };
+            };
+            /** @description No such feed in the workdir, or a report that is not a gtfs-validator report. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeDemo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A demo's id, as `GET /api/quality/demos` reports it.
+                 * @example main
+                 */
+                demo_id: components["parameters"]["demo_id_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The demos, as they now stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoListResponse"];
+                };
+            };
+            /** @description No such demo of your own. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDemoReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A demo's id, as `GET /api/quality/demos` reports it.
+                 * @example main
+                 */
+                demo_id: components["parameters"]["demo_id_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description No such demo. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getDemoTables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A demo's id, as `GET /api/quality/demos` reports it.
+                 * @example main
+                 */
+                demo_id: components["parameters"]["demo_id_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The files. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DemoTablesResponse"];
+                };
+            };
+            /** @description No such demo. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listSavedGuides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The saved tours. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedGuideListResponse"];
+                };
+            };
+        };
+    };
+    getSavedGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A gtfs-validator notice code.
+                 * @example stop_too_far_from_shape
+                 */
+                code: components["parameters"]["notice_code_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tour. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedGuide"];
+                };
+            };
+            /** @description No tour is saved for that notice. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    saveGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A gtfs-validator notice code.
+                 * @example stop_too_far_from_shape
+                 */
+                code: components["parameters"]["notice_code_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveGuideRequest"];
+            };
+        };
+        responses: {
+            /** @description The tour, as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedGuide"];
+                };
+            };
+            /** @description The tour does not pass the check; `detail` says why. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removeSavedGuide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description A gtfs-validator notice code.
+                 * @example stop_too_far_from_shape
+                 */
+                code: components["parameters"]["notice_code_path_param"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The saved tours, as they now stand. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedGuideListResponse"];
+                };
+            };
+            /** @description No tour is saved for that notice. */
             404: {
                 headers: {
                     [name: string]: unknown;

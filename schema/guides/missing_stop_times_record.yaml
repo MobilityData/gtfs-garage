@@ -1,0 +1,18 @@
+code: missing_stop_times_record
+
+locators:
+  row:  { file: stop_times, line: "{{csvRowNumber}}" }
+  trip: { file: stop_times, key: { trip_id: "{{tripId}}" } }
+
+steps:
+  - text: "Trip {{tripId}} is a flex trip: it serves a zone or a time window, booked in advance, rather than fixed stops at fixed times. Line {{csvRowNumber}} of `stop_times.txt`, the timetable, lets riders travel within one zone or group of stops."
+    actions:
+      - { kind: open_rows, at: trip, mark: row, highlight: [location_id, location_group_id, pickup_type, drop_off_type] }
+
+  - text: "A ride within one area needs two rows: one where riders are picked up, one where they are dropped off. Trip {{tripId}} has only this one, so apps cannot work out where the ride may end."
+    actions:
+      - { kind: show_record, at: row, fields: [location_id, location_group_id, stop_sequence, pickup_type, drop_off_type] }
+
+fix:
+  - "Add a second row to trip {{tripId}} in `stop_times.txt` for the same zone or group of stops, with the next `stop_sequence`."
+  - "Use the first row for pickups (`drop_off_type` 1) and the second for drop-offs (`pickup_type` 1)."

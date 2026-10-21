@@ -1,0 +1,10 @@
+code: missing_required_file
+
+steps:
+  - text: "The feed has no `{{filename}}`, one of the files every GTFS feed must have. Apps will reject the feed, or show riders nothing from it."
+    actions:
+      - { kind: show_files, missing: ["{{filename}}"], mark: ["{{filename}}"] }
+
+fix:
+  - "Add `{{filename}}` to the feed."
+  - "If the viewer lists `{{filename}}` but the validator did not find it, the files are probably in a folder inside the zip: zip the .txt files themselves, not their folder."

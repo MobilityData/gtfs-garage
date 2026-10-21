@@ -13,6 +13,7 @@ from typing import Any
 from gtfs_garage.core.conditions import evaluate
 from gtfs_garage.core.feed import GtfsFeed
 from gtfs_garage.core.filters import build_where
+from gtfs_garage.core.lines import LINE_COLUMN
 from gtfs_garage.core.schema import (
     ENUM_LIKE_COLUMNS,
     FILE_PRESENCE,
@@ -136,6 +137,7 @@ def table_summaries(feed: GtfsFeed) -> list[dict[str, Any]]:
                 "row_count": row_count,
                 "columns": column_infos,
                 "forbidden": forbidden(table),
+                "lines": numbered.quality if (numbered := feed.lines.get(table)) else None,
             }
         )
     return summaries
@@ -187,27 +189,44 @@ def query_table(
     filters: list[dict[str, Any]] | None = None,
     page: int = 1,
     page_size: int = 100,
+    lines: bool = False,
 ) -> dict[str, Any]:
-    """One page of rows, with the total matching count for the pager."""
+    """One page of rows, with the total matching count for the pager.
+
+    `lines` adds the line of the file each row was read from - the number a
+    validator report calls `csvRowNumber` - and a filter on the reserved
+    `_line` column selects rows by it. Either reads through the table's line
+    source rather than its view, in file order; neither changes the columns.
+    """
     columns = _require_table(feed, table)
-    where_sql, params = build_where(set(columns), filters or [])
+    filters = filters or []
+    line_source = feed.line_source(table)
+    by_line = line_source is not None and (lines or any(f.get("column") == LINE_COLUMN for f in filters))
+
+    relation = line_source if by_line else f'"{table}"'
+    known = {*columns, LINE_COLUMN} if by_line else set(columns)
+    where_sql, params = build_where(known, filters)
 
     cursor = feed.cursor()
-    total = cursor.execute(f'SELECT COUNT(*) FROM "{table}" {where_sql}', params).fetchone()[0]
+    total = cursor.execute(f"SELECT COUNT(*) FROM {relation} {where_sql}", params).fetchone()[0]
 
     column_list = ", ".join(f'"{c}"' for c in columns)
+    selected = f'{column_list}, "{LINE_COLUMN}"' if by_line else column_list
+    order = f'ORDER BY "{LINE_COLUMN}"' if by_line else ""
     offset = (page - 1) * page_size
     rows = cursor.execute(
-        f'SELECT {column_list} FROM "{table}" {where_sql} LIMIT ? OFFSET ?',
+        f"SELECT {selected} FROM {relation} {where_sql} {order} LIMIT ? OFFSET ?",
         [*params, page_size, offset],
     ).fetchall()
 
+    width = len(columns)
     return {
         "columns": columns,
-        "rows": [list(row) for row in rows],
+        "rows": [list(row[:width]) for row in rows],
         "total": total,
         "page": page,
         "page_size": page_size,
+        "lines": [int(row[width]) for row in rows] if by_line and lines else None,
     }
 
 

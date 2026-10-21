@@ -30,7 +30,8 @@ describe("buildStyle", () => {
   it("puts a raster basemap underneath the feed's layers", async () => {
     const style = (await buildStyle(BASEMAPS.esri)) as Style;
     expect(style.layers[0].id).toBe("basemap");
-    expect(style.layers.at(-1)?.id).toBe("highlight-point");
+    // The assistant's annotations go on top of everything, the highlight under them.
+    expect(style.layers.at(-1)?.id).toBe("annotation-point");
   });
 
   it("draws the flex zones beneath the lines", async () => {

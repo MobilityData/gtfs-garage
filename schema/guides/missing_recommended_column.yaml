@@ -1,0 +1,13 @@
+code: missing_recommended_column
+
+locators:
+  file: { file: "{{filename}}" }
+
+steps:
+  - text: "`{{filename}}` has no `{{fieldName}}` column. GTFS does not require it but recommends it, and apps show riders less without it."
+    actions:
+      - { kind: show_columns, file: "{{filename}}", missing: ["{{fieldName}}"] }
+      - { kind: open_rows, at: file }
+
+fix:
+  - "Add the `{{fieldName}}` column to `{{filename}}` and fill it in."

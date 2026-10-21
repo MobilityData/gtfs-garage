@@ -1,0 +1,14 @@
+code: translation_unknown_table_name
+
+locators:
+  row: { file: translations, line: "{{csvRowNumber}}" }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `translations.txt`, the texts in other languages, translates a text in a file called {{tableName}}. That is not a file this feed has or one that can be translated, so the translation is never used."
+    actions:
+      - { kind: open_rows,  at: row, highlight: [table_name] }
+      - { kind: show_files, mark: ["{{tableName}}"] }
+
+fix:
+  - "Set `table_name` on line {{csvRowNumber}} of `translations.txt` to the file the text is in, without .txt: agency, stops, routes, trips, stop_times, pathways, levels, feed_info or attributions."
+  - "If the file it named is not part of the feed, remove the translation."

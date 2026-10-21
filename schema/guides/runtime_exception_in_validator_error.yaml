@@ -1,0 +1,10 @@
+code: runtime_exception_in_validator_error
+
+steps:
+  - text: "This is not a finding about the feed: one of the validator's own checks failed, so what it checks was not checked. An unusual value in the feed can set it off, and the message may name it."
+    actions:
+      - { kind: show_value, value: "{{message}}", label: "What the validator reported" }
+
+fix:
+  - "Run the validator again, and if the message names a value, such as a date, check that value in the feed."
+  - "If it happens again, report it to the gtfs-validator project on GitHub, with the message above and the name of the check, {{validator}}."

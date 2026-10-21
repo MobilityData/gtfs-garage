@@ -1,0 +1,14 @@
+code: unknown_column
+
+locators:
+  file: { file: "{{filename}}" }
+
+steps:
+  - text: "Column {{index}} of `{{filename}}`, `{{fieldName}}`, is not one GTFS defines. Apps ignore it, so what it holds never reaches riders."
+    actions:
+      - { kind: show_columns, file: "{{filename}}", mark: ["{{fieldName}}"] }
+      - { kind: open_rows, at: file, highlight: ["{{fieldName}}"] }
+
+fix:
+  - "If `{{fieldName}}` is a misspelling of a GTFS column, correct the name in the header."
+  - "If it is your own extra data, it can stay, because it does no harm."

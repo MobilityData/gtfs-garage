@@ -1,0 +1,6 @@
+# These feeds are broken on purpose: a value with a leading space, a last line
+# of spaces with no line break, an empty file. An editor applying the root
+# settings on save would quietly repair them and the notices would disappear.
+[*]
+trim_trailing_whitespace = false
+insert_final_newline = false

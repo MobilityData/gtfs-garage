@@ -1,0 +1,20 @@
+code: transfer_with_suspicious_mid_trip_in_seat
+
+locators:
+  transfer: { file: transfers, line: "{{csvRowNumber}}" }
+  calls:    { file: stop_times, key: { trip_id: "{{tripId}}" } }
+  call:     { file: stop_times, key: { trip_id: "{{tripId}}", stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "Line {{csvRowNumber}} of `transfers.txt` is an in-seat transfer: riders stay on board while trip {{tripId}} carries on as another trip. But it is set at {{stopId}}, in the middle of trip {{tripId}}."
+    actions:
+      - { kind: open_rows, at: transfer, highlight: [transfer_type, "{{stopIdFieldName}}", "{{tripIdFieldName}}"] }
+
+  - text: "These are the stops of trip {{tripId}} in order. A vehicle becomes the next trip at the last stop of one and the first stop of the other; set mid-trip, some apps may ignore the transfer."
+    actions:
+      - { kind: open_rows,    at: calls, mark: call, highlight: [stop_id, stop_sequence] }
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId}}"] }
+
+fix:
+  - "If the vehicle carries on as the next trip, move the transfer to the last stop of {{tripId}}, or to the first stop of the trip it becomes."
+  - "If riders really stay seated mid-trip, for example when a train splits, this can stay as it is."

@@ -1,0 +1,19 @@
+code: single_shape_point
+
+locators:
+  point: { file: shapes, line: "{{csvRowNumber}}", key: { shape_id: "{{shapeId}}" } }
+  trips: { file: trips,  key: { shape_id: "{{shapeId}}" } }
+
+steps:
+  - text: "Shape {{shapeId}} has a single point, on line {{csvRowNumber}} of `shapes.txt`, the file of lines trips are drawn with on a map. One point cannot make a line, so there is nothing to draw."
+    actions:
+      - { kind: open_rows, at: point, highlight: [shape_pt_lat, shape_pt_lon, shape_pt_sequence] }
+      - { kind: map_focus, shapes: ["{{shapeId}}"] }
+
+  - text: "These trips are drawn with shape {{shapeId}}. Apps show them with no line on the map, or with straight lines from stop to stop."
+    actions:
+      - { kind: open_rows, at: trips, highlight: [shape_id] }
+
+fix:
+  - "Add the points that trace the way shape {{shapeId}} goes, from its first stop to its last."
+  - "If the trips should not have a line, remove shape {{shapeId}} and clear `shape_id` on its trips in `trips.txt`."

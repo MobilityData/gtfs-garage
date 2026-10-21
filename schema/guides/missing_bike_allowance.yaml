@@ -1,0 +1,19 @@
+code: missing_bike_allowance
+
+locators:
+  trip:  { file: trips,  line: "{{csvRowNumber}}", key: { trip_id: "{{tripId}}" } }
+  route: { file: routes, key: { route_id: "{{routeId}}" } }
+
+steps:
+  - text: "Ferry trip {{tripId}} does not say whether riders may bring a bike on board. `bikes_allowed`, the column of `trips.txt` that says so, is empty or 0, which means no information."
+    actions:
+      - { kind: open_rows,   at: trip, highlight: [bikes_allowed] }
+      - { kind: show_record, at: trip, fields: [trip_id, route_id, bikes_allowed] }
+
+  - text: "Its route, {{routeId}}, is a ferry (`route_type` 4). Many ferry riders travel with a bike, and trip planners use this value to plan a journey with one."
+    actions:
+      - { kind: open_rows, at: route, highlight: [route_type] }
+
+fix:
+  - "Set `bikes_allowed` of trip {{tripId}} to 1 if bikes may come on board, or 2 if they may not."
+  - "Do the same for the other trips of route {{routeId}}."
