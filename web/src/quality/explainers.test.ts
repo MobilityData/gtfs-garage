@@ -53,3 +53,18 @@ describe("formatters for readers", () => {
     expect(fill("{{v|m}}", { v: 412.6 })).toBe("413 m");
   });
 });
+
+describe("a race on the map", () => {
+  it("starts both markers over together, each at its own pace", async () => {
+    const { schedule } = await import("../map/motion");
+    const path = (seconds: number) => [
+      { at: [0, 0] as [number, number], time: 0, text: "" },
+      { at: [1, 0] as [number, number], time: seconds, text: "" },
+    ];
+    const fast = schedule({ path: path(120), duration: 1500, cycle: 7800 });
+    const slow = schedule({ path: path(288), duration: 6000, cycle: 7800 });
+    expect(fast.total).toBe(7800);
+    expect(slow.total).toBe(7800);
+    expect(fast.legs[0].end).toBeLessThan(slow.legs[0].end);
+  });
+});

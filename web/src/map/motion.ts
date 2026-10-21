@@ -50,7 +50,8 @@ export function schedule(motion: MapMotion): Schedule {
     legs.push({ from: i, start: at, end: at + length });
     at += length;
   }
-  return { legs, total: at + REST_MS };
+  // Motions racing each other start over together: their shared cycle wins.
+  return { legs, total: Math.max(at + REST_MS, motion.cycle ?? 0) };
 }
 
 /** Where the marker is `elapsed` ms into a pass, and which entry it last left. */

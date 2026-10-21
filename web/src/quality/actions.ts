@@ -226,6 +226,7 @@ interface MapWork {
   labels: MapLabel[];
   notes: string[];
   motion?: MapMotion;
+  motions?: MapMotion[];
 }
 
 /** One call of a trip, with its times in seconds after midnight of the service day. */
@@ -455,6 +456,11 @@ async function mapAction(action: ResolvedAction, context: ActionContext, work: M
     return;
   }
 
+  if (action.kind === "map_race") {
+    await race(action, context, work);
+    return;
+  }
+
   if (action.kind === "map_sequence" || action.kind === "map_play") {
     const window = await placedCalls(context, action.kind === "map_sequence" ? { trip: args.trip } : args, work);
     if (!window) return;
@@ -502,6 +508,118 @@ async function mapAction(action: ResolvedAction, context: ActionContext, work: M
   }
 }
 
+/**
+ * The speeds gtfs-validator allows, by route type: the table in the
+ * description of fast_travel_between_consecutive_stops. Anything else, 200.
+ */
+const SPEED_LIMITS: Record<string, { kmh: number; vehicle: string }> = {
+  "0": { kmh: 100, vehicle: "a tram" },
+  "1": { kmh: 150, vehicle: "a subway train" },
+  "2": { kmh: 500, vehicle: "a train" },
+  "3": { kmh: 150, vehicle: "a bus" },
+  "4": { kmh: 80, vehicle: "a ferry" },
+  "5": { kmh: 30, vehicle: "a cable tram" },
+  "6": { kmh: 50, vehicle: "an aerial lift" },
+  "7": { kmh: 50, vehicle: "a funicular" },
+  "11": { kmh: 150, vehicle: "a trolleybus" },
+  "12": { kmh: 150, vehicle: "a monorail" },
+};
+
+/** The fastest a trip's vehicle could go, from its route's type. */
+async function speedLimit(context: ActionContext, trip: string): Promise<{ kmh: number; vehicle: string }> {
+  const route = await tripRoute(context, trip).catch(() => null);
+  const row = route ? await firstRow({ table: "routes", by: "key", filters: [{ column: "route_id", op: "eq", value: route }] }, context) : null;
+  return SPEED_LIMITS[String(row?.route_type ?? "")] ?? { kmh: 200, vehicle: "a vehicle" };
+}
+
+function capital(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function minutes(seconds: number): string {
+  const value = seconds / 60;
+  return `${value.toLocaleString("en", { maximumFractionDigits: value < 10 ? 1 : 0 })} min`;
+}
+
+/** How long one race takes on screen, for the slower of the two. */
+const RACE_MS = 6000;
+
+/**
+ * The trip as scheduled, racing a vehicle at the fastest speed its kind could
+ * keep, over the stretch from one stop to another.
+ *
+ * Both leave the first stop together; the scheduled one arrives in the time
+ * the timetable gives, the other in the time the distance really needs. One
+ * arriving long before the other is the finding, seen rather than read. The
+ * card says it in numbers, for a reader who asked for reduced motion too.
+ */
+async function race(action: ResolvedAction, context: ActionContext, work: MapWork): Promise<void> {
+  const { args } = action;
+  const trip = asText(args.trip);
+  const window = await placedCalls(context, { trip, from: args.from, to: args.to, around: 0 }, work);
+  if (!window) return;
+  const { calls, placed, focus } = window;
+  if (!focus || focus[1] <= focus[0]) {
+    work.notes.push(`The two stops are not both on trip ${trip} in this order, so there is no stretch to race on.`);
+    return;
+  }
+  const legs = tripLegs(calls, placed).filter((leg) => leg.from >= focus[0] && leg.from < focus[1]);
+  const metres = legs.reduce((sum, leg) => sum + leg.metres, 0);
+  const scheduled = legs.every((leg) => leg.seconds !== null) ? legs.reduce((sum, leg) => sum + (leg.seconds ?? 0), 0) : null;
+  if (scheduled === null || metres <= 0) {
+    work.notes.push("These calls have no times to race on.");
+    return;
+  }
+  const given = Number(args.limit);
+  const limit = given > 0 ? { kmh: given, vehicle: "a vehicle" } : await speedLimit(context, trip);
+  const needed = metres / (limit.kmh / 3.6);
+  const kmh = scheduled > 0 ? (metres / scheduled) * 3.6 : Infinity;
+
+  context.pick?.({ routeIds: [], shapeIds: [], stopIds: [...new Set(calls.map((call) => call.stop))] });
+  // No speed label on the leg: the racing markers say it, and a label there would sit under them.
+  drawLegs(work, legs, placed, () => true, false);
+  work.labels.push({ at: placed[focus[0]], text: "1", tone: "marked" }, { at: placed[focus[1]], text: "2", tone: "marked" });
+
+  // One clock for both: the slower takes RACE_MS, the faster its share of it.
+  const longest = Math.max(scheduled, needed, 1);
+  const cycle = RACE_MS + 1800;
+  const along = (seconds: number, text: string, arrived: string) => {
+    let travelled = 0;
+    const path: MapMotion["path"] = [{ at: placed[focus[0]], time: 0, text }];
+    for (const leg of legs) {
+      travelled += leg.metres;
+      path.push({ at: placed[leg.from + 1], time: (travelled / metres) * seconds, text });
+    }
+    path[path.length - 1] = { ...path[path.length - 1], text: arrived };
+    return path;
+  };
+  work.motions = [
+    {
+      path: along(scheduled, `As scheduled: ${formatSpeed(kmh)}`, `Arrives after ${minutes(scheduled)}`),
+      duration: (RACE_MS * scheduled) / longest,
+      cycle,
+    },
+    {
+      path: along(needed, `${capital(limit.vehicle)} at ${limit.kmh} km/h`, `Needs ${minutes(needed)}`).map((entry) => ({ ...entry, tone: undefined })),
+      duration: (RACE_MS * needed) / longest,
+      cycle,
+      look: "ghost",
+    },
+  ];
+  // Times to the minute may hide up to a minute, which gtfs-validator allows
+  // for, and so does the race: say so, or "2 min" reads as a mistake beside 06:00 to 06:01.
+  const rounded = legs.some((leg) => {
+    const leave = calls[leg.from].departure ?? calls[leg.from].arrival;
+    const reach = calls[leg.from + 1].arrival ?? calls[leg.from + 1].departure;
+    return leave !== null && reach !== null && leave % 60 === 0 && reach % 60 === 0;
+  });
+  work.notes.push(
+    `${rounded ? "Even allowing for times rounded to the minute, the timetable gives at most" : "The timetable gives"} ` +
+      `${minutes(scheduled)} for ${formatDistance(metres)}, ${formatSpeed(kmh)}. ` +
+      `At ${limit.kmh} km/h, the most gtfs-validator allows ${limit.vehicle}, it takes ${minutes(needed)}.`,
+  );
+}
+
 /** Run a step's map actions together and draw what they produce as one annotation. */
 export async function runMapActions(step: ResolvedStep, context: ActionContext): Promise<string[]> {
   const mapped = step.actions.filter((action) => action.kind.startsWith("map_"));
@@ -512,6 +630,7 @@ export async function runMapActions(step: ResolvedStep, context: ActionContext):
     features: { type: "FeatureCollection", features: work.features },
     labels: work.labels,
     motion: work.motion,
+    motions: work.motions,
   };
   const drawn = work.features.length || work.labels.length;
   await context.map.annotate(drawn ? annotation : null, { frame: Boolean(drawn) });

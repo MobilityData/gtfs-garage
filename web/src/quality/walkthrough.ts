@@ -31,7 +31,7 @@ export const LOCATOR_ARGUMENTS: Record<string, string[]> = {
 export const CONTENT_ACTIONS = new Set(["open_rows", "follow_link", "timetable", "calendar"]);
 
 /** Action kinds drawn on the map. */
-export const MAP_ACTIONS = new Set(["map_focus", "map_measure", "map_sequence", "map_play"]);
+export const MAP_ACTIONS = new Set(["map_focus", "map_measure", "map_sequence", "map_play", "map_race"]);
 
 export interface ResolvedAction {
   kind: string;

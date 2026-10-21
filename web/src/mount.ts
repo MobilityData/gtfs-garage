@@ -199,6 +199,12 @@ export interface MapAnnotation {
   labels: MapLabel[];
   /** A marker that travels through timed positions, over and over, until the annotation goes. */
   motion?: MapMotion;
+  /**
+   * Several markers on one clock: they start together, each moves at its own
+   * pace, and they start over together. A race between the trip as scheduled
+   * and a vehicle at a speed it could really keep.
+   */
+  motions?: MapMotion[];
 }
 
 /**
@@ -213,6 +219,10 @@ export interface MapAnnotation {
 export interface MapMotion {
   path: { at: [number, number]; time: number; text: string; tone?: "over" }[];
   duration?: number;
+  /** How long one pass lasts, rest included, when several motions must start over together. */
+  cycle?: number;
+  /** "ghost" draws the marker lighter: what the motion is measured against, not the subject. */
+  look?: "ghost";
   /** Called with an entry's index as the marker reaches it, and with -1 when a pass starts over. */
   onReach?(index: number): void;
 }

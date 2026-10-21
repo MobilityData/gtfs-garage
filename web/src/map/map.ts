@@ -495,9 +495,14 @@ export class MapController {
       this.fitTo({ type: "FeatureCollection", features: [...annotation.features.features, ...points] } as FeatureCollection, 16);
     }
     if (annotation.motion) this.play(annotation.motion);
+    for (const motion of annotation.motions ?? []) this.play(motion);
   }
 
+  /** Which set of motions is current; a loop of an older one stops at its next frame. */
+  private motionToken = 0;
+
   private stopMotion(): void {
+    this.motionToken += 1;
     if (this.motionFrame !== null) cancelAnimationFrame(this.motionFrame);
     this.motionFrame = null;
   }
@@ -512,7 +517,7 @@ export class MapController {
     // The dot is the marker; its text hangs beside it, on the left once it
     // nears the right edge, where it would otherwise run off the map.
     const element = document.createElement("div");
-    element.className = "annotation-vehicle";
+    element.className = `annotation-vehicle${motion.look === "ghost" ? " annotation-vehicle-ghost" : ""}`;
     const bubble = document.createElement("span");
     bubble.className = "annotation-vehicle-text";
     element.append(bubble);
@@ -522,7 +527,9 @@ export class MapController {
     let started: number | null = null;
     let pass = -1;
     let reached = -1;
+    const token = this.motionToken;
     const frame = (now: number) => {
+      if (token !== this.motionToken) return;
       started ??= now;
       const elapsed = now - started;
       const thisPass = Math.floor(elapsed / plan.total);

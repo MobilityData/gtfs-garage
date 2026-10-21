@@ -135,6 +135,17 @@ ACTIONS: dict[str, dict[str, Any]] = {
             "limit": _arg("number", "Warn over (km/h)", min=0),
         },
     },
+    "map_race": {
+        "label": "Race the trip against a real vehicle",
+        "surface": "map",
+        "args": {
+            "trip": _arg("text", "Trip", required=True),
+            "from": _arg("text", "From stop", required=True),
+            "to": _arg("text", "To stop", required=True),
+            # Without one, the fastest gtfs-validator allows the route's type.
+            "limit": _arg("number", "Real speed (km/h)", min=0),
+        },
+    },
     "show_record": {
         "label": "Show a record",
         "surface": "panel",

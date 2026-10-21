@@ -1971,3 +1971,6 @@
 .gtfs-viewer .explain-range-other { background: var(--sev-info); opacity: 0.7; }
 .gtfs-viewer .explain-overlap { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(45deg, var(--mark), var(--mark) 3px, transparent 3px, transparent 6px); border-radius: 7px; }
 .gtfs-viewer .explain-dates-other { justify-content: flex-start; color: var(--sev-info); }
+/* The vehicle a trip races against: lighter, so the trip stays the subject. */
+.annotation-vehicle.annotation-vehicle-ghost { background: #ffffff; border-color: #6b7280; box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.5); }
+.annotation-vehicle.annotation-vehicle-ghost .annotation-vehicle-text { background: #ffffff; color: #374151; border: 1px solid #9ca3af; }
