@@ -10,10 +10,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from gtfs_garage.core.conditions import evaluate
-from gtfs_garage.core.feed import GtfsFeed
-from gtfs_garage.core.filters import build_where
-from gtfs_garage.core.schema import (
+from gtfs_garage_core.conditions import evaluate
+from gtfs_garage_core.feed import GtfsFeed
+from gtfs_garage_core.filters import build_where
+from gtfs_garage_core.schema import (
     ENUM_LIKE_COLUMNS,
     FILE_PRESENCE,
     FOREIGN_KEYS,

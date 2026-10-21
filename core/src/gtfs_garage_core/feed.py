@@ -16,22 +16,23 @@ import time
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 
-from gtfs_garage import __version__
-from gtfs_garage.core.workspace import FeedSlot
+from gtfs_garage_core.convert import (
+    LOCATIONS_GEOJSON,
+    LOCATIONS_TABLE,
+    MANIFEST,
+    convert_table,
+    manifest_entry,
+    register_table,
+    sql_path,
+    write_manifest,
+)
+from gtfs_garage_core.workspace import FeedSlot
 
 # Reported through `on_progress` so a caller can say which phase is running.
 PHASE_EXTRACT = "extract"
 PHASE_CONVERT = "convert"
-
-# Describes an exported dataset, so a reader need not probe for its tables.
-MANIFEST = "manifest.json"
-
-# The one GTFS file that is not a CSV, and the table it becomes.
-LOCATIONS_GEOJSON = "locations.geojson"
-LOCATIONS_TABLE = "locations"
 
 ProgressFn = Callable[[str, int, int, str], None]
 """Called as (phase, done, total, detail) while a feed opens."""
@@ -72,7 +73,7 @@ class FileStats:
 class FeedStats:
     """Sizes and timings for the phases of opening a feed.
 
-    Deliberately plain dataclasses: `gtfs_garage.core` stays framework-free, so
+    Deliberately plain dataclasses: `gtfs_garage_core` stays framework-free, so
     the server layer is what turns these into its published response models.
     """
 
@@ -229,23 +230,12 @@ class GtfsFeed:
             return
         for txt_file in sorted(self.data_dir.glob("*.txt")):
             table_name = txt_file.stem
-            escaped_path = str(txt_file).replace("'", "''")
             file_started = time.perf_counter()
-            try:
-                self.con.execute(f"""
-                    CREATE VIEW "{table_name}" AS
-                    SELECT * FROM read_csv(
-                        '{escaped_path}',
-                        ALL_VARCHAR = TRUE,
-                        IGNORE_ERRORS = TRUE,
-                        NULLSTR = ''
-                    )
-                    """)
-            except Exception:
-                # Skip files DuckDB can't parse (e.g. empty files) rather than
-                # failing the whole feed load over one optional file.
+            columns = register_table(self.con, table_name, txt_file)
+            if columns is None:
+                # Skip files DuckDB can't parse rather than failing the whole
+                # feed load over one optional file.
                 continue
-            columns = [row[0] for row in self.con.execute(f'DESCRIBE "{table_name}"').fetchall()]
             self.tables[table_name] = columns
             self.stats.files.append(
                 FileStats(
@@ -331,51 +321,29 @@ class GtfsFeed:
 
         for table in sorted(self.tables):
             target = destination / f"{table}.parquet"
-            escaped = str(target).replace("'", "''")
-            self.con.execute(f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)""")
+            convert_table(self.con, table, target)
             written.append(target)
 
             source = stats_by_table.get(table)
             tables.append(
-                {
-                    "name": table,
-                    "file": target.name,
-                    "rows": self.row_count(table),
-                    "columns": len(self.tables[table]),
-                    # What the file weighed before conversion, and inside the
-                    # archive it arrived in. Neither can be recovered later:
-                    # conversion deletes the CSVs, and a zip member's compressed
-                    # size only exists in the archive's directory.
-                    "bytes": source.bytes if source else None,
-                    "compressed_bytes": source.compressed_bytes if source else None,
-                    "parquet_bytes": target.stat().st_size,
-                }
+                manifest_entry(
+                    table,
+                    rows=self.row_count(table),
+                    columns=len(self.tables[table]),
+                    bytes=source.bytes if source else None,
+                    compressed_bytes=source.compressed_bytes if source else None,
+                    parquet_bytes=target.stat().st_size,
+                )
             )
 
-        manifest = destination / MANIFEST
-        manifest.write_text(json.dumps(self._manifest(tables), indent=2) + "\n", encoding="utf-8")
-        written.append(manifest)
+        written.append(self._manifest(destination, tables))
         return written
 
-    def _manifest(self, tables: list[dict]) -> dict:
-        """What the dataset is, for a reader that will never see the source.
-
-        Version 2 added the sizes the load report shows. Version 1 carried only
-        a table list, and its `bytes` meant the Parquet size rather than the
-        source's - so a reader has to know which it is holding.
-        """
-        sized = [t for t in tables if t.get("bytes") is not None]
-        return {
-            "version": 2,
-            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "gtfs_garage": __version__,
-            "source": {"kind": self._source_kind(), "bytes": self.stats.source_bytes},
-            "totals": {
-                "uncompressed_bytes": sum(t["bytes"] for t in sized),
-                "stored_bytes": sum(t["parquet_bytes"] or 0 for t in tables),
-            },
-            "tables": tables,
-        }
+    def _manifest(self, destination: Path, tables: list[dict]) -> Path:
+        """Write the manifest for `tables` into `destination`. See `convert.write_manifest`."""
+        return write_manifest(
+            destination, tables, source_kind=self._source_kind(), source_bytes=self.stats.source_bytes
+        )
 
     def _source_kind(self) -> str:
         if self._parquet_source:
@@ -385,55 +353,16 @@ class GtfsFeed:
     def _load_locations_geojson(self) -> None:
         """Register locations.geojson, the one GTFS file that is not a CSV.
 
-        GTFS-Flex describes pickup and drop-off zones as GeoJSON polygons, and
-        `stop_times.location_id` references a Feature's id. Flattening the
-        FeatureCollection to one row per Feature is what lets the rest of the
-        application treat it like any other file: it browses, filters and links
-        with no special case anywhere downstream.
-
-        Every column is cast to VARCHAR to match the `read_csv(ALL_VARCHAR)`
-        contract the rest of the code is written against - `core/filters.py`
-        compares with ILIKE and `= ''`, which need text.
+        See `convert.register_table`. A file that will not parse is left out
+        and the rest of the feed still opens; the zones are simply not there.
         """
         source = self.data_dir / LOCATIONS_GEOJSON
         if not source.exists():
             return
 
-        escaped_path = str(source).replace("'", "''")
         file_started = time.perf_counter()
-        try:
-            # `features` is read as opaque JSON rather than letting DuckDB infer
-            # its shape, so a feed mixing Polygon and MultiPolygon cannot change
-            # the columns this produces.
-            self.con.execute(f"""
-                CREATE VIEW "{LOCATIONS_TABLE}" AS
-                SELECT
-                    CAST(json_extract_string(feature, '$.id') AS VARCHAR) AS id,
-                    CAST(json_extract_string(feature, '$.properties.stop_name') AS VARCHAR)
-                        AS stop_name,
-                    CAST(json_extract_string(feature, '$.properties.stop_desc') AS VARCHAR)
-                        AS stop_desc,
-                    CAST(json_extract_string(feature, '$.geometry.type') AS VARCHAR)
-                        AS geometry_type,
-                    CAST(json_extract(feature, '$.geometry') AS VARCHAR) AS geometry
-                FROM (
-                    SELECT unnest(features) AS feature
-                    FROM read_json(
-                        '{escaped_path}',
-                        columns = {{type: 'VARCHAR', features: 'JSON[]'}}
-                    )
-                )
-                """)
-            columns = [row[0] for row in self.con.execute(f'DESCRIBE "{LOCATIONS_TABLE}"').fetchall()]
-            # A view is lazy, so creating one over malformed JSON succeeds and
-            # the parse error surfaces later - during the Parquet conversion, or
-            # under a reader's query. Reading a row here forces the parse while
-            # it can still be handled.
-            self.con.execute(f'SELECT * FROM "{LOCATIONS_TABLE}" LIMIT 1').fetchall()
-        except Exception:
-            # Malformed JSON, or a document that is not a FeatureCollection. The
-            # rest of the feed still opens; the zones are simply not there.
-            self.con.execute(f'DROP VIEW IF EXISTS "{LOCATIONS_TABLE}"')
+        columns = register_table(self.con, LOCATIONS_TABLE, source)
+        if columns is None:
             return
 
         self.tables[LOCATIONS_TABLE] = columns
@@ -469,14 +398,11 @@ class GtfsFeed:
         for done, table in enumerate(list(self.tables), start=1):
             self._progress(PHASE_CONVERT, done, total, table)
             destination = parquet_dir / f"{table}.parquet"
-            escaped = str(destination).replace("'", "''")
             table_started = time.perf_counter()
             try:
-                self.con.execute(
-                    f"""COPY (SELECT * FROM "{table}") TO '{escaped}' (FORMAT PARQUET, COMPRESSION ZSTD)"""
-                )
+                convert_table(self.con, table, destination)
                 self.con.execute(f'DROP VIEW "{table}"')
-                self.con.execute(f"""CREATE VIEW "{table}" AS SELECT * FROM read_parquet('{escaped}')""")
+                self.con.execute(f"""CREATE VIEW "{table}" AS SELECT * FROM read_parquet({sql_path(destination)})""")
             except Exception:
                 # A table that will not convert keeps its CSV view, so the feed
                 # still opens. That is also why the CSVs are only deleted below
@@ -502,21 +428,20 @@ class GtfsFeed:
         """
         try:
             tables = [
-                {
-                    "name": stats.table,
-                    "file": f"{stats.table}.parquet",
+                manifest_entry(
+                    stats.table,
                     # Read from the Parquet footer rather than scanned, so this
                     # costs nothing even on a feed of sixty million rows.
-                    "rows": self.row_count(stats.table),
-                    "columns": stats.columns,
-                    "bytes": stats.bytes,
-                    "compressed_bytes": stats.compressed_bytes,
-                    "parquet_bytes": stats.parquet_bytes,
-                }
+                    rows=self.row_count(stats.table),
+                    columns=stats.columns,
+                    bytes=stats.bytes,
+                    compressed_bytes=stats.compressed_bytes,
+                    parquet_bytes=stats.parquet_bytes,
+                )
                 for stats in self.stats.files
                 if stats.parquet_bytes is not None
             ]
-            (destination / MANIFEST).write_text(json.dumps(self._manifest(tables), indent=2) + "\n", encoding="utf-8")
+            self._manifest(destination, tables)
         except Exception:
             # A dataset without its manifest still opens; only the report is
             # poorer. Failing the load over it would be the worse trade.

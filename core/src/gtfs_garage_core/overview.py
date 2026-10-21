@@ -15,9 +15,9 @@ from __future__ import annotations
 from datetime import date as Date
 from typing import Any
 
-from gtfs_garage.core.feed import GtfsFeed
-from gtfs_garage.core.schema import field_info
-from gtfs_garage.core.service import NoCalendarError, _bounds
+from gtfs_garage_core.feed import GtfsFeed
+from gtfs_garage_core.schema import field_info
+from gtfs_garage_core.service import NoCalendarError, _bounds
 
 # What a feed can carry beyond the basics, and the evidence that it does.
 # Named as a reader would describe the capability rather than as GTFS names the

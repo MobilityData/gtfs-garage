@@ -24,10 +24,10 @@ fresh="$(mktemp "${TMPDIR:-/tmp}/gtfs-schema.XXXXXX")"
 trap 'rm -f "$fresh"' EXIT
 python scripts/build_schema_json.py --out "$fresh" >/dev/null
 
-if ! diff -q "$fresh" src/gtfs_garage/data/gtfs-schema.json >/dev/null; then
-    echo "ERROR: src/gtfs_garage/data/gtfs-schema.json does not match schema/gtfs.yaml." >&2
+if ! diff -q "$fresh" core/src/gtfs_garage_core/data/gtfs-schema.json >/dev/null; then
+    echo "ERROR: core/src/gtfs_garage_core/data/gtfs-schema.json does not match schema/gtfs.yaml." >&2
     echo "Run: scripts/build-schema-json.sh, and commit the result." >&2
-    diff -u src/gtfs_garage/data/gtfs-schema.json "$fresh" | head -40 >&2
+    diff -u core/src/gtfs_garage_core/data/gtfs-schema.json "$fresh" | head -40 >&2
     exit 1
 fi
 echo "    packaged document is in sync"

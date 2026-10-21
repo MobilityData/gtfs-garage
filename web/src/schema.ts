@@ -7,7 +7,7 @@
  * same `ColumnInfo` from it.
  */
 
-import document from "../../src/gtfs_garage/data/gtfs-schema.json";
+import document from "../../core/src/gtfs_garage_core/data/gtfs-schema.json";
 import type { ColumnInfo, MissingFile, RelatedLink } from "./sources/types";
 
 interface Field {

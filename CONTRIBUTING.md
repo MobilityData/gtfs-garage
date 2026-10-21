@@ -37,18 +37,25 @@ current interface; from a checkout you build it yourself.
 
 - Commit messages and pull request titles follow
   [Conventional Commits](https://www.conventionalcommits.org/).
-- Nothing under `src/gtfs_garage/core/` may import a web framework — that is what
+- Nothing under `core/src/gtfs_garage_core/` may import a web framework — that is what
   lets other projects reuse the query layer. A test enforces it.
 - Every database read takes its own `feed.cursor()`. A shared DuckDB connection
   returns wrong or empty results when requests overlap.
 - New GTFS facts belong in `schema/gtfs.yaml`, not in Python, so the frontend
-  sees them too. `src/gtfs_garage/data/gtfs-schema.json` is generated from it —
+  sees them too. `core/src/gtfs_garage_core/data/gtfs-schema.json` is generated from it —
   edit the YAML, run `scripts/build-schema-json.sh`, and commit both.
   `scripts/check-schema.sh` validates the schema and checks the two agree; it
-  needs `pip install -e '.[schema]'`.
+  needs `pip install -e ./core -e '.[schema]'`.
 
 ## Releasing
 
-Bump `__version__` in `src/gtfs_garage/__init__.py`, then tag `vX.Y.Z`. The
-release workflow checks the tag matches the version, builds the frontend, and
-publishes to PyPI.
+The repository publishes two Python packages at one version: `gtfs-garage-core`
+from `core/` (loading, converting and querying, no web server) and
+`gtfs-garage`, which pins the core exactly. Bump `__version__` in both
+`src/gtfs_garage/__init__.py` and `core/src/gtfs_garage_core/__init__.py`, and
+the `gtfs-garage-core==` pin in `pyproject.toml`, to the same version;
+`version-python.yml` refuses a pull request where they differ. The release
+workflow then builds the frontend and publishes both packages to PyPI.
+
+For a local environment by hand, install the two together so the pin is met
+from the checkout: `pip install -e ./core -e '.[dev]'`. The scripts do this.

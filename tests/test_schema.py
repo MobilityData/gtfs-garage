@@ -166,7 +166,7 @@ def test_the_packaged_json_matches_the_linkml_source():
             capture_output=True,
         )
         assert json.loads(regenerated.read_text()) == load_schema(), (
-            "src/gtfs_garage/data/gtfs-schema.json is out of date; " "run python scripts/build_schema_json.py"
+            "core/src/gtfs_garage_core/data/gtfs-schema.json is out of date; " "run python scripts/build_schema_json.py"
         )
 
 

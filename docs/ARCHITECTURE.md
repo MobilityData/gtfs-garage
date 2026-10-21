@@ -107,7 +107,12 @@ The slot layout is deliberately the one `export_parquet` writes, so reopening is
 The rule that makes the rest work: **nothing under `core/` imports a web
 framework.** That is what lets another project depend on the query layer without
 inheriting FastAPI, and `tests/test_layering.py` enforces it rather than trusting
-it.
+it. The core is its own distribution, `gtfs-garage-core`, built from `core/`
+and imported as `gtfs_garage_core`; `gtfs_garage.core` is kept as an alias of
+it, and `tests/test_core_package.py` holds its dependencies to DuckDB.
+`convert.py` is the conversion one table at a time - register, convert, write
+the manifest - which `GtfsFeed` uses and a caller with a memory limit can drive
+itself.
 
 ### What is built to be used from outside
 
@@ -205,7 +210,7 @@ Generated-and-committed can drift, so
 Nothing in `web/` reads either file today: the frontend receives schema facts
 through `ColumnInfo` on `/api/tables`, so the server is the only reader.
 
-**`gtfs_garage.core`** — feed loading, filters to SQL, table summaries,
+**`gtfs_garage_core`** (`gtfs-garage-core`, also importable as `gtfs_garage.core`) — feed loading, conversion to Parquet one table at a time, filters to SQL, table summaries,
 pagination, distinct values, GeoJSON. What reusing it buys over rewriting is the
 parts that are easy to get subtly wrong: the null-versus-empty filter semantics,
 resolving links only against files a feed actually contains, and the
