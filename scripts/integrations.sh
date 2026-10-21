@@ -24,7 +24,7 @@ ensure_python perf
 ensure_models
 
 if ! python -c "import playwright" >/dev/null 2>&1; then
-    die "playwright is required: pip install -e '.[dev,perf]' && playwright install chromium"
+    die "playwright is required: pip install -e ./core -e '.[dev,perf]' && playwright install chromium"
 fi
 
 step "Building the frontend, so the application serves what is in the tree"

@@ -37,7 +37,7 @@ The GTFS schema used in this project is based on the [official GTFS Schedule Ref
 This document and the schema files included in this project are **not intended to be the source of truth for the GTFS specification**.
 They are maintained to support this project in formatting and validating GTFS datasets.
 This documentation describes the {table_count} files defined by GTFS and the {field_count} fields they contain, including each field's data type, whether it is required, and any references to fields in other files.
-The machine-readable version is [`gtfs-schema.json`](../src/gtfs_garage/data/gtfs-schema.json), which is included in the package. Both this documentation and the JSON schema are generated from [`schema/gtfs.yaml`](../schema/gtfs.yaml).
+The machine-readable version is [`gtfs-schema.json`](../core/src/gtfs_garage_core/data/gtfs-schema.json), which is included in the package. Both this documentation and the JSON schema are generated from [`schema/gtfs.yaml`](../schema/gtfs.yaml).
 """
 
 DIAGRAM_NOTE = """\

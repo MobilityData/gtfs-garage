@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - "src/gtfs_garage/**"
+      # gtfs-garage-core, released at the same version as gtfs-garage.
+      - "core/**"
       # Generated from docs/GtfsGarageAPI.yaml, and shipped in the wheel beside
       # gtfs_garage, so a change confined to it still changes what is published.
       - "src/gtfs_garage_gen/**"
@@ -33,9 +35,19 @@ jobs:
           read_version() { sed -n 's/^__version__ = "\(.*\)"$/\1/p'; }
           before=$(git show "origin/$BASE:src/gtfs_garage/__init__.py" | read_version)
           after=$(read_version < src/gtfs_garage/__init__.py)
+          core=$(read_version < core/src/gtfs_garage_core/__init__.py)
 
           if [ "$before" = "$after" ]; then
-            echo "::error file=src/gtfs_garage/__init__.py::this change affects the published Python package; bump __version__ (still $after)"
+            echo "::error file=src/gtfs_garage/__init__.py::this change affects the published Python packages; bump __version__ (still $after)"
             exit 1
           fi
-          echo "$before -> $after"
+          # The two are released together, and gtfs-garage pins the core exactly.
+          if [ "$core" != "$after" ]; then
+            echo "::error file=core/src/gtfs_garage_core/__init__.py::gtfs-garage-core is $core but gtfs-garage is $after; bump both to the same version"
+            exit 1
+          fi
+          if ! grep -q "\"gtfs-garage-core==$after\"" pyproject.toml; then
+            echo "::error file=pyproject.toml::pin gtfs-garage-core==$after in the dependencies"
+            exit 1
+          fi
+          echo "$before -> $after (gtfs-garage and gtfs-garage-core)"

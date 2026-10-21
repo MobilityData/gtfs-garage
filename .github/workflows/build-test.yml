@@ -23,10 +23,12 @@ jobs:
           cache: pip
           cache-dependency-path: requirements_dev.txt
 
+      # The core comes from core/ in the same command, so the exact version
+      # gtfs-garage pins is satisfied locally rather than looked up on PyPI.
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ./core -e ".[dev]"
 
       - name: Lint
         run: scripts/lint-tests.sh
@@ -94,12 +96,14 @@ jobs:
       - name: Build
         run: |
           python -m pip install --upgrade pip build
-          python -m build
+          python -m build core --outdir dist
+          python -m build --outdir dist
 
       # Installing into a clean environment from a different directory is what
       # catches packaging mistakes: missing package data, or code that only
-      # works when the current directory happens to be the repo root.
-      - name: Install the wheel and run it from elsewhere
+      # works when the current directory happens to be the repo root. Both
+      # wheels are given, so the core gtfs-garage pins comes from this build.
+      - name: Install the wheels and run them from elsewhere
         run: |
           python -m venv /tmp/check
           /tmp/check/bin/pip install dist/*.whl
@@ -111,6 +115,24 @@ jobs:
           assert web_root().joinpath('index.html').is_file(), 'frontend missing from the wheel'
           from gtfs_garage.core.schema import FOREIGN_KEYS
           assert FOREIGN_KEYS, 'schema missing from the wheel'
+          "
+
+      # The point of the core distribution: converting and querying a feed
+      # without a web server. Installed alone, it must bring none with it.
+      - name: Install the core alone and check it pulls in no web framework
+        run: |
+          python -m venv /tmp/core
+          /tmp/core/bin/pip install dist/gtfs_garage_core-*.whl
+          cd /tmp
+          for package in fastapi starlette uvicorn pydantic gtfs-garage; do
+            if /tmp/core/bin/pip show "$package" >/dev/null 2>&1; then
+              echo "::error::installing gtfs-garage-core pulled in $package"; exit 1
+            fi
+          done
+          /tmp/core/bin/python -c "
+          from gtfs_garage_core.convert import convert_table, register_table, write_manifest
+          from gtfs_garage_core.schema import FOREIGN_KEYS
+          assert FOREIGN_KEYS, 'schema missing from the core wheel'
           "
 
   performance:
@@ -137,7 +159,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,perf]"
+          pip install -e ./core -e ".[dev,perf]"
           playwright install --with-deps chromium
 
       # Peak JS heap is the one thing no server-side test can see: it is what
@@ -172,10 +194,12 @@ jobs:
           python-version: ${{ env.python_version }}
           cache: pip
 
+      # The core comes from core/ in the same command, so the exact version
+      # gtfs-garage pins is satisfied locally rather than looked up on PyPI.
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ./core -e ".[dev]"
 
       # Calls the module directly, not scripts/benchmark.sh, for the reason the
       # base step gives below: both sides have to run the same harness, and the

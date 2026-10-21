@@ -177,10 +177,13 @@ The map backdrop is configurable with `--basemap` or `$GTFS_GARAGE_BASEMAP`:
 template or vector style URL. All presets except `carto` work without an API
 key.
 
-The Python API is usable on its own, without the server:
+The Python API is usable on its own, without the server. It is published
+separately as `gtfs-garage-core` (`pip install gtfs-garage-core`), which needs
+only DuckDB; `gtfs_garage.core` is the same package under its old name. See
+`core/README.md`.
 
 ```python
-from gtfs_garage.core import GtfsFeed, query_table
+from gtfs_garage_core import GtfsFeed, query_table
 
 feed = GtfsFeed("path/to/feed.zip")
 page = query_table(feed, "trips", [{"column": "route_id", "op": "eq", "value": "R1"}])
@@ -250,7 +253,7 @@ comparison against any backend implementing
 Needs a browser:
 
 ```bash
-pip install -e ".[dev,perf]" && playwright install chromium
+pip install -e ./core -e ".[dev,perf]" && playwright install chromium
 ```
 
 ## Linter
@@ -278,7 +281,7 @@ One guard needs a real browser and is excluded from that run, because peak
 memory is the one thing no server-side test can see:
 
 ```bash
-pip install -e ".[dev,perf]" && playwright install chromium
+pip install -e ./core -e ".[dev,perf]" && playwright install chromium
 (cd web && yarn build)
 pytest -m browser
 ```

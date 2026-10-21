@@ -14,7 +14,7 @@ import json
 from importlib import resources
 from typing import Any
 
-SCHEMA_PACKAGE = "gtfs_garage.data"
+SCHEMA_PACKAGE = "gtfs_garage_core.data"
 SCHEMA_FILENAME = "gtfs-schema.json"
 
 

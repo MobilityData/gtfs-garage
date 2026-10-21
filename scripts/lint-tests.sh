@@ -5,5 +5,5 @@
 source "$(dirname -- "$0")/_common.sh"
 ensure_python dev
 
-python -m flake8 src tests
-python -m black src tests --check
+python -m flake8 src core/src tests
+python -m black src core/src tests --check

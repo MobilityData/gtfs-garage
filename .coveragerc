@@ -1,6 +1,8 @@
 [run]
 branch = True
-source = src/gtfs_garage
+source =
+    src/gtfs_garage
+    core/src/gtfs_garage_core
 omit =
     */tests/*
     */test_*

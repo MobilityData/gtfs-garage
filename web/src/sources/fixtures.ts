@@ -6,7 +6,7 @@
  * Building them here means a new field has one default to add, not one per test.
  */
 
-import schema from "../../../src/gtfs_garage/data/gtfs-schema.json";
+import schema from "../../../core/src/gtfs_garage_core/data/gtfs-schema.json";
 import type { ColumnInfo, TableInfo } from "./types";
 
 interface PublishedType {

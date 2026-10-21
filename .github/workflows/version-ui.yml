@@ -11,7 +11,7 @@ on:
       - "web/vite.lib.config.ts"
       - "web/tsconfig*.json"
       - "schema/**"
-      - "src/gtfs_garage/data/gtfs-schema.json"
+      - "core/src/gtfs_garage_core/data/gtfs-schema.json"
 
 permissions:
   contents: read

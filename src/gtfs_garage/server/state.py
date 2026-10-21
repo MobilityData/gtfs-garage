@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from gtfs_garage import __version__
-from gtfs_garage.core.feed import FeedStats, GtfsFeed, GtfsLoadError
-from gtfs_garage.core.workspace import FeedSlot, Workspace
+from gtfs_garage_core.feed import FeedStats, GtfsFeed, GtfsLoadError
+from gtfs_garage_core.workspace import FeedSlot, Workspace
 
 DOWNLOAD_TIMEOUT_SECONDS = 60
 # Generous enough for any real feed, low enough that a wrong URL cannot fill the

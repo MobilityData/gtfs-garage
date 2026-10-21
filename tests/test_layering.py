@@ -1,6 +1,6 @@
 """The core must stay usable without a web framework.
 
-`mobility-feed-api` (or anything else) should be able to `pip install gtfs-garage`
+`mobility-feed-api` (or anything else) should be able to `pip install gtfs-garage-core`
 and query a feed server-side without inheriting FastAPI. That only holds if no
 module under `gtfs_garage.core` imports it, so this is checked rather than
 assumed.

@@ -23,7 +23,7 @@ from collections import Counter
 from datetime import date as Date
 from typing import Any
 
-from gtfs_garage.core.feed import GtfsFeed
+from gtfs_garage_core.feed import GtfsFeed
 
 # DuckDB's dayofweek() is 0 = Sunday, so this is indexed by it rather than
 # written in the order GTFS lists the columns.

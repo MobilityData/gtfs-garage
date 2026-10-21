@@ -58,10 +58,14 @@ ensure_python() {
 
     # Reinstall only when the declared dependencies are newer than the last
     # install for this extra, so the common case costs one stat.
-    if [ ! -f "$stamp" ] || [ "$REPO_ROOT/pyproject.toml" -nt "$stamp" ]; then
+    if [ ! -f "$stamp" ] || [ "$REPO_ROOT/pyproject.toml" -nt "$stamp" ] \
+        || [ "$REPO_ROOT/core/pyproject.toml" -nt "$stamp" ]; then
         step "Installing the package with its '$extra' dependencies"
         "$VENV/bin/pip" install --quiet --upgrade pip || die "could not upgrade pip"
-        "$VENV/bin/pip" install --quiet -e ".[$extra]" \
+        # The core is installed from core/ in the same command, so the exact
+        # version gtfs-garage pins is satisfied here rather than looked up on
+        # PyPI, where a version not yet released does not exist.
+        "$VENV/bin/pip" install --quiet -e ./core -e ".[$extra]" \
             || die "could not install the '$extra' dependencies"
         touch "$stamp"
     fi

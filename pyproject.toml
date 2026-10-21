@@ -21,7 +21,10 @@ classifiers = [
 dynamic = ["version"]
 
 dependencies = [
-    "duckdb~=1.5",
+    # The framework-free core, built from core/ in this repository and released
+    # with this package. Pinned exactly: the two are one codebase, and
+    # tests/test_core_package.py checks the pin matches both versions.
+    "gtfs-garage-core==0.6.0",
     "fastapi~=0.141",
     "python-multipart~=0.0.32",
     "uvicorn~=0.52",

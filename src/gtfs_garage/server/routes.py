@@ -14,17 +14,17 @@ from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from gtfs_garage import __version__
-from gtfs_garage.core import geojson as geojson_builders
-from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
-from gtfs_garage.core.network import (
+from gtfs_garage_core import geojson as geojson_builders
+from gtfs_garage_core.feed import GtfsFeed, GtfsLoadError
+from gtfs_garage_core.network import (
     UnknownDirectionError,
     UnknownRouteError,
     route_detail,
     route_list,
     route_timetable,
 )
-from gtfs_garage.core.overview import feed_overview
-from gtfs_garage.core.queries import (
+from gtfs_garage_core.overview import feed_overview
+from gtfs_garage_core.queries import (
     UnknownColumnError,
     UnknownTableError,
     distinct_values,
@@ -32,7 +32,7 @@ from gtfs_garage.core.queries import (
     missing_files,
     table_summaries,
 )
-from gtfs_garage.core.service import NoCalendarError, calendar_summary
+from gtfs_garage_core.service import NoCalendarError, calendar_summary
 from gtfs_garage_gen.models.calendar_response import CalendarResponse
 from gtfs_garage_gen.models.config_response import ConfigResponse
 from gtfs_garage_gen.models.distinct_response import DistinctResponse

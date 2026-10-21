@@ -32,19 +32,30 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Both distributions are built from this repository and released together
+      # at one version: gtfs-garage-core from core/, and gtfs-garage, which pins
+      # it exactly. Either one missing from PyPI means a release is due.
       - name: Is this version already on PyPI?
         id: check
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ./core -e .
           version=$(python -c "import gtfs_garage; print(gtfs_garage.__version__)")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          if curl -sfo /dev/null "https://pypi.org/pypi/gtfs-garage/$version/json"; then
-            echo "gtfs-garage $version is already published; nothing to do"
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+          core_version=$(python -c "import gtfs_garage_core; print(gtfs_garage_core.__version__)")
+          if [ "$version" != "$core_version" ]; then
+            echo "::error::gtfs-garage $version and gtfs-garage-core $core_version must be released at the same version"
+            exit 1
           fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          publish=false
+          for package in gtfs-garage-core gtfs-garage; do
+            if curl -sfo /dev/null "https://pypi.org/pypi/$package/$version/json"; then
+              echo "$package $version is already published"
+            else
+              publish=true
+            fi
+          done
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
       - name: Build the frontend
         if: steps.check.outputs.publish == 'true'
@@ -55,22 +66,29 @@ jobs:
         if: steps.check.outputs.publish == 'true'
         run: |
           pip install build
-          python -m build
+          python -m build core --outdir dist
+          python -m build --outdir dist
 
-      - name: The wheel must contain the built frontend
+      - name: The wheels must contain the frontend and the data
         if: steps.check.outputs.publish == 'true'
         run: |
           python - <<'PY'
           import glob, zipfile
-          wheel = sorted(glob.glob("dist/*.whl"))[-1]
-          names = zipfile.ZipFile(wheel).namelist()
-          assert "gtfs_garage/web/index.html" in names, f"frontend missing from {wheel}"
-          assert any(n.endswith(".json") and "data/" in n for n in names), "schema missing"
-          print(f"{wheel} contains the frontend and schema")
+          app = zipfile.ZipFile(sorted(glob.glob("dist/gtfs_garage-*.whl"))[-1]).namelist()
+          assert "gtfs_garage/web/index.html" in app, "frontend missing from the gtfs-garage wheel"
+          core = zipfile.ZipFile(sorted(glob.glob("dist/gtfs_garage_core-*.whl"))[-1]).namelist()
+          assert "gtfs_garage_core/data/gtfs-schema.json" in core, "schema missing from the gtfs-garage-core wheel"
+          assert not any(n.startswith("gtfs_garage_core/") for n in app), "the core is duplicated in gtfs-garage"
+          print("both wheels contain what they should")
           PY
 
+      # Uploads both. The core goes up in the same step as the package that
+      # pins it, and a file already on PyPI - a rerun after a partial upload -
+      # is skipped rather than failing the release.
       - uses: pypa/gh-action-pypi-publish@release/v1
         if: steps.check.outputs.publish == 'true'
+        with:
+          skip-existing: true
 
   npm:
     name: Build and publish to npm

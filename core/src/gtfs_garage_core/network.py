@@ -16,9 +16,9 @@ from __future__ import annotations
 from datetime import date as Date
 from typing import Any
 
-from gtfs_garage.core.feed import GtfsFeed
-from gtfs_garage.core.overview import _mode_label
-from gtfs_garage.core.service import (
+from gtfs_garage_core.feed import GtfsFeed
+from gtfs_garage_core.overview import _mode_label
+from gtfs_garage_core.service import (
     NoCalendarError,
     active_services,
     daily_service,
