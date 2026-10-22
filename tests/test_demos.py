@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from gtfs_garage.core import demos
+from gtfs_garage.quality import demos
 from gtfs_garage.server.app import create_app
 
 REPORT = json.dumps(

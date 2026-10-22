@@ -5,7 +5,7 @@
  * sample and optionally one formatter, and that is all. A guide is data written
  * by people who should not need to read this code, and the build checks every
  * placeholder against the validator's own field names
- * (`check_guide` in `src/gtfs_garage/core/guides.py`).
+ * (`check_guide` in `src/gtfs_garage/quality/guides.py`).
  *
  * A placeholder whose field the sample does not have raises `UnfilledPlaceholder`, and
  * whoever is resolving the action skips it. The validator has renamed fields

@@ -26,9 +26,9 @@ import webbrowser
 import uvicorn
 
 from gtfs_garage import __version__
-from gtfs_garage.core.feed import GtfsFeed, GtfsLoadError
-from gtfs_garage.core.workspace import DEFAULT_KEEP as DEFAULT_WORKDIR_KEEP
-from gtfs_garage.core.workspace import Workspace
+from gtfs_garage_core.feed import GtfsFeed, GtfsLoadError
+from gtfs_garage_core.workspace import DEFAULT_KEEP as DEFAULT_WORKDIR_KEEP
+from gtfs_garage_core.workspace import Workspace
 from gtfs_garage.server.app import (
     BASEMAP_ENV_VAR,
     BUILD_COMMAND,

@@ -9,7 +9,7 @@
  * table, the map and the narration never arrive out of step with each other.
  *
  * The kinds are a closed list, implemented once here and checked by the build
- * (`ACTIONS` in `src/gtfs_garage/core/guides.py`). `custom` is the escape hatch: it
+ * (`ACTIONS` in `src/gtfs_garage/quality/guides.py`). `custom` is the escape hatch: it
  * calls a handler the host registered, and is the only kind that is code.
  */
 

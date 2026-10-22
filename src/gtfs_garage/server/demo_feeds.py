@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import threading
 
-from gtfs_garage.core import demos
-from gtfs_garage.core.workspace import DEMO_KIND, Workspace
+from gtfs_garage.quality import demos
+from gtfs_garage_core.workspace import DEMO_KIND, Workspace
 from gtfs_garage.server.state import FeedRegistry
 
 

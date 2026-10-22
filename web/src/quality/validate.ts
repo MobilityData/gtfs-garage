@@ -1,7 +1,7 @@
 /**
  * Checking a guide before it is run or saved.
  *
- * The same rules as `check_guide` in `src/gtfs_garage/core/guides.py`, which
+ * The same rules as `check_guide` in `src/gtfs_garage/quality/guides.py`, which
  * checks the guides in the repository and every guide saved to a server. The
  * action vocabulary is not restated here: it comes from the catalog, which the
  * build writes from that module. Both are run over `tests/data/guides/cases.json`

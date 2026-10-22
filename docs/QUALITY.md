@@ -104,8 +104,8 @@ of is never evicted, and neither can be deleted while the studio reads it.
 
 The editor is `web/src/quality/editor/`, the Tours view
 `web/src/ui/screens/tours.ts`, saved tours `web/src/quality/guide-store.ts` and
-`src/gtfs_garage/core/saved_guides.py`, the studio's switching between feeds
-`web/src/quality/studio-source.ts`, and the demos `src/gtfs_garage/core/demos.py`.
+`src/gtfs_garage/quality/saved_guides.py`, the studio's switching between feeds
+`web/src/quality/studio-source.ts`, and the demos `src/gtfs_garage/quality/demos.py`.
 
 ## Words used
 
@@ -126,7 +126,7 @@ The editor is `web/src/quality/editor/`, the Tours view
 |---|---|
 | `schema/validator/rules.json` | What gtfs-validator publishes about every notice: severity, summary, description, the files it reads, the fields of its samples. Vendored unedited; the version is in `schema/validator/VERSION`. |
 | `schema/guides/<code>.yaml` | One guide per notice code. |
-| `src/gtfs_garage/core/guides.py` | What a guide may say: the actions, the type of each argument, and `check_guide`, which the build and the server apply. |
+| `src/gtfs_garage/quality/guides.py` | What a guide may say: the actions, the type of each argument, and `check_guide`, which the build and the server apply. |
 | `scripts/build-guides.sh` | Checks every guide against the rules and writes the catalog. |
 | `src/gtfs_garage/data/guides.json` | The catalog the viewer reads: every notice, with its guide where there is one. Generated and committed; `tests/test_guides.py` fails if it drifts. |
 | `tests/data/guides/cases.json` | Guides and the problem each must be refused for, run by both the Python and the viewer's checks. |
@@ -241,7 +241,7 @@ Run `scripts/build-guides.sh` after editing. It fails on a field the notice does
 not have, an unknown formatter or action, an argument an action does not take or
 a required one left out, an undeclared locator, two content actions in one step,
 or a guide for a code the validator does not emit. The rules are
-`check_guide` in `src/gtfs_garage/core/guides.py`; the viewer applies the same
+`check_guide` in `src/gtfs_garage/quality/guides.py`; the viewer applies the same
 ones (`web/src/quality/validate.ts`), and `tests/data/guides/cases.json` holds
 the two to the same words.
 
@@ -275,7 +275,7 @@ the 12 km from 06:00:00 to 06:01:00 in the main test feed is 360 km/h on the
 map, as in the report, not 720.
 
 A new action is a change to `web/src/quality/actions.ts` and to `ACTIONS` in
-`src/gtfs_garage/core/guides.py`, which gives each argument a type and says
+`src/gtfs_garage/quality/guides.py`, which gives each argument a type and says
 which are required; the build writes that into the catalog as `action_specs`. A new guide is neither. The map draws what the
 actions produce through `MapHandle.annotate`, whose `motion` moves a marker
 through timed positions; see `web/src/map/motion.ts`.
@@ -306,7 +306,7 @@ line breaks that arithmetic, so each file's physical line count is compared
 with the rows kept. When they differ, the file is read once more with Python's
 CSV reader, keeping exactly the records DuckDB kept, and the line of each is
 stored as a column. `TableInfo.lines` says whether a table's numbers are
-`exact` or `approximate`; see `src/gtfs_garage/core/lines.py`.
+`exact` or `approximate`; see `core/src/gtfs_garage_core/lines.py`.
 `tests/test_lines.py` asserts that every row number in the test reports selects
 exactly the row the validator meant.
 

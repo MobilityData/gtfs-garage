@@ -27,7 +27,7 @@ from typing import Any
 
 import duckdb
 
-from gtfs_garage.core.workspace import Workspace
+from gtfs_garage_core.workspace import Workspace
 
 BUILTIN_DIR = Path(__file__).resolve().parent.parent / "data" / "demos"
 CATALOG = "demos.json"

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from gtfs_garage.core import guides as rules
+from gtfs_garage.quality import guides as rules
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "build_guides.py"

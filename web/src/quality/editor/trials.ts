@@ -5,7 +5,7 @@
  * wherever there are some:
  *
  * - the report loaded for the open feed, when it has this notice;
- * - each demo feed whose report has it (see `core/demos.py`);
+ * - each demo feed whose report has it (see `gtfs_garage/quality/demos.py`);
  * - a sample written by hand, for a notice no feed at hand raises. Its
  *   sentences can be previewed, but there are no rows to run it on.
  *

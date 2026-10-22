@@ -14,8 +14,8 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from gtfs_garage import __version__
-from gtfs_garage.core.feed import GtfsLoadError
-from gtfs_garage.core.workspace import Workspace
+from gtfs_garage_core.feed import GtfsLoadError
+from gtfs_garage_core.workspace import Workspace
 from gtfs_garage.server.demo_feeds import DemoFeeds
 from gtfs_garage.server.routes import demo_router, router
 from gtfs_garage.server.state import FeedRegistry

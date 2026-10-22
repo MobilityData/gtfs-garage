@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from gtfs_garage.core.feed import GtfsFeed
-from gtfs_garage.core.lines import kept_record_lines, physical_lines
+from gtfs_garage_core.lines import kept_record_lines, physical_lines
 from gtfs_garage.core.queries import query_table, table_summaries
 
 AGENCY = "agency_id,agency_name,agency_url,agency_timezone\nA1,Test,https://example.org,UTC\n"

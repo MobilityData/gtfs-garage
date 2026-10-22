@@ -11,7 +11,7 @@ never restates what the validator already publishes.
 The checks are the point of having a build step at all. A guide is data written
 against another project's field names, and those change between releases. Every
 guide must be for a code the validator emits, and must pass `check_guide` in
-`gtfs_garage.core.guides`, which the server also applies to a guide an analyst
+`gtfs_garage.quality.guides`, which the server also applies to a guide an analyst
 saves. A guide that fails fails the build rather than shipping a step the viewer
 would silently skip.
 
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import yaml
 
-from gtfs_garage.core.guides import GuideError, check_guide, vocabulary
+from gtfs_garage.quality.guides import GuideError, check_guide, vocabulary
 
 ROOT = Path(__file__).resolve().parent.parent
 RULES = ROOT / "schema" / "validator" / "rules.json"

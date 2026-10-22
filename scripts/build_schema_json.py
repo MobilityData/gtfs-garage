@@ -368,7 +368,7 @@ def build(schema: dict) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--schema", default="schema/gtfs.yaml")
-    parser.add_argument("--out", default="src/gtfs_garage/data/gtfs-schema.json")
+    parser.add_argument("--out", default="core/src/gtfs_garage_core/data/gtfs-schema.json")
     args = parser.parse_args(argv)
 
     schema = yaml.safe_load(Path(args.schema).read_text(encoding="utf-8"))

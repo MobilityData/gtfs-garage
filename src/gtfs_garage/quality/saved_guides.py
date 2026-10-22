@@ -22,8 +22,8 @@ from typing import Any
 
 import yaml
 
-from gtfs_garage.core.guides import GuideError, check_guide
-from gtfs_garage.core.workspace import Workspace
+from gtfs_garage.quality.guides import GuideError, check_guide
+from gtfs_garage_core.workspace import Workspace
 
 GUIDES_DIR = "guides"
 

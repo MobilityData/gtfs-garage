@@ -1,27 +1,24 @@
-"""Feed loading, querying and GeoJSON generation.
+"""The core's old import path, kept so existing imports keep working.
 
-Nothing in this package imports a web framework: it is the reusable half of the
-tool, so another project can depend on it without inheriting FastAPI. See
-tests/test_layering.py, which enforces that.
+The core moved to its own distribution, `gtfs-garage-core`, imported as
+`gtfs_garage_core`. Anything written against `gtfs_garage.core` - this
+repository's scripts, `mobility-feed-api`, a notebook - is still served, and
+served the same module objects rather than copies: `gtfs_garage.core.feed` *is*
+`gtfs_garage_core.feed`, so `isinstance`, `mock.patch("gtfs_garage.core....")`
+and module-level state behave as they did before the move.
+
+Every submodule is registered under the old name up front. Importing them all
+costs little - `feed` alone pulls in most of the others - and it is what makes
+`from gtfs_garage.core.feed import GtfsFeed` resolve without a custom importer.
 """
 
-from gtfs_garage.core.feed import FeedStats, FileStats, GtfsFeed, GtfsLoadError
-from gtfs_garage.core.queries import (
-    UnknownColumnError,
-    UnknownTableError,
-    distinct_values,
-    query_table,
-    table_summaries,
-)
+import importlib
+import pkgutil
+import sys
 
-__all__ = [
-    "FeedStats",
-    "FileStats",
-    "GtfsFeed",
-    "GtfsLoadError",
-    "UnknownColumnError",
-    "UnknownTableError",
-    "distinct_values",
-    "query_table",
-    "table_summaries",
-]
+import gtfs_garage_core
+
+for _module in pkgutil.iter_modules(gtfs_garage_core.__path__):
+    sys.modules[f"{__name__}.{_module.name}"] = importlib.import_module(f"gtfs_garage_core.{_module.name}")
+
+sys.modules[__name__] = gtfs_garage_core

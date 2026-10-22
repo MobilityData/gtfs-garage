@@ -64,7 +64,7 @@ export interface NoticeDescription {
   guide?: Guide;
 }
 
-/** How the editor asks for an action argument; see `ACTIONS` in `gtfs_garage/core/guides.py`. */
+/** How the editor asks for an action argument; see `ACTIONS` in `gtfs_garage/quality/guides.py`. */
 export type ArgumentType =
   | "locator"
   | "column"

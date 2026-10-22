@@ -1,5 +1,5 @@
 {
- "comment": "Guides and the first problem each validator must report: core/guides.py (tests/test_guides.py) and web/src/quality/validate.ts (validate.test.ts). null means the guide is good.",
+ "comment": "Guides and the first problem each validator must report: gtfs_garage/quality/guides.py (tests/test_guides.py) and web/src/quality/validate.ts (validate.test.ts). null means the guide is good.",
  "code": "x",
  "fields": [
   "stopId",

@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from gtfs_garage.core.feed import GtfsFeed
+from gtfs_garage_core.feed import GtfsFeed
 
 # Whether the condition holds, and what was counted to decide it.
 Outcome = tuple[bool, str]

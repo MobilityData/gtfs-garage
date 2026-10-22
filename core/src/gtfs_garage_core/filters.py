@@ -7,7 +7,7 @@ never built from arbitrary user input.
 
 from __future__ import annotations
 
-from gtfs_garage.core.lines import LINE_COLUMN
+from gtfs_garage_core.lines import LINE_COLUMN
 
 OPERATORS = {"eq", "ne", "contains", "is_empty", "is_not_empty", "in"}
 

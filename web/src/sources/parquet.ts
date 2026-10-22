@@ -48,7 +48,7 @@ interface Manifest {
     bytes?: number | null;
     compressed_bytes?: number | null;
     parquet_bytes?: number;
-    /** Whether line numbers were checked against the source file. See `core/lines.py`. */
+    /** Whether line numbers were checked against the source file. See `core/src/gtfs_garage_core/lines.py`. */
     lines?: "exact" | "approximate";
   }[];
 }

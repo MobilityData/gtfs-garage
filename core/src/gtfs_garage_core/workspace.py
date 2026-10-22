@@ -53,7 +53,7 @@ DUCKDB_DIR = "duckdb"
 RECORD = "feed.json"
 STARTUP = "startup.json"
 
-# The kind of a slot holding a built-in demo feed (see core/demos.py). Tiny,
+# The kind of a slot holding a built-in demo feed (see gtfs_garage/quality/demos.py). Tiny,
 # and opened to try a Quality tour rather than to work on, so retention neither
 # counts nor evicts them: trying tours must not push someone's feeds out.
 DEMO_KIND = "demo"
