@@ -36,7 +36,8 @@ class PageResponse(BaseModel):
     total: StrictInt = Field(description="Rows matching the filters, not rows on this page.")
     page: StrictInt
     page_size: StrictInt
-    __properties: ClassVar[List[str]] = ["columns", "rows", "total", "page", "page_size"]
+    lines: Optional[List[StrictInt]] = None
+    __properties: ClassVar[List[str]] = ["columns", "rows", "total", "page", "page_size", "lines"]
 
     model_config = {
         "populate_by_name": True,
@@ -75,6 +76,11 @@ class PageResponse(BaseModel):
             },
             exclude_none=True,
         )
+        # set to None if lines (nullable) is None
+        # and model_fields_set contains the field
+        if self.lines is None and "lines" in self.model_fields_set:
+            _dict['lines'] = None
+
         return _dict
 
     @classmethod
@@ -91,7 +97,8 @@ class PageResponse(BaseModel):
             "rows": obj.get("rows"),
             "total": obj.get("total"),
             "page": obj.get("page"),
-            "page_size": obj.get("page_size")
+            "page_size": obj.get("page_size"),
+            "lines": obj.get("lines")
         })
         return _obj
 

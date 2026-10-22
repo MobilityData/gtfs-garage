@@ -1,0 +1,16 @@
+route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color,continuous_pickup,continuous_drop_off,network_id
+R10,RTA,10,Riverside,,3,,1E88E5,FFFFFF,,,NET1
+R11,RTA,10,Riverside,,3,,1E88E5,FFFFFF,,,NET1
+R20,RTA,20,20 Hilltop,,3,,43A047,FFFFFF,,,NET1
+R30,RTA,,,,3,,,,,,NET1
+R40,RTA,Lakeshore Express,," Weekday peak service",3,,,,,,NET1
+R50,RTA,50,Lakeshore,Lakeshore,3,https://example.org/rta/routes/50,,,,,NET1
+R51,RTA,51,Lakeshore West,,3,,,,,,NET1
+R60,RTA,60,Airport,,3,https://example.org/rta,,,,,NET1
+R70,RTA,70,Night Owl,,3,,FFFF00,FFFFFF,,,NET1
+R80,RTA,80,MARKET STREET,,3,,,,,,NET1
+R90,RTA,90,Old Port Shuttle,,99,,,,,,NET1
+RF1,HFC,F1,Harbour Ferry,,4,,,,,,
+RR1,RTA,RR,Regional Rail,,2,,,,,,NET1
+RFX,RTA,FX,Valley On Demand,,3,,,,0,0,NET1
+R100,,100,Valley Shuttle,,3,,,,,,

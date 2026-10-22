@@ -34,7 +34,7 @@ class WorkspaceFeed(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The directory the feed occupies, derived from its label so that loading the same feed twice reuses one slot rather than two.")
     label: StrictStr = Field(description="What the feed was loaded as - a filename, a path, or a URL.")
-    kind: Optional[StrictStr] = Field(default=None, description="How it was obtained.")
+    kind: Optional[StrictStr] = Field(default=None, description="How it was obtained. `demo` is a built-in demo feed opened to try a Quality tour on, which retention neither counts nor evicts.")
     loaded_at: Optional[datetime] = Field(default=None, description="When it was last loaded.")
     bytes: StrictInt = Field(description="What the feed occupies in the workdir, measured from disk.")
     tables: StrictInt = Field(description="How many tables it holds.")
@@ -49,8 +49,8 @@ class WorkspaceFeed(BaseModel):
         if value is None:
             return value
 
-        if value not in ('path', 'upload', 'folder', 'download'):
-            raise ValueError("must be one of enum values ('path', 'upload', 'folder', 'download')")
+        if value not in ('path', 'upload', 'folder', 'download', 'demo'):
+            raise ValueError("must be one of enum values ('path', 'upload', 'folder', 'download', 'demo')")
         return value
 
     model_config = {

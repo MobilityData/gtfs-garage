@@ -1,0 +1,16 @@
+attribution_id,organization_name,is_producer,is_operator,is_authority,attribution_url,attribution_email
+A1,Riverside Data Team,1,0,0,https://example.org/attribution/1,
+A2,Open Mapping Collective,0,0,0,https://example.org/attribution/2,
+A3,Valley Survey Office,1,0,0,https://example.org/attribution/3,
+A4,Harbour Planning Unit,1,0,0,example.org/harbour,
+A5,Lakeshore Community Board,1,0,0,https://example.org/attribution/5,lakeshore at example.org
+A6,,1,0,0,https://example.org/attribution/6,
+A7,Old Port Heritage Society,1,yes,0,https://example.org/attribution/7,
+A8,"Airport Road
+Partners",1,0,0,https://example.org/attribution/8,
+A9,Night Owl Riders � Group,1,0,0,https://example.org/attribution/9,
+A10," Central Station Operations",1,0,0,https://example.org/attribution/10,
+A99,Harbour Survey,1
+A11,Hilltop Neighbourhood Association,1,0,0,https://example.org/attribution/11,
+A12,Pointe Est Business Alliance,1,0,0,https://example.org/attribution/12,
+   

@@ -1,0 +1,14 @@
+code: missing_required_column
+
+locators:
+  file: { file: "{{filename}}" }
+
+steps:
+  - text: "`{{filename}}` has no `{{fieldName}}` column, and GTFS requires one. Apps may reject the file, or the whole feed."
+    actions:
+      - { kind: show_columns, file: "{{filename}}", missing: ["{{fieldName}}"] }
+      - { kind: open_rows, at: file }
+
+fix:
+  - "Add the `{{fieldName}}` column to `{{filename}}` and fill it in for every row."
+  - "If the column is there under a slightly different name, correct the name in the header."

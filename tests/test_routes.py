@@ -203,3 +203,23 @@ def test_loading_a_second_feed_replaces_the_first(client: TestClient, feed_zip: 
 def test_a_failed_load_leaves_the_working_feed_in_place(client: TestClient):
     assert client.post("/api/load", params={"path": "/nope/feed.zip"}).status_code == 400
     assert client.get("/api/table/stops").json()["total"] == 3
+
+
+class TestLineNumbers:
+    """`lines` and the `_line` filter, over HTTP; the numbering itself is in test_lines.py."""
+
+    def test_a_page_carries_lines_when_asked(self, client: TestClient):
+        body = client.get("/api/table/stops", params={"lines": "true"}).json()
+        assert body["lines"] == list(range(2, 2 + len(body["rows"])))
+
+    def test_a_page_carries_none_unless_asked(self, client: TestClient):
+        assert client.get("/api/table/stops").json()["lines"] is None
+
+    def test_the_line_filter_selects_one_row(self, client: TestClient):
+        filters = json.dumps([{"column": "_line", "op": "eq", "value": "3"}])
+        body = client.get("/api/table/stops", params={"filters": filters, "lines": "true"}).json()
+        assert body["total"] == 1 and body["lines"] == [3]
+
+    def test_tables_say_whether_their_lines_were_checked(self, client: TestClient):
+        tables = client.get("/api/tables").json()["tables"]
+        assert {table["lines"] for table in tables} <= {"exact", "approximate", None}

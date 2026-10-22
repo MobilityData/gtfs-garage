@@ -1,0 +1,146 @@
+{
+  "summary": {
+    "validatorVersion": "8.0.1",
+    "validatedAt": "2026-10-15T00:00:00Z",
+    "gtfsInput": "no-calendar.zip",
+    "threads": 1,
+    "outputDirectory": "",
+    "systemErrorsReportName": "system_errors.json",
+    "validationReportName": "report.json",
+    "htmlReportName": "report.html",
+    "countryCode": "CA",
+    "dateForValidation": "2026-10-15",
+    "feedInfo": {
+      "publisherName": "Riverside Transit Authority",
+      "publisherUrl": "https://example.org/rta",
+      "feedLanguage": "English",
+      "feedStartDate": "2026-01-01",
+      "feedEndDate": "",
+      "feedEmail": "data@example.org",
+      "feedServiceWindowStart": "",
+      "feedServiceWindowEnd": ""
+    },
+    "agencies": [],
+    "files": [
+      "feed_info.txt",
+      "locations.geojson",
+      "routes.txt",
+      "shapes.txt",
+      "stop_times.txt",
+      "stops.txt",
+      "trips.txt"
+    ],
+    "validationTimeSeconds": 0,
+    "counts": {
+      "Shapes": 1,
+      "Stops": 3,
+      "Routes": 1,
+      "Trips": 2,
+      "Agencies": 0,
+      "Blocks": 0
+    },
+    "gtfsFeatures": [
+      "Shapes",
+      "Feed Information",
+      "Route Colors",
+      "Headsigns"
+    ]
+  },
+  "notices": [
+    {
+      "code": "foreign_key_violation",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "childFilename": "trips.txt",
+          "childFieldName": "service_id",
+          "parentFilename": "calendar.txt or calendar_dates.txt",
+          "parentFieldName": "service_id",
+          "fieldValue": "WKDY",
+          "csvRowNumber": 2
+        },
+        {
+          "childFilename": "trips.txt",
+          "childFieldName": "service_id",
+          "parentFilename": "calendar.txt or calendar_dates.txt",
+          "parentFieldName": "service_id",
+          "fieldValue": "WKDY",
+          "csvRowNumber": 3
+        }
+      ]
+    },
+    {
+      "code": "malformed_json",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "locations.geojson",
+          "message": "java.io.EOFException: End of input at line 2 column 1 path $.features[0].type"
+        }
+      ]
+    },
+    {
+      "code": "missing_calendar_and_calendar_date_files",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {}
+      ]
+    },
+    {
+      "code": "missing_feed_info_date",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2,
+          "fieldName": "feed_end_date"
+        },
+        {
+          "csvRowNumber": 3,
+          "fieldName": "feed_start_date"
+        }
+      ]
+    },
+    {
+      "code": "missing_recommended_field",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "filename": "feed_info.txt",
+          "csvRowNumber": 2,
+          "fieldName": "feed_end_date"
+        },
+        {
+          "filename": "feed_info.txt",
+          "csvRowNumber": 3,
+          "fieldName": "feed_start_date"
+        }
+      ]
+    },
+    {
+      "code": "missing_required_file",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "agency.txt"
+        }
+      ]
+    },
+    {
+      "code": "more_than_one_entity",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "feed_info.txt",
+          "entityCount": 2
+        }
+      ]
+    }
+  ]
+}

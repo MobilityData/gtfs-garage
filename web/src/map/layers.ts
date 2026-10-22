@@ -99,7 +99,18 @@ export function routeLineColor(raw: unknown): string | null {
   return luminance > 0.85 ? null : `#${hex}`;
 }
 
-export const SOURCE_IDS = ["locations", "routes", "shapes", "stops", "highlight"] as const;
+/**
+ * What the Quality assistant draws: a measured distance, a point the validator
+ * matched, a line between two stops. Things the feed does not contain, so they
+ * have a source of their own and never mix with the feed's geometry.
+ */
+export const ANNOTATION_COLOR = "#d9480f";
+/** An annotation that broke the rule it illustrates - a distance over its limit. */
+export const ANNOTATION_OVER_COLOR = "#c92a2a";
+/** A figure drawn for comparison - the legs of a trip that kept within its limit. */
+export const ANNOTATION_LEG_COLOR = "#495057";
+
+export const SOURCE_IDS = ["locations", "routes", "shapes", "stops", "highlight", "annotation"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 type StyleSpec = Record<string, unknown> & {
@@ -202,6 +213,39 @@ function feedLayers(): Record<string, unknown>[] {
       source: "highlight",
       filter: ["==", ["geometry-type"], "Point"],
       paint: { "circle-radius": 6, "circle-color": HIGHLIGHT_COLOR, "circle-opacity": 1 },
+    },
+    // On top of everything: an annotation is the thing a step is pointing at.
+    // A zone is filled lightly, so it reads as an area, and outlined below.
+    {
+      id: "annotation-fill",
+      type: "fill",
+      source: "annotation",
+      filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
+      paint: { "fill-color": ["match", ["get", "tone"], "over", ANNOTATION_OVER_COLOR, ANNOTATION_COLOR], "fill-opacity": 0.18 },
+    },
+    {
+      id: "annotation-line",
+      type: "line",
+      source: "annotation",
+      filter: ["!=", ["geometry-type"], "Point"],
+      layout: { "line-cap": "round" },
+      paint: {
+        "line-color": ["match", ["get", "tone"], "over", ANNOTATION_OVER_COLOR, "leg", ANNOTATION_LEG_COLOR, ANNOTATION_COLOR],
+        "line-width": 3,
+        "line-dasharray": [2, 1.5],
+      },
+    },
+    {
+      id: "annotation-point",
+      type: "circle",
+      source: "annotation",
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-radius": 6,
+        "circle-color": ["match", ["get", "tone"], "over", ANNOTATION_OVER_COLOR, ANNOTATION_COLOR],
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2,
+      },
     },
   ];
 }

@@ -97,6 +97,8 @@ Both `mount` and `<GtfsGarage>` take the same options.
 | `basemap` | the server's setting | A preset (`openfreemap`, `esri`, `osm`, `carto`, `none`), a raster tile template, or a vector style URL. |
 | `parts` | `{load: false, options: false}` | Which extra pieces to build. The feed-picker dialog and the options menu belong to the standalone application; an embedded viewer gets neither. |
 | `history` | `memoryHistory()` | Where Back goes. The default is a stack the viewer keeps to itself, so **your address bar is left alone**. Pass `browserHistory()` to make a view a shareable link, which only makes sense if the viewer owns the page. |
+| `report` | none | A gtfs-validator report for the dataset, as parsed JSON or text. The Quality screen opens with it instead of asking the reader for the file. See [QUALITY.md](QUALITY.md). |
+| `qualityActions` | none | Handlers for `custom` actions in Quality guides, by name. The only way a guide runs code, and only code you supplied. |
 
 `parts.options` builds the header's **Options** menu. It always holds the load
 report. It additionally holds the server's workdir — what is on disk, and the

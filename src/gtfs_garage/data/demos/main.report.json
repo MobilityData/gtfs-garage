@@ -1,0 +1,2386 @@
+{
+  "summary": {
+    "validatorVersion": "8.0.1",
+    "validatedAt": "2026-10-15T00:00:00Z",
+    "gtfsInput": "main.zip",
+    "threads": 1,
+    "outputDirectory": "",
+    "systemErrorsReportName": "system_errors.json",
+    "validationReportName": "report.json",
+    "htmlReportName": "report.html",
+    "countryCode": "CA",
+    "dateForValidation": "2026-10-15",
+    "feedInfo": {
+      "publisherName": "Riverside Transit Authority",
+      "publisherUrl": "https://example.org/rta",
+      "feedLanguage": "English",
+      "feedStartDate": "2025-01-01",
+      "feedEndDate": "2026-10-20",
+      "feedEmail": "",
+      "feedServiceWindowStart": "2026-01-01",
+      "feedServiceWindowEnd": "2029-12-30"
+    },
+    "agencies": [
+      {
+        "name": "Riverside Transit Authority",
+        "url": "https://example.org/rta",
+        "phone": "",
+        "email": "info@example.org",
+        "timezone": "America/Montreal"
+      },
+      {
+        "name": "Harbour Ferry Company",
+        "url": "https://example.org/harbour",
+        "phone": "",
+        "email": "ferry@example.org",
+        "timezone": "America/Toronto"
+      },
+      {
+        "name": "Valley Coach Lines",
+        "url": "https://example.org/valley",
+        "phone": "",
+        "email": "",
+        "timezone": "America/Montreal"
+      }
+    ],
+    "files": [
+      "agency.txt",
+      "attributions.txt",
+      "booking_rules.txt",
+      "calendar.txt",
+      "calendar_dates.txt",
+      "fare_attributes.txt",
+      "fare_leg_rules.txt",
+      "fare_media.txt",
+      "fare_products.txt",
+      "fare_rules.txt",
+      "fare_transfer_rules.txt",
+      "feed_info.txt",
+      "frequencies.txt",
+      "levels.txt",
+      "location_group_stops.txt",
+      "location_groups.txt",
+      "locations.geojson",
+      "networks.txt",
+      "notes.txt",
+      "pathways.txt",
+      "rider_categories.txt",
+      "route_networks.txt",
+      "routes.txt",
+      "shapes.txt",
+      "stop_times.txt",
+      "stops.txt",
+      "timeframes.txt",
+      "transfers.txt",
+      "trips.txt"
+    ],
+    "validationTimeSeconds": 0,
+    "counts": {
+      "Shapes": 7,
+      "Stops": 57,
+      "Routes": 15,
+      "Trips": 31,
+      "Agencies": 2,
+      "Blocks": 1
+    },
+    "gtfsFeatures": [
+      "Pathway Connections",
+      "Levels",
+      "Transfers",
+      "Shapes",
+      "Frequencies",
+      "Feed Information",
+      "Fares V1",
+      "Fare Products",
+      "Fare Transfers",
+      "Booking Rules",
+      "Route Colors",
+      "Headsigns",
+      "Location Types",
+      "Stop Access",
+      "In-station Traversal Time",
+      "Route-Based Fares",
+      "Continuous Stops",
+      "Zone-Based Demand Responsive Services",
+      "Fare Media",
+      "Rider Categories",
+      "Time-Based Fares",
+      "Fixed-Stops Demand Responsive Transit"
+    ]
+  },
+  "notices": [
+    {
+      "code": "attribution_without_role",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "attributionId": "A2"
+        }
+      ]
+    },
+    {
+      "code": "bidirectional_exit_gate",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 7,
+          "pathwayMode": 7,
+          "isBidirectional": 1
+        }
+      ]
+    },
+    {
+      "code": "big_gap_in_service",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "serviceId": "GAP",
+          "gapStartDate": "2026-01-05",
+          "gapEndDate": "2026-03-01",
+          "gapDurationDays": 54
+        }
+      ]
+    },
+    {
+      "code": "block_trips_with_overlapping_stop_times",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumberA": 2,
+          "tripIdA": "T10-1",
+          "serviceIdA": "WKDY",
+          "csvRowNumberB": 3,
+          "tripIdB": "T10-2",
+          "serviceIdB": "WKDY",
+          "blockId": "B1",
+          "intersection": "20260101"
+        },
+        {
+          "csvRowNumberA": 3,
+          "tripIdA": "T10-2",
+          "serviceIdA": "WKDY",
+          "csvRowNumberB": 8,
+          "tripIdB": "TRR-1",
+          "serviceIdB": "WKDY",
+          "blockId": "B1",
+          "intersection": "20260101"
+        }
+      ]
+    },
+    {
+      "code": "decreasing_or_equal_stop_time_distance",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripId": "T50-3",
+          "stopId": "S503",
+          "csvRowNumber": 67,
+          "shapeDistTraveled": 780.0,
+          "stopSequence": 3,
+          "prevCsvRowNumber": 66,
+          "prevShapeDistTraveled": 780.0,
+          "prevStopSequence": 2
+        }
+      ]
+    },
+    {
+      "code": "decreasing_shape_distance",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "shapeId": "SH60",
+          "csvRowNumber": 24,
+          "shapeDistTraveled": 390.0,
+          "shapePtSequence": 2,
+          "prevCsvRowNumber": 25,
+          "prevShapeDistTraveled": 300.0,
+          "prevShapePtSequence": 3
+        }
+      ]
+    },
+    {
+      "code": "duplicate_fare_media",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber1": 2,
+          "fareMediaId1": "FM1",
+          "csvRowNumber2": 3,
+          "fareMediaId2": "FM2"
+        }
+      ]
+    },
+    {
+      "code": "duplicate_geo_json_key",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "featureId": "LOC3",
+          "firstIndex": 2,
+          "secondIndex": 3
+        }
+      ]
+    },
+    {
+      "code": "duplicate_geography_id",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "geographyId": "LOC2",
+          "csvRowNumberB": 3,
+          "featureIndex": 1
+        }
+      ]
+    },
+    {
+      "code": "duplicate_key",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "calendar_dates.txt",
+          "oldCsvRowNumber": 5,
+          "newCsvRowNumber": 6,
+          "fieldName1": "service_id,date",
+          "fieldValue1": "WKDY,20260701"
+        }
+      ]
+    },
+    {
+      "code": "duplicate_route_name",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber1": 2,
+          "routeId1": "R10",
+          "csvRowNumber2": 3,
+          "routeId2": "R11",
+          "routeShortName": "10",
+          "routeLongName": "Riverside",
+          "routeTypeValue": 3,
+          "agencyId": "RTA"
+        }
+      ]
+    },
+    {
+      "code": "empty_row",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 16
+        }
+      ]
+    },
+    {
+      "code": "equal_shape_distance_diff_coordinates",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "shapeId": "SH60",
+          "csvRowNumber": 28,
+          "shapeDistTraveled": 1170.0,
+          "shapePtSequence": 6,
+          "prevCsvRowNumber": 27,
+          "prevShapeDistTraveled": 1170.0,
+          "prevShapePtSequence": 5,
+          "actualDistanceBetweenShapePoints": 389.89596228817294
+        }
+      ]
+    },
+    {
+      "code": "equal_shape_distance_diff_coordinates_distance_below_threshold",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "shapeId": "SH60",
+          "csvRowNumber": 29,
+          "shapeDistTraveled": 1170.0,
+          "shapePtSequence": 7,
+          "prevCsvRowNumber": 28,
+          "prevShapeDistTraveled": 1170.0,
+          "prevShapePtSequence": 6,
+          "actualDistanceBetweenShapePoints": 0.5003779551552012
+        }
+      ]
+    },
+    {
+      "code": "equal_shape_distance_same_coordinates",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "shapeId": "SH60",
+          "csvRowNumber": 27,
+          "shapeDistTraveled": 1170.0,
+          "shapePtSequence": 5,
+          "prevCsvRowNumber": 26,
+          "prevShapeDistTraveled": 1170.0,
+          "prevShapePtSequence": 4
+        }
+      ]
+    },
+    {
+      "code": "expired_calendar",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4,
+          "serviceId": "SUMMER"
+        },
+        {
+          "csvRowNumber": 6,
+          "serviceId": "GAP"
+        }
+      ]
+    },
+    {
+      "code": "fare_product_with_multiple_default_rider_categories",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "fareProductId": "FP1",
+          "csvRowNumber1": 2,
+          "csvRowNumber2": 3,
+          "riderCategoryId1": "ADULT",
+          "riderCategoryId2": "SENIOR"
+        }
+      ]
+    },
+    {
+      "code": "fare_transfer_rule_duration_limit_type_without_duration_limit",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 5
+        }
+      ]
+    },
+    {
+      "code": "fare_transfer_rule_duration_limit_without_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 6
+        }
+      ]
+    },
+    {
+      "code": "fare_transfer_rule_invalid_transfer_count",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4,
+          "transferCount": 0
+        }
+      ]
+    },
+    {
+      "code": "fare_transfer_rule_with_forbidden_transfer_count",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3
+        }
+      ]
+    },
+    {
+      "code": "fare_transfer_rule_without_transfer_count",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2
+        }
+      ]
+    },
+    {
+      "code": "fast_travel_between_consecutive_stops",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 10,
+          "tripId": "T20-1",
+          "routeId": "R20",
+          "speedKph": 359.9440867010398,
+          "distanceKm": 11.998136223367993,
+          "csvRowNumber1": 50,
+          "stopSequence1": 1,
+          "stopId1": "S201",
+          "stopName1": "Hilltop",
+          "departureTime1": "06:00:00",
+          "csvRowNumber2": 51,
+          "stopSequence2": 2,
+          "stopId2": "S202",
+          "stopName2": "Pointe Est",
+          "arrivalTime2": "06:01:00"
+        }
+      ]
+    },
+    {
+      "code": "fast_travel_between_far_stops",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 10,
+          "tripId": "T20-1",
+          "routeId": "R20",
+          "speedKph": 359.9440867010398,
+          "distanceKm": 11.998136223367993,
+          "csvRowNumber1": 50,
+          "stopSequence1": 1,
+          "stopId1": "S201",
+          "stopName1": "Hilltop",
+          "departureTime1": "06:00:00",
+          "csvRowNumber2": 51,
+          "stopSequence2": 2,
+          "stopId2": "S202",
+          "stopName2": "Pointe Est",
+          "arrivalTime2": "06:01:00"
+        }
+      ]
+    },
+    {
+      "code": "feed_expiration_date7_days",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2,
+          "currentDate": "20261015",
+          "feedEndDate": "20261020",
+          "suggestedExpirationDate": "20261022"
+        }
+      ]
+    },
+    {
+      "code": "feed_info_lang_and_agency_lang_mismatch",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "agencyId": "HFC",
+          "agencyName": "Harbour Ferry Company",
+          "agencyLang": "fr",
+          "feedLang": "en"
+        }
+      ]
+    },
+    {
+      "code": "feed_valid_beyond_total_service_window",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "feedStartDate": "2025-01-01",
+          "feedEndDate": "2026-10-20",
+          "serviceWindowStartDate": "2026-01-01",
+          "serviceWindowEndDate": "2029-12-30"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_arrival_or_departure_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 101,
+          "arrivalTime": "08:00:00",
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "10:00:00"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_continuous_pickup_drop_off",
+      "severity": "ERROR",
+      "totalNotices": 11,
+      "sampleNotices": [
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-1",
+          "stopTimeCsvRowNumber": 99,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-1",
+          "stopTimeCsvRowNumber": 100,
+          "startPickupDropOffWindow": "10:00:00",
+          "endPickupDropOffWindow": "14:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-2",
+          "stopTimeCsvRowNumber": 101,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "10:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-2",
+          "stopTimeCsvRowNumber": 102,
+          "startPickupDropOffWindow": "09:00:00",
+          "endPickupDropOffWindow": "00:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-3",
+          "stopTimeCsvRowNumber": 103,
+          "startPickupDropOffWindow": "12:00:00",
+          "endPickupDropOffWindow": "08:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-3",
+          "stopTimeCsvRowNumber": 104,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-4",
+          "stopTimeCsvRowNumber": 105,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-4",
+          "stopTimeCsvRowNumber": 106,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-5",
+          "stopTimeCsvRowNumber": 107,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-6",
+          "stopTimeCsvRowNumber": 108,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        },
+        {
+          "routeCsvRowNumber": 15,
+          "tripId": "TFX-6",
+          "stopTimeCsvRowNumber": 109,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_drop_off_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 104,
+          "startPickupDropOffWindow": "08:00:00",
+          "endPickupDropOffWindow": "12:00:00"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_geography_id",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 105,
+          "stopId": "S101",
+          "locationId": "LOC1"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_pickup_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 103,
+          "startPickupDropOffWindow": "12:00:00",
+          "endPickupDropOffWindow": "08:00:00"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_prior_day_booking_field_value",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 7,
+          "bookingRuleId": "BR5",
+          "fieldNames": "prior_notice_duration_min"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_prior_notice_start_day",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 5,
+          "bookingRuleId": "BR3",
+          "priorNoticeStartDay": 2,
+          "priorNoticeDurationMax": 120
+        }
+      ]
+    },
+    {
+      "code": "forbidden_prior_notice_start_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 9,
+          "bookingRuleId": "BR7",
+          "priorNoticeStartTime": "08:00:00"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_real_time_booking_field_value",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2,
+          "bookingRuleId": "BR0",
+          "fieldNames": "prior_notice_duration_min"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_same_day_booking_field_value",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "bookingRuleId": "BR1",
+          "fieldNames": "prior_notice_last_day"
+        }
+      ]
+    },
+    {
+      "code": "forbidden_shape_dist_traveled",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 106,
+          "tripId": "TFX-4",
+          "locationGroupId": "",
+          "locationId": "LOC1",
+          "shapeDistTraveled": 100.0
+        }
+      ]
+    },
+    {
+      "code": "foreign_key_violation",
+      "severity": "ERROR",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "childFilename": "stop_times.txt",
+          "childFieldName": "stop_id",
+          "parentFilename": "stops.txt",
+          "parentFieldName": "stop_id",
+          "fieldValue": "S999",
+          "csvRowNumber": 40
+        },
+        {
+          "childFilename": "trips.txt",
+          "childFieldName": "service_id",
+          "parentFilename": "calendar.txt or calendar_dates.txt",
+          "parentFieldName": "service_id",
+          "fieldValue": "HOLIDAY",
+          "csvRowNumber": 6
+        },
+        {
+          "childFilename": "timeframes.txt",
+          "childFieldName": "service_id",
+          "parentFilename": "calendar.txt or calendar_dates.txt",
+          "parentFieldName": "service_id",
+          "fieldValue": "HOLIDAY",
+          "csvRowNumber": 6
+        }
+      ]
+    },
+    {
+      "code": "geo_json_unknown_element",
+      "severity": "INFO",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "filename": "locations.geojson",
+          "unknownElement": "name"
+        },
+        {
+          "filename": "locations.geojson",
+          "unknownElement": "style"
+        }
+      ]
+    },
+    {
+      "code": "inconsistent_agency_lang",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "expected": "en",
+          "actual": "fr"
+        }
+      ]
+    },
+    {
+      "code": "inconsistent_agency_timezone",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "expected": "America/Montreal",
+          "actual": "America/Toronto"
+        }
+      ]
+    },
+    {
+      "code": "inconsistent_route_type_for_block_id",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "blockId": "B1",
+          "routeIds": "R10, RR1",
+          "routeTypes": "BUS, RAIL"
+        }
+      ]
+    },
+    {
+      "code": "inconsistent_route_type_for_in_seat_transfer",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 7,
+          "fromRouteId": "R10",
+          "toRouteId": "RR1",
+          "fromRouteType": "BUS",
+          "toRouteType": "RAIL"
+        }
+      ]
+    },
+    {
+      "code": "invalid_character",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 11,
+          "fieldName": "organization_name",
+          "fieldValue": "Night Owl Riders � Group"
+        }
+      ]
+    },
+    {
+      "code": "invalid_email",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 6,
+          "fieldName": "attribution_email",
+          "fieldValue": "lakeshore at example.org"
+        }
+      ]
+    },
+    {
+      "code": "invalid_integer",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 8,
+          "fieldName": "is_operator",
+          "fieldValue": "yes"
+        }
+      ]
+    },
+    {
+      "code": "invalid_pickup_drop_off_window",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 103,
+          "startPickupDropOffWindow": "12:00:00",
+          "endPickupDropOffWindow": "08:00:00"
+        }
+      ]
+    },
+    {
+      "code": "invalid_prior_notice_duration_min",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4,
+          "bookingRuleId": "BR2",
+          "priorNoticeDurationMin": 60,
+          "priorNoticeDurationMax": 30
+        }
+      ]
+    },
+    {
+      "code": "invalid_row_length",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 13,
+          "rowLength": 3,
+          "headerCount": 7
+        }
+      ]
+    },
+    {
+      "code": "invalid_url",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 5,
+          "fieldName": "attribution_url",
+          "fieldValue": "example.org/harbour"
+        }
+      ]
+    },
+    {
+      "code": "leading_or_trailing_whitespaces",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 12,
+          "fieldName": "organization_name",
+          "fieldValue": " Central Station Operations"
+        },
+        {
+          "filename": "routes.txt",
+          "csvRowNumber": 6,
+          "fieldName": "route_desc",
+          "fieldValue": " Weekday peak service"
+        }
+      ]
+    },
+    {
+      "code": "location_with_unexpected_stop_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 36,
+          "stopId": "ST1",
+          "stopName": "Central Station",
+          "stopTimeCsvRowNumber": 73
+        }
+      ]
+    },
+    {
+      "code": "location_without_parent_station",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 48,
+          "stopId": "E2",
+          "stopName": "Lonely Entrance",
+          "locationType": 2
+        }
+      ]
+    },
+    {
+      "code": "missing_bike_allowance",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 19,
+          "routeId": "RF1",
+          "tripId": "TF1-1"
+        }
+      ]
+    },
+    {
+      "code": "missing_feed_contact_email_and_url",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2
+        }
+      ]
+    },
+    {
+      "code": "missing_level_id",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 42,
+          "stopId": "N1",
+          "stopName": "Central Station Concourse"
+        }
+      ]
+    },
+    {
+      "code": "missing_pickup_drop_off_booking_rule_id",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 101,
+          "pickupType": "MUST_PHONE",
+          "dropOffType": "NOT_AVAILABLE"
+        }
+      ]
+    },
+    {
+      "code": "missing_pickup_or_drop_off_window",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 102,
+          "startPickupDropOffWindow": "09:00:00"
+        }
+      ]
+    },
+    {
+      "code": "missing_prior_notice_duration_min",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "bookingRuleId": "BR1"
+        }
+      ]
+    },
+    {
+      "code": "missing_prior_notice_last_day",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 6,
+          "bookingRuleId": "BR4"
+        }
+      ]
+    },
+    {
+      "code": "missing_prior_notice_last_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 6,
+          "bookingRuleId": "BR4"
+        }
+      ]
+    },
+    {
+      "code": "missing_prior_notice_start_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 8,
+          "bookingRuleId": "BR6",
+          "priorNoticeStartDay": 3
+        }
+      ]
+    },
+    {
+      "code": "missing_recommended_field",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "fare_media.txt",
+          "csvRowNumber": 4,
+          "fieldName": "fare_media_name"
+        }
+      ]
+    },
+    {
+      "code": "missing_required_agency_id",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "filename": "agency.txt",
+          "csvRowNumber": 4,
+          "agencyName": "Valley Coach Lines"
+        },
+        {
+          "filename": "routes.txt",
+          "csvRowNumber": 16
+        }
+      ]
+    },
+    {
+      "code": "missing_required_field",
+      "severity": "ERROR",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "filename": "stop_times.txt",
+          "csvRowNumber": 108,
+          "fieldName": "stop_id"
+        },
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 7,
+          "fieldName": "organization_name"
+        },
+        {
+          "filename": "transfers.txt",
+          "csvRowNumber": 8,
+          "fieldName": "from_trip_id"
+        }
+      ]
+    },
+    {
+      "code": "missing_stop_name",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 51,
+          "locationType": "STOP",
+          "stopId": "S901"
+        }
+      ]
+    },
+    {
+      "code": "missing_stop_times_record",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 107,
+          "tripId": "TFX-5",
+          "locationGroupId": "GRP1",
+          "locationId": ""
+        }
+      ]
+    },
+    {
+      "code": "missing_timepoint_value",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 93,
+          "tripId": "T90-4",
+          "stopSequence": 2
+        }
+      ]
+    },
+    {
+      "code": "missing_trip_edge",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 91,
+          "stopSequence": 3,
+          "tripId": "T90-3",
+          "specifiedField": "arrival_time"
+        },
+        {
+          "csvRowNumber": 91,
+          "stopSequence": 3,
+          "tripId": "T90-3",
+          "specifiedField": "departure_time"
+        }
+      ]
+    },
+    {
+      "code": "mixed_case_recommended_field",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "routes.txt",
+          "fieldName": "route_long_name",
+          "fieldValue": "MARKET STREET",
+          "csvRowNumber": 11
+        }
+      ]
+    },
+    {
+      "code": "new_line_in_value",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "attributions.txt",
+          "csvRowNumber": 10,
+          "fieldName": "organization_name",
+          "fieldValue": "Airport Road\nPartners"
+        }
+      ]
+    },
+    {
+      "code": "non_ascii_or_non_printable_char",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "stops.txt",
+          "csvRowNumber": 56,
+          "columnName": "stop_id",
+          "fieldValue": "SÉ1"
+        }
+      ]
+    },
+    {
+      "code": "overlapping_frequency",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "prevCsvRowNumber": 2,
+          "prevEndTime": "09:00:00",
+          "currCsvRowNumber": 3,
+          "currStartTime": "08:30:00",
+          "tripId": "T10-F"
+        }
+      ]
+    },
+    {
+      "code": "overlapping_zone_and_pickup_drop_off_window",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripId": "TFX-1",
+          "stopSequence1": 1,
+          "locationId1": "LOC1",
+          "startPickupDropOffWindow1": "08:00:00",
+          "endPickupDropOffWindow1": "12:00:00",
+          "stopSequence2": 2,
+          "locationId2": "LOC2",
+          "startPickupDropOffWindow2": "10:00:00",
+          "endPickupDropOffWindow2": "14:00:00"
+        }
+      ]
+    },
+    {
+      "code": "pathway_dangling_generic_node",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 43,
+          "stopId": "N2",
+          "stopName": "Central Station Stairs",
+          "parentStation": "ST1"
+        },
+        {
+          "csvRowNumber": 44,
+          "stopId": "N3",
+          "stopName": "Central Station Service Corridor",
+          "parentStation": "ST1"
+        }
+      ]
+    },
+    {
+      "code": "pathway_loop",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 5,
+          "pathwayId": "PW4",
+          "stopId": "N2"
+        }
+      ]
+    },
+    {
+      "code": "pathway_to_platform_with_boarding_areas",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "pathwayId": "PW2",
+          "fieldName": "to_stop_id",
+          "stopId": "P1"
+        }
+      ]
+    },
+    {
+      "code": "pathway_to_stop_with_access_outside_of_station_pathways",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 8,
+          "platformCode": "B",
+          "pathwayId": "PW7",
+          "stopId": "P2"
+        }
+      ]
+    },
+    {
+      "code": "pathway_to_wrong_location_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4,
+          "pathwayId": "PW3",
+          "fieldName": "to_stop_id",
+          "stopId": "ST1"
+        }
+      ]
+    },
+    {
+      "code": "pathway_unreachable_location",
+      "severity": "ERROR",
+      "totalNotices": 4,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 40,
+          "stopId": "P3",
+          "stopName": "Central Station Platform C",
+          "locationType": 0,
+          "parentStation": "ST1",
+          "hasEntrance": false,
+          "hasExit": false
+        },
+        {
+          "csvRowNumber": 43,
+          "stopId": "N2",
+          "stopName": "Central Station Stairs",
+          "locationType": 3,
+          "parentStation": "ST1",
+          "hasEntrance": false,
+          "hasExit": false
+        },
+        {
+          "csvRowNumber": 44,
+          "stopId": "N3",
+          "stopName": "Central Station Service Corridor",
+          "locationType": 3,
+          "parentStation": "ST1",
+          "hasEntrance": true,
+          "hasExit": false
+        },
+        {
+          "csvRowNumber": 45,
+          "stopId": "P4",
+          "stopName": "Central Station Platform A East",
+          "locationType": 0,
+          "parentStation": "P1",
+          "hasEntrance": false,
+          "hasExit": false
+        }
+      ]
+    },
+    {
+      "code": "platform_without_parent_station",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 49,
+          "stopId": "PL5",
+          "stopName": "Bay Platform"
+        }
+      ]
+    },
+    {
+      "code": "point_near_origin",
+      "severity": "ERROR",
+      "totalNotices": 5,
+      "sampleNotices": [
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 6,
+          "entityId": "LOC6",
+          "latFieldValue": 0.1,
+          "lonFieldValue": 0.1
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 6,
+          "entityId": "LOC6",
+          "latFieldValue": 0.1,
+          "lonFieldValue": 0.11
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 6,
+          "entityId": "LOC6",
+          "latFieldValue": 0.11,
+          "lonFieldValue": 0.11
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 6,
+          "entityId": "LOC6",
+          "latFieldValue": 0.11,
+          "lonFieldValue": 0.1
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 6,
+          "entityId": "LOC6",
+          "latFieldValue": 0.1,
+          "lonFieldValue": 0.1
+        }
+      ]
+    },
+    {
+      "code": "point_near_pole",
+      "severity": "ERROR",
+      "totalNotices": 5,
+      "sampleNotices": [
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 7,
+          "entityId": "LOC7",
+          "latFieldValue": 89.5,
+          "lonFieldValue": -73.6
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 7,
+          "entityId": "LOC7",
+          "latFieldValue": 89.5,
+          "lonFieldValue": -73.58999999999999
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 7,
+          "entityId": "LOC7",
+          "latFieldValue": 89.51,
+          "lonFieldValue": -73.58999999999999
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 7,
+          "entityId": "LOC7",
+          "latFieldValue": 89.51,
+          "lonFieldValue": -73.6
+        },
+        {
+          "filename": "locations.geojson",
+          "featureIndex": 7,
+          "entityId": "LOC7",
+          "latFieldValue": 89.5,
+          "lonFieldValue": -73.6
+        }
+      ]
+    },
+    {
+      "code": "prior_notice_last_day_after_start_day",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 10,
+          "priorNoticeLastDay": 5,
+          "priorNoticeStartDay": 2
+        }
+      ]
+    },
+    {
+      "code": "route_both_short_and_long_name_missing",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "routeId": "R30",
+          "csvRowNumber": 5
+        }
+      ]
+    },
+    {
+      "code": "route_color_contrast",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "routeId": "R70",
+          "csvRowNumber": 10,
+          "routeColor": "#FFFF00",
+          "routeTextColor": "#FFFFFF"
+        }
+      ]
+    },
+    {
+      "code": "route_long_name_contains_short_name",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "routeId": "R20",
+          "csvRowNumber": 4,
+          "routeShortName": "20",
+          "routeLongName": "20 Hilltop"
+        }
+      ]
+    },
+    {
+      "code": "route_networks_specified_in_more_than_one_file",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "fieldName": "network_id",
+          "fileNameA": "routes.txt",
+          "fileNameB": "route_networks.txt"
+        },
+        {
+          "fieldName": "network_id",
+          "fileNameA": "routes.txt",
+          "fileNameB": "networks.txt"
+        }
+      ]
+    },
+    {
+      "code": "route_short_name_too_long",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "routeId": "R40",
+          "csvRowNumber": 6,
+          "routeShortName": "Lakeshore Express"
+        }
+      ]
+    },
+    {
+      "code": "same_name_and_description_for_route",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 7,
+          "routeId": "R50",
+          "routeDesc": "Lakeshore",
+          "specifiedField": "route_long_name"
+        }
+      ]
+    },
+    {
+      "code": "same_name_and_description_for_stop",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 52,
+          "stopId": "S902",
+          "stopDesc": "Market"
+        }
+      ]
+    },
+    {
+      "code": "same_route_and_agency_url",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "routeCsvRowNumber": 9,
+          "routeId": "R60",
+          "agencyName": "Riverside Transit Authority",
+          "routeUrl": "https://example.org/rta",
+          "agencyCsvRowNumber": 2
+        }
+      ]
+    },
+    {
+      "code": "same_stop_and_agency_url",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "stopCsvRowNumber": 53,
+          "stopId": "S903",
+          "agencyName": "Riverside Transit Authority",
+          "stopUrl": "https://example.org/rta",
+          "agencyCsvRowNumber": 2
+        }
+      ]
+    },
+    {
+      "code": "same_stop_and_route_url",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "stopCsvRowNumber": 53,
+          "stopId": "S903",
+          "stopUrl": "https://example.org/rta",
+          "routeId": "R60",
+          "routeCsvRowNumber": 9
+        },
+        {
+          "stopCsvRowNumber": 54,
+          "stopId": "S904",
+          "stopUrl": "https://example.org/rta/routes/50",
+          "routeId": "R50",
+          "routeCsvRowNumber": 7
+        }
+      ]
+    },
+    {
+      "code": "service_extends_far_in_the_future",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "serviceId": "LONG",
+          "serviceWindowEndDate": "2029-12-30"
+        }
+      ]
+    },
+    {
+      "code": "service_has_no_active_day_of_the_week",
+      "severity": "WARNING",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 5,
+          "serviceId": "NODAYS"
+        },
+        {
+          "csvRowNumber": 6,
+          "serviceId": "GAP"
+        }
+      ]
+    },
+    {
+      "code": "service_window_outside_feed_period",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "serviceId": "LONG",
+          "serviceWindowStartDate": "2026-01-04",
+          "serviceWindowEndDate": "2029-12-30",
+          "daysBeforeFeedStart": 0,
+          "daysAfterFeedEnd": 1167
+        }
+      ]
+    },
+    {
+      "code": "single_shape_point",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "shapeId": "SH70",
+          "csvRowNumber": 31
+        }
+      ]
+    },
+    {
+      "code": "start_and_end_range_equal",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "frequencies.txt",
+          "csvRowNumber": 4,
+          "startFieldName": "start_time",
+          "endFieldName": "end_time",
+          "value": "11:00:00"
+        }
+      ]
+    },
+    {
+      "code": "start_and_end_range_out_of_order",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "frequencies.txt",
+          "csvRowNumber": 5,
+          "startFieldName": "start_time",
+          "startValue": "13:00:00",
+          "endFieldName": "end_time",
+          "endValue": "12:00:00"
+        }
+      ]
+    },
+    {
+      "code": "station_with_parent_station",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 47,
+          "stopId": "ST3",
+          "stopName": "Central Annex",
+          "parentStation": "ST1"
+        }
+      ]
+    },
+    {
+      "code": "stop_access_specified_for_incorrect_location",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 46,
+          "stopId": "ST2",
+          "stopName": "Westmount Station",
+          "stopAccess": "ACCESSIBLE_VIA_PATHWAYS",
+          "locationType": "STATION"
+        }
+      ]
+    },
+    {
+      "code": "stop_access_specified_for_stop_with_no_parent_station",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 55,
+          "stopId": "S906",
+          "stopName": "Street Stop",
+          "stopAccess": "NOT_ACCESSIBLE_VIA_PATHWAYS",
+          "locationType": "STOP"
+        }
+      ]
+    },
+    {
+      "code": "stop_has_too_many_matches_for_shape",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 17,
+          "shapeId": "SH80",
+          "tripId": "T80-1",
+          "stopTimeCsvRowNumber": 77,
+          "stopId": "S801",
+          "stopName": "Market Square",
+          "match": [
+            45.44999988609023,
+            -73.59997500225151
+          ],
+          "matchCount": 52
+        }
+      ]
+    },
+    {
+      "code": "stop_time_timepoint_without_times",
+      "severity": "ERROR",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 91,
+          "tripId": "T90-3",
+          "stopSequence": 3,
+          "specifiedField": "arrival_time"
+        },
+        {
+          "csvRowNumber": 91,
+          "tripId": "T90-3",
+          "stopSequence": 3,
+          "specifiedField": "departure_time"
+        },
+        {
+          "csvRowNumber": 101,
+          "tripId": "TFX-2",
+          "stopSequence": 1,
+          "specifiedField": "departure_time"
+        }
+      ]
+    },
+    {
+      "code": "stop_time_with_arrival_before_previous_departure_time",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 85,
+          "prevCsvRowNumber": 84,
+          "tripId": "T90-1",
+          "arrivalTime": "09:01:00",
+          "departureTime": "09:03:00"
+        }
+      ]
+    },
+    {
+      "code": "stop_time_with_only_arrival_or_departure_time",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 101,
+          "tripId": "TFX-2",
+          "stopSequence": 1,
+          "specifiedField": "arrival_time"
+        },
+        {
+          "csvRowNumber": 87,
+          "tripId": "T90-2",
+          "stopSequence": 2,
+          "specifiedField": "arrival_time"
+        }
+      ]
+    },
+    {
+      "code": "stop_too_far_from_shape",
+      "severity": "WARNING",
+      "totalNotices": 5,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 16,
+          "shapeId": "SH70",
+          "tripId": "T70-1",
+          "stopTimeCsvRowNumber": 76,
+          "stopId": "S702",
+          "stopName": "Night Owl South",
+          "match": [
+            45.46,
+            -73.60000000000001
+          ],
+          "geoDistanceToShape": 555.9755058884797
+        },
+        {
+          "tripCsvRowNumber": 15,
+          "shapeId": "SH60",
+          "tripId": "T60-1",
+          "stopTimeCsvRowNumber": 73,
+          "stopId": "ST1",
+          "stopName": "Central Station",
+          "match": [
+            45.470000000000006,
+            -73.57600000000001
+          ],
+          "geoDistanceToShape": 3258.4065587709783
+        },
+        {
+          "tripCsvRowNumber": 2,
+          "shapeId": "SH10",
+          "tripId": "T10-1",
+          "stopTimeCsvRowNumber": 5,
+          "stopId": "S104",
+          "stopName": "Peel",
+          "match": [
+            45.500000000003475,
+            -73.57000015953457
+          ],
+          "geoDistanceToShape": 399.5239983373621
+        },
+        {
+          "tripCsvRowNumber": 7,
+          "shapeId": "SH10",
+          "tripId": "T10-F",
+          "stopTimeCsvRowNumber": 40,
+          "stopId": "S999",
+          "stopName": "",
+          "match": [
+            45.5,
+            -73.54
+          ],
+          "geoDistanceToShape": 8733809.34430613
+        },
+        {
+          "tripCsvRowNumber": 11,
+          "shapeId": "SH50",
+          "tripId": "T50-1",
+          "stopTimeCsvRowNumber": 59,
+          "stopId": "S506",
+          "stopName": "Lakeshore 6",
+          "match": [
+            45.49,
+            -73.56
+          ],
+          "geoDistanceToShape": 779.5151752128672
+        }
+      ]
+    },
+    {
+      "code": "stop_too_far_from_shape_using_user_distance",
+      "severity": "WARNING",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 12,
+          "shapeId": "SH50",
+          "tripId": "T50-2",
+          "stopTimeCsvRowNumber": 61,
+          "stopId": "S502",
+          "stopName": "Lakeshore 2",
+          "match": [
+            45.49000008861459,
+            -73.5628348071232
+          ],
+          "geoDistanceToShape": 2117.5679981406206
+        },
+        {
+          "tripCsvRowNumber": 12,
+          "shapeId": "SH50",
+          "tripId": "T50-2",
+          "stopTimeCsvRowNumber": 62,
+          "stopId": "S503",
+          "stopName": "Lakeshore 3",
+          "match": [
+            45.490000074717614,
+            -73.56219402793549
+          ],
+          "geoDistanceToShape": 1388.0025405286824
+        },
+        {
+          "tripCsvRowNumber": 12,
+          "shapeId": "SH50",
+          "tripId": "T50-2",
+          "stopTimeCsvRowNumber": 63,
+          "stopId": "S504",
+          "stopName": "Lakeshore 4",
+          "match": [
+            45.49000005723802,
+            -73.56155324874814
+          ],
+          "geoDistanceToShape": 658.4370780234965
+        }
+      ]
+    },
+    {
+      "code": "stop_without_location",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 50,
+          "locationType": "STOP",
+          "stopId": "S900"
+        }
+      ]
+    },
+    {
+      "code": "stop_without_stop_time",
+      "severity": "WARNING",
+      "totalNotices": 16,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 22,
+          "stopId": "S603",
+          "stopName": "Airport Road 3"
+        },
+        {
+          "csvRowNumber": 31,
+          "stopId": "S914",
+          "stopName": "Old Port 4"
+        },
+        {
+          "csvRowNumber": 34,
+          "stopId": "S300",
+          "stopName": "Airport Terminal"
+        },
+        {
+          "csvRowNumber": 35,
+          "stopId": "S301",
+          "stopName": "Verdun"
+        },
+        {
+          "csvRowNumber": 37,
+          "stopId": "P1",
+          "stopName": "Central Station Platform A"
+        },
+        {
+          "csvRowNumber": 39,
+          "stopId": "P2",
+          "stopName": "Central Station Platform B"
+        },
+        {
+          "csvRowNumber": 40,
+          "stopId": "P3",
+          "stopName": "Central Station Platform C"
+        },
+        {
+          "csvRowNumber": 45,
+          "stopId": "P4",
+          "stopName": "Central Station Platform A East"
+        },
+        {
+          "csvRowNumber": 49,
+          "stopId": "PL5",
+          "stopName": "Bay Platform"
+        },
+        {
+          "csvRowNumber": 50,
+          "stopId": "S900",
+          "stopName": "Unmapped Stop"
+        },
+        {
+          "csvRowNumber": 51,
+          "stopId": "S901",
+          "stopName": ""
+        },
+        {
+          "csvRowNumber": 52,
+          "stopId": "S902",
+          "stopName": "Market"
+        },
+        {
+          "csvRowNumber": 53,
+          "stopId": "S903",
+          "stopName": "Agency Office"
+        },
+        {
+          "csvRowNumber": 54,
+          "stopId": "S904",
+          "stopName": "Lakeshore Office"
+        },
+        {
+          "csvRowNumber": 55,
+          "stopId": "S906",
+          "stopName": "Street Stop"
+        },
+        {
+          "csvRowNumber": 56,
+          "stopId": "SÉ1",
+          "stopName": "Esplanade"
+        }
+      ]
+    },
+    {
+      "code": "stop_without_zone_id",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "stopId": "S102",
+          "stopName": "Atwater",
+          "csvRowNumber": 3
+        }
+      ]
+    },
+    {
+      "code": "stops_match_shape_out_of_order",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 9,
+          "shapeId": "SH10",
+          "tripId": "T11-1",
+          "stopTimeCsvRowNumber1": 48,
+          "stopId1": "S102",
+          "stopName1": "Atwater",
+          "match1": [
+            45.5,
+            -73.59
+          ],
+          "stopTimeCsvRowNumber2": 47,
+          "stopId2": "S103",
+          "stopName2": "Guy",
+          "match2": [
+            45.5,
+            -73.58
+          ]
+        }
+      ]
+    },
+    {
+      "code": "timeframe_only_start_or_end_time_specified",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4
+        }
+      ]
+    },
+    {
+      "code": "timeframe_overlap",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "prevCsvRowNumber": 2,
+          "prevEndTime": "10:00:00",
+          "currCsvRowNumber": 3,
+          "currStartTime": "09:00:00",
+          "timeframeGroupId": "TF1",
+          "serviceId": "WKDY"
+        }
+      ]
+    },
+    {
+      "code": "timeframe_start_or_end_time_greater_than_twenty_four_hours",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 5,
+          "fieldName": "end_time",
+          "time": "25:00:00"
+        }
+      ]
+    },
+    {
+      "code": "transfer_distance_above_2_km",
+      "severity": "INFO",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "fromStopId": "S101",
+          "toStopId": "S301",
+          "distanceKm": 3.2271558842781967
+        },
+        {
+          "csvRowNumber": 6,
+          "fromStopId": "S201",
+          "toStopId": "S107",
+          "distanceKm": 5.177391609443458
+        },
+        {
+          "csvRowNumber": 7,
+          "fromStopId": "S103",
+          "toStopId": "S107",
+          "distanceKm": 3.1175070301947776
+        }
+      ]
+    },
+    {
+      "code": "transfer_distance_too_large",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2,
+          "fromStopId": "S101",
+          "toStopId": "S300",
+          "distanceKm": 12.593011219600923
+        }
+      ]
+    },
+    {
+      "code": "transfer_with_invalid_stop_location_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4,
+          "stopIdFieldName": "from_stop_id",
+          "stopId": "E2",
+          "locationTypeValue": 2,
+          "locationTypeName": "ENTRANCE"
+        }
+      ]
+    },
+    {
+      "code": "transfer_with_invalid_trip_and_route",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 5,
+          "tripFieldName": "from_trip_id",
+          "tripId": "T10-1",
+          "routeFieldName": "from_route_id",
+          "routeId": "R11",
+          "expectedRouteId": "R10"
+        }
+      ]
+    },
+    {
+      "code": "transfer_with_invalid_trip_and_stop",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 6,
+          "tripFieldName": "from_trip_id",
+          "tripId": "T10-2",
+          "stopFieldName": "from_stop_id",
+          "stopId": "S201"
+        }
+      ]
+    },
+    {
+      "code": "transfer_with_suspicious_mid_trip_in_seat",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 7,
+          "tripIdFieldName": "from_trip_id",
+          "tripId": "T10-1",
+          "stopIdFieldName": "from_stop_id",
+          "stopId": "S103"
+        }
+      ]
+    },
+    {
+      "code": "trip_coverage_not_active_for_next7_days",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "currentDate": "20261015",
+          "serviceWindowStartDate": "20260101",
+          "serviceWindowEndDate": "20261020"
+        }
+      ]
+    },
+    {
+      "code": "trip_distance_exceeds_shape_distance",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripId": "T50-1",
+          "shapeId": "SH50",
+          "maxTripDistanceTraveled": 3900.0,
+          "maxShapeDistanceTraveled": 3121.2,
+          "geoDistanceToShape": 779.5151752130087
+        }
+      ]
+    },
+    {
+      "code": "trip_distance_exceeds_shape_distance_below_threshold",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripId": "T51-1",
+          "shapeId": "SH51",
+          "maxTripDistanceTraveled": 1565.0,
+          "maxShapeDistanceTraveled": 1560.6,
+          "geoDistanceToShape": 4.288094591557511
+        }
+      ]
+    },
+    {
+      "code": "trip_headsign_matches_intermediate_stop",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "tripId": "T10-2",
+          "tripHeadsign": "Peel",
+          "stopId1": "S104",
+          "stopSequence": 4,
+          "stopId2": "S107"
+        }
+      ]
+    },
+    {
+      "code": "trip_with_shape_dist_traveled_but_no_shape_distances",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripCsvRowNumber": 4,
+          "tripId": "T10-3",
+          "shapeId": "SH10",
+          "stopTimeCsvRowNumber": 16
+        }
+      ]
+    },
+    {
+      "code": "unexpected_enum_value",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "routes.txt",
+          "csvRowNumber": 12,
+          "fieldName": "route_type",
+          "fieldValue": 99
+        }
+      ]
+    },
+    {
+      "code": "unknown_column",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "agency.txt",
+          "fieldName": "agency_notes",
+          "index": 7
+        }
+      ]
+    },
+    {
+      "code": "unknown_file",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "notes.txt"
+        }
+      ]
+    },
+    {
+      "code": "unsorted_stop_times",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripId": "T90-5",
+          "startCsvRowNumber": 95,
+          "endCsvRowNumber": 98
+        }
+      ]
+    },
+    {
+      "code": "unsupported_feature_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "featureIndex": 4,
+          "featureId": "LOC4",
+          "featureType": "Feat"
+        }
+      ]
+    },
+    {
+      "code": "unsupported_geometry_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "featureIndex": 5,
+          "featureId": "LOC5",
+          "geometryType": "MultiLineString"
+        }
+      ]
+    },
+    {
+      "code": "unusable_trip",
+      "severity": "WARNING",
+      "totalNotices": 3,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 24,
+          "tripId": "TFX-5"
+        },
+        {
+          "csvRowNumber": 31,
+          "tripId": "T90-6"
+        },
+        {
+          "csvRowNumber": 32,
+          "tripId": "T90-7"
+        }
+      ]
+    },
+    {
+      "code": "unused_shape",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "shapeId": "SHX",
+          "csvRowNumber": 32
+        }
+      ]
+    },
+    {
+      "code": "unused_station",
+      "severity": "INFO",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 46,
+          "stopId": "ST2",
+          "stopName": "Westmount Station"
+        },
+        {
+          "csvRowNumber": 47,
+          "stopId": "ST3",
+          "stopName": "Central Annex"
+        }
+      ]
+    },
+    {
+      "code": "unused_trip",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "tripId": "T90-7",
+          "csvRowNumber": 32
+        }
+      ]
+    },
+    {
+      "code": "wrong_parent_location_type",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 45,
+          "stopId": "P4",
+          "stopName": "Central Station Platform A East",
+          "locationType": 0,
+          "parentCsvRowNumber": 37,
+          "parentStation": "P1",
+          "parentStopName": "Central Station Platform A",
+          "parentLocationType": 0,
+          "expectedLocationType": 1
+        }
+      ]
+    }
+  ]
+}

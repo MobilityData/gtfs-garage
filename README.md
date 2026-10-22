@@ -87,6 +87,15 @@ import step and only the rows on screen are ever materialised.
   unzip and no conversion. Start with nothing and the load dialog lists what is
   there; `--reopen` opens one without the dialog, and marking a feed **At
   startup** in the Options menu has every later run open it with no flag at all.
+- **Understand a validation report.** Load the `report.json` gtfs-validator
+  wrote for the feed and **Quality** lists what it found, most severe first.
+  **Explain** starts the **Quality assistant**, which walks through one
+  finding step by step: it opens the rows the notice names - by the same line
+  numbers the validator uses - while the map draws what the notice means,
+  such as the distance from a stop to its line, then says why the rule exists
+  and what would fix it. The walkthroughs are YAML guides in this repository,
+  and a notice without one is explained from its fields. See
+  [docs/QUALITY.md](docs/QUALITY.md).
 - **Go back.** Every table switch, filter change and page turn is a history
   entry, so Back — in the app or the browser — returns to the previous view with
   its filters intact. The URL describes the view, so it can be reloaded or
@@ -301,6 +310,9 @@ flagged when they move; timings are shown but vary with the runner.
   from outside this repository.
 - [docs/INTEGRATION.md](docs/INTEGRATION.md) — mounting the viewer in another
   application, and what that application has to serve it.
+- [docs/QUALITY.md](docs/QUALITY.md) — the Quality screen and assistant, how
+  to write a guide for a validator notice, and how rows are numbered the way
+  the validator numbers them.
 - [docs/GtfsGarageAPI.yaml](docs/GtfsGarageAPI.yaml) — the HTTP contract, in
   OpenAPI. It is the source of truth: the server's models and the viewer's
   types are both generated from it by `scripts/api-gen.sh`.

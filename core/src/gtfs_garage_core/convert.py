@@ -64,7 +64,9 @@ def register_table(con, table: str, source: Path) -> list[str] | None:
                 {sql_path(source)},
                 ALL_VARCHAR = TRUE,
                 IGNORE_ERRORS = TRUE,
-                NULLSTR = ''
+                NULLSTR = '',
+                QUOTE = '"',
+                ESCAPE = '"'
             )
             """)
     except Exception:
@@ -140,15 +142,18 @@ def manifest_entry(
     bytes: int | None,
     compressed_bytes: int | None,
     parquet_bytes: int | None,
+    lines: str | None = None,
 ) -> dict:
     """One table's record in the manifest.
 
     `bytes` and `compressed_bytes` are what the file weighed before conversion
     and inside the archive it arrived in. Neither can be recovered later: the
     CSVs are deleted once converted, and a zip member's compressed size only
-    exists in the archive's directory.
+    exists in the archive's directory. `lines` is whether the table's line
+    numbers were checked against its file, `exact` or `approximate` (see
+    `lines.py`); left out for a table read from no lines.
     """
-    return {
+    entry = {
         "name": table,
         "file": f"{table}.parquet",
         "rows": rows,
@@ -157,6 +162,9 @@ def manifest_entry(
         "compressed_bytes": compressed_bytes,
         "parquet_bytes": parquet_bytes,
     }
+    if lines is not None:
+        entry["lines"] = lines
+    return entry
 
 
 def write_manifest(destination: Path, tables: list[dict], *, source_kind: str, source_bytes: int) -> Path:

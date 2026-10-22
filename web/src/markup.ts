@@ -44,6 +44,8 @@ const modes = () => `
 
 const header = (parts: Required<ViewerParts>) => `
   <header>
+    <!-- Shown in place of the rest of the header while a tour is written or played; see quality/session.ts. -->
+    <div data-el="tour-bar" class="tour-bar" hidden></div>
     <h1>GTFS Garage</h1>
     ${modes()}
     <div data-el="source-label">No feed loaded</div>
@@ -79,6 +81,13 @@ const options = () => `
         <button data-el="workdir-clear-btn">Empty workdir</button>
       </div>
       <div data-el="workdir-status"></div>
+    </section>
+
+    <section data-el="tours-section">
+      <div data-el="options-section-title">Quality tours</div>
+      <p class="options-hint">Write and try the tour the Quality assistant plays for any notice, on demo feeds.</p>
+      <button data-el="tours-btn">Open Tours</button>
+      <button data-el="studio-btn" title="Write and try tours in a tab of their own">Open Tour Studio</button>
     </section>
 
     <section data-el="metrics-section" hidden>
@@ -134,6 +143,10 @@ const browse = (parts: Required<ViewerParts>) => `
                    title="Show the characters the feed contains, without formatting">
               <input data-el="raw-values-input" type="checkbox" /> Raw values
             </label>
+            <label data-el="line-numbers" class="raw-toggle"
+                   title="Show the line of the file each row was read from, as a validator report counts it">
+              <input data-el="line-numbers-input" type="checkbox" /> Line numbers
+            </label>
             <label data-el="files-network" class="raw-toggle" hidden
                    title="Draw every other route behind what this view selects">
               <input data-el="files-network-input" type="checkbox" /> Show the rest of the network
@@ -176,7 +189,19 @@ const browse = (parts: Required<ViewerParts>) => `
           : ""
       }
       </div>
+      <!--
+        The Quality assistant's tour: a dim with holes over what a step points
+        at, and the card that floats beside it. Over both panes rather than in
+        either, because a step moves the table and the map together.
+      -->
+      <div data-el="tour-layer" class="tour-layer" hidden></div>
+      <div data-el="assistant-panel" class="assistant-card" role="dialog" aria-label="Quality assistant" hidden></div>
     </div>
+    <!--
+      The tour editor, beside the panes rather than over them, so a tour runs
+      in the table and on the map while it is being written.
+    -->
+    <aside data-el="tour-editor" aria-label="Tour editor" hidden></aside>
   </div>`;
 
 const loader = () => `

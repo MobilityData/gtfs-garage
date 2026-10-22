@@ -1,0 +1,157 @@
+{
+  "summary": {
+    "validatorVersion": "8.0.1",
+    "validatedAt": "2026-10-15T00:00:00Z",
+    "gtfsInput": "future.zip",
+    "threads": 1,
+    "outputDirectory": "",
+    "systemErrorsReportName": "system_errors.json",
+    "validationReportName": "report.json",
+    "htmlReportName": "report.html",
+    "countryCode": "CA",
+    "dateForValidation": "2026-10-15",
+    "feedInfo": {
+      "publisherName": "Riverside Transit Authority",
+      "publisherUrl": "https://example.org/rta",
+      "feedLanguage": "English",
+      "feedStartDate": "2026-11-01",
+      "feedEndDate": "2026-11-10",
+      "feedEmail": "data@example.org",
+      "feedServiceWindowStart": "2026-11-02",
+      "feedServiceWindowEnd": "2026-11-10"
+    },
+    "agencies": [
+      {
+        "name": "Riverside Transit Authority",
+        "url": "https://example.org/rta",
+        "phone": "",
+        "email": "",
+        "timezone": "America/Montreal"
+      }
+    ],
+    "files": [
+      "agency.txt",
+      "calendar.txt",
+      "feed_info.txt",
+      "locations.geojson",
+      "routes.txt",
+      "shapes.txt",
+      "stop_times.txt",
+      "stops.txt",
+      "translations.txt",
+      "trips.txt"
+    ],
+    "validationTimeSeconds": 0,
+    "counts": {
+      "Shapes": 1,
+      "Stops": 3,
+      "Routes": 1,
+      "Trips": 2,
+      "Agencies": 1,
+      "Blocks": 0
+    },
+    "gtfsFeatures": [
+      "Shapes",
+      "Feed Information",
+      "Translations",
+      "Route Colors",
+      "Headsigns"
+    ]
+  },
+  "notices": [
+    {
+      "code": "feed_expiration_date30_days",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 2,
+          "currentDate": "20261015",
+          "feedEndDate": "20261110",
+          "suggestedExpirationDate": "20261114"
+        }
+      ]
+    },
+    {
+      "code": "future_calendar",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "minServiceStartDate": "2026-11-02",
+          "currentDate": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "code": "future_feed",
+      "severity": "INFO",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "feedStartDate": "20261101",
+          "currentDate": "20261015"
+        }
+      ]
+    },
+    {
+      "code": "geo_json_duplicated_element",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "locations.geojson",
+          "duplicatedElement": "type"
+        }
+      ]
+    },
+    {
+      "code": "translation_foreign_key_violation",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 4,
+          "tableName": "stops",
+          "recordId": "S999",
+          "recordSubId": ""
+        }
+      ]
+    },
+    {
+      "code": "translation_unexpected_value",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 6,
+          "fieldName": "record_id",
+          "fieldValue": "S103"
+        }
+      ]
+    },
+    {
+      "code": "translation_unknown_table_name",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "csvRowNumber": 3,
+          "tableName": "vehicles"
+        }
+      ]
+    },
+    {
+      "code": "trip_coverage_not_active_for_next7_days",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "currentDate": "20261015",
+          "serviceWindowStartDate": "20261102",
+          "serviceWindowEndDate": "20261110"
+        }
+      ]
+    }
+  ]
+}

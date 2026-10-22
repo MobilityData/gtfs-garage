@@ -8,6 +8,21 @@ import type {
 } from "./sources/types";
 import type { Screen } from "./ui/screens";
 
+/**
+ * Which step of which walkthrough a view belongs to.
+ *
+ * Part of the view, so each step is a history entry: Back steps back through a
+ * walkthrough, and a link reopens the step it was copied from.
+ */
+export interface Assist {
+  /** The notice code. */
+  code: string;
+  /** Which of the report's samples for that code, from 0. */
+  sample: number;
+  /** Which step, from 0. */
+  step: number;
+}
+
 /** One browsable view: a table, its filters and which page of it. */
 export interface View {
   /** The GTFS file being browsed. Empty while a screen is showing. */
@@ -41,6 +56,20 @@ export interface View {
    * navigation, so picking a day once survives moving between screens.
    */
   date?: string;
+  /** The walkthrough step this view is showing, when the Quality assistant opened it. */
+  assist?: Assist;
+}
+
+/**
+ * What the table should point at while a walkthrough step is showing it: the
+ * rows are tinted and these columns outlined.
+ */
+export interface TableMarks {
+  fields: string[];
+  /** The rows to mark among those shown, by line; every row when neither this nor `key` is given. */
+  lines?: number[];
+  /** The rows to mark among those shown, by column values. */
+  key?: { column: string; value: string }[];
 }
 
 /**
@@ -102,6 +131,14 @@ export interface AppState {
   patterns: Map<string, string>;
   /** The kinds of day themselves, which the jump list offers one of each. */
   jumpPatterns: ServicePattern[];
+  /**
+   * Show the line of the file each row was read from. A display preference
+   * like `rawValues`, and turned on for the length of a walkthrough, whose
+   * steps are written in line numbers.
+   */
+  showLines: boolean;
+  /** What a walkthrough step wants the table to point at, or null. */
+  marks: TableMarks | null;
 }
 
 export function createState(): AppState {
@@ -120,6 +157,8 @@ export function createState(): AppState {
     mode: "files",
     patterns: new Map(),
     jumpPatterns: [],
+    showLines: false,
+    marks: null,
   };
 }
 

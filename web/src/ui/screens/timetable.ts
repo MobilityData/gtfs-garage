@@ -206,7 +206,10 @@ function chooseDay(
 export function renderTimetable(data: Timetable, context: ScreenContext): HTMLElement {
   const root = node("div", { class: "explore timetable" });
   const directions = directionsOf(data);
-  let chosen = directions[0];
+  // A trip asked for by the link - the Quality assistant opens a timetable on
+  // the trip a notice is about - decides the direction shown first.
+  const wantedTrip = context.params.trip ? data.trips.find((trip) => trip.trip_id === context.params.trip) : undefined;
+  let chosen = wantedTrip ? (wantedTrip.direction_id ?? null) : directions[0];
   // The destination within it, or undefined for all of them; see forDirection.
   let destination: string | null | undefined = undefined;
   // Local to the view rather than the URL: it is how someone is reading this
@@ -360,6 +363,15 @@ export function renderTimetable(data: Timetable, context: ScreenContext): HTMLEl
       : null,
   );
   draw();
+  // Select the linked trip as a click would, once the grid is in the page, so
+  // its column is tinted and the map narrows to it.
+  if (wantedTrip) {
+    const cell = [...grid.querySelectorAll<HTMLElement>(".trip-head")].find((head) => head.dataset.trip === wantedTrip.trip_id);
+    if (cell) {
+      cell.click();
+      requestAnimationFrame(() => cell.scrollIntoView({ block: "nearest", inline: "center" }));
+    }
+  }
   return root;
 }
 
@@ -493,6 +505,7 @@ function table(
     const from = start ? stops[start.index].stop_name || stops[start.index].stop_id : null;
     const cell = node("th", {
       class: "trip-head",
+      "data-trip": trip.trip_id,
       title: [
         `Trip ${trip.trip_id}${trip.headsign ? ` to ${trip.headsign}` : ""}`,
         from && `departs ${leaves} from ${from}`,

@@ -24,17 +24,24 @@ export { routeListScreen, routeScreen, renderRoute, renderRouteList } from "./ro
 export type { RouteListing } from "./routes";
 export { timetableScreen, renderTimetable, renderTimetableView } from "./timetable";
 export type { TimetableView } from "./timetable";
+export { qualityScreen, renderQuality } from "./quality";
+export type { QualityContext } from "./quality";
+export { toursScreen, renderTours } from "./tours";
 
 import { calendarScreen } from "./calendar";
 import { overviewScreen } from "./overview";
+import { qualityScreen } from "./quality";
 import { routeListScreen, routeScreen } from "./routes";
 import { timetableScreen } from "./timetable";
+import { toursScreen } from "./tours";
 import type { Screen } from "./types";
 
 export const defaultScreens: Screen[] = [
   overviewScreen as Screen,
   calendarScreen as Screen,
   routeListScreen as Screen,
+  qualityScreen as Screen,
   routeScreen as Screen,
   timetableScreen as Screen,
+  toursScreen as Screen,
 ];

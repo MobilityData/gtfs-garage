@@ -11,7 +11,7 @@
 import { button, type Dom } from "../dom";
 import type { ColumnInfo, Filter, PageResponse, RelatedLink, Row } from "../sources/types";
 import { describeColumn, renderValue } from "./values";
-import type { AppState } from "../state";
+import type { AppState, TableMarks } from "../state";
 
 export interface RelatedButton {
   link: RelatedLink;
@@ -174,6 +174,18 @@ export class TableView {
 
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
+    // The line of the file each row came from, when asked for and known: what
+    // a validator report calls csvRowNumber, so a reader can match the two.
+    // Shown during a walkthrough too, whose steps are written in line numbers.
+    const lines = (this.state.showLines || this.state.marks) && page.lines ? page.lines : null;
+    const marked = new Set(this.state.marks?.fields ?? []);
+    if (lines) {
+      const cell = document.createElement("th");
+      cell.textContent = "line";
+      cell.className = "line-number";
+      cell.title = "The line of the file this row was read from, as gtfs-validator counts it";
+      headRow.appendChild(cell);
+    }
     if (this.hasActions) headRow.appendChild(document.createElement("th"));
     const numeric = numericColumns(page, this.state.columnInfoByName, this.state.rawValues);
     for (const [index, column] of page.columns.entries()) {
@@ -186,20 +198,42 @@ export class TableView {
       // type, and why it may be required.
       const description = describeColumn(this.state.columnInfoByName[column]);
       if (description) cell.title = description;
+      if (marked.has(column)) cell.classList.add("cell-marked");
       headRow.appendChild(cell);
     }
     head.appendChild(headRow);
     table.appendChild(head);
 
     const body = document.createElement("tbody");
-    for (const row of page.rows) {
-      body.appendChild(this.buildRow(page.columns, row));
-    }
+    page.rows.forEach((row, index) => {
+      const tr = this.buildRow(page.columns, row);
+      if (lines) {
+        const cell = document.createElement("td");
+        cell.className = "line-number";
+        cell.textContent = String(lines[index]);
+        tr.prepend(cell);
+        // For a walkthrough that follows calls as something moves along them.
+        tr.dataset.line = String(lines[index]);
+      }
+      // A walkthrough step opened these rows to point at them - all of them,
+      // or the ones it names among the context around them.
+      if (this.state.marks && isMarked(this.state.marks, page.columns, row, lines?.[index])) {
+        tr.classList.add("row-marked");
+        page.columns.forEach((column, at) => {
+          if (marked.has(column)) tr.cells[at + (lines ? 1 : 0) + (this.hasActions ? 1 : 0)]?.classList.add("cell-marked");
+        });
+      }
+      body.appendChild(tr);
+    });
     table.appendChild(body);
 
     const container = this.dom.el("table-scroll");
     container.innerHTML = "";
     container.appendChild(table);
+    // A marked column can be off to the right of a wide file; bring the first
+    // one into view, or the step points at something the reader cannot see.
+    const first = table.querySelector("td.cell-marked");
+    if (first && typeof first.scrollIntoView === "function") first.scrollIntoView({ block: "nearest", inline: "center" });
 
     this.renderPager(page);
   }
@@ -334,4 +368,11 @@ export class TableView {
     this.dom.el<HTMLButtonElement>("prev-page").disabled = page.page <= 1;
     this.dom.el<HTMLButtonElement>("next-page").disabled = page.page >= totalPages;
   }
+}
+
+/** Whether a step's marks pick out this row. */
+export function isMarked(marks: TableMarks, columns: string[], row: Row, line: number | undefined): boolean {
+  if (!marks.lines && !marks.key) return true;
+  if (marks.lines && line !== undefined && marks.lines.includes(line)) return true;
+  return Boolean(marks.key?.length && marks.key.every(({ column, value }) => row[columns.indexOf(column)] === value));
 }

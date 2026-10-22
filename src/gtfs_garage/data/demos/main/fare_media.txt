@@ -1,0 +1,4 @@
+fare_media_id,fare_media_name,fare_media_type
+FM1,Riverside Card,2
+FM2,Riverside Card,2
+FM3,,4

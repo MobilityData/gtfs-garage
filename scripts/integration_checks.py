@@ -25,6 +25,8 @@ hypothetical; it happened while this file was being written.
 
 from __future__ import annotations
 
+import json
+
 import argparse
 import contextlib
 import shutil
@@ -325,7 +327,7 @@ def check_local(result: Result) -> None:
                 page.wait_for_timeout(2000)
 
                 result.expect("lands on the overview", "view=overview" in page.url, page.url)
-                result.expect("offers the derived views", page.locator("[data-el='explore-tab']").count() == 3)
+                result.expect("offers the derived views", page.locator("[data-el='explore-tab']").count() == 4)
                 result.expect(
                     "the two halves are a switch, not one mixed list",
                     page.locator("[data-el='mode-switch']").is_visible()
@@ -357,6 +359,47 @@ def check_local(result: Result) -> None:
                     page.locator(".change-list li").count() > 0,
                 )
                 result.expect("a view is a shareable link", "view=calendar" in page.url, page.url)
+
+                # Quality: a report for this feed, read in the browser, and one
+                # walkthrough step that opens the row the report names.
+                _open_screen(page, "Quality")
+                result.expect("Quality asks for a report", page.locator(".quality-drop").count() == 1)
+                report = {
+                    "summary": {"validatorVersion": "8.0.1"},
+                    "notices": [
+                        {
+                            "code": "missing_required_field",
+                            "severity": "ERROR",
+                            "totalNotices": 1,
+                            "sampleNotices": [{"filename": "stops.txt", "csvRowNumber": 2, "fieldName": "stop_name"}],
+                        }
+                    ],
+                }
+                page.set_input_files(
+                    "input[type=file][accept*=json]",
+                    {"name": "report.json", "mimeType": "application/json", "buffer": json.dumps(report).encode()},
+                )
+                page.wait_for_timeout(1200)
+                result.expect("the report lists its finding", page.locator(".quality-row").count() == 1)
+                page.locator(".quality-row button.primary").first.click()
+                page.wait_for_timeout(2500)
+                result.expect(
+                    "Explain opens the row the report names, by line",
+                    "assist=missing_required_field" in page.url
+                    and "table=stops" in page.url
+                    and page.locator("tr.row-marked").count() == 1
+                    and page.locator("td.line-number").first.inner_text().strip() == "2",
+                    page.url,
+                )
+                result.expect(
+                    "the assistant explains it, in a card pointing at the row",
+                    page.locator(".assistant-card .assistant-text").count() == 1
+                    and page.locator(".assistant-card").get_attribute("data-side") is not None,
+                )
+                page.locator(".assistant-card .assistant-close").click()
+                page.wait_for_timeout(1000)
+                # Back where the checks below expect to be.
+                _open_screen(page, "Service days")
 
                 # Picking a day sets the date every view reads, and says so.
                 page.locator(".periods .period-bar").first.click()
@@ -651,7 +694,7 @@ def check_embedded(result: Result) -> None:
                               page.locator("[data-el='open-load-btn']").count() == 0
                               and page.locator("[data-el='options-btn']").count() == 0
                               and page.locator("[data-el='map-pane']").count() == 0)
-                result.expect("offers the derived views", page.locator("[data-el='explore-tab']").count() == 3)
+                result.expect("offers the derived views", page.locator("[data-el='explore-tab']").count() == 4)
 
                 _open_screen(page, "Service days")
                 result.expect("the host's URL is untouched", page.url == url, page.url)
@@ -692,7 +735,7 @@ def check_rest(result: Result) -> None:
                 page.wait_for_timeout(3000)
 
                 result.expect("the map is built", page.locator("[data-el='map-pane']").count() == 1)
-                result.expect("offers the derived views", page.locator("[data-el='explore-tab']").count() == 3)
+                result.expect("offers the derived views", page.locator("[data-el='explore-tab']").count() == 4)
 
                 _open_screen(page, "Routes")
                 page.wait_for_timeout(1500)
@@ -730,7 +773,7 @@ def check_static(result: Result) -> None:
                 # DuckDB-WASM is megabytes, fetched from a CDN on first use.
                 page.wait_for_timeout(9000)
 
-                result.expect("the derived views are offered", page.locator("[data-el='explore-tab']").count() == 3)
+                result.expect("the derived views are offered", page.locator("[data-el='explore-tab']").count() == 4)
                 _open_file(page, "stops")
                 _appears(page, "[data-el='table-scroll'] tbody tr")
                 result.expect(

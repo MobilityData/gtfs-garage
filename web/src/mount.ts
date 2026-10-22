@@ -23,9 +23,17 @@ import { initialView, Navigator } from "./ui/navigation";
 import { describeDate, destinations, longDate, patternNames, stepDate } from "./ui/date-bar";
 import { FilesMap, type MapSelection } from "./ui/files-map";
 import { ScreenPane } from "./ui/screen-pane";
-import { availableScreens, defaultScreens, type Screen } from "./ui/screens";
+import { availableScreens, defaultScreens, type QualityContext, type Screen } from "./ui/screens";
 import { renderSidebar } from "./ui/sidebar";
 import { TableView } from "./ui/table";
+import { QualityAssistant } from "./quality/assistant";
+import type { CustomAction } from "./quality/actions";
+import { QualityStore } from "./quality/store";
+import { TourSession } from "./quality/session";
+import { GuideLibrary, guideStoreFor, LocalGuideStore, moveBrowserTours } from "./quality/guide-store";
+import { handOver, parseHandedOver, takeHandOver } from "./quality/hand-over";
+import { studioSource } from "./quality/studio-source";
+import type { TourEditor } from "./quality/editor/editor";
 
 export type { ViewerParts } from "./markup";
 
@@ -98,15 +106,27 @@ export {
   renderRouteList,
   routeListScreen,
   routeScreen,
+  qualityScreen,
+  renderQuality,
+  type QualityContext,
   type Screen,
   type ScreenContext,
 } from "./ui/screens";
+/** For a host adding actions of its own to the Quality guides. */
+export type { ActionContext, CustomAction } from "./quality/actions";
+export { parseReport, type ValidationReport } from "./quality/report";
 /** The helpers a host's own screen can build on, rather than reimplement. */
 export { action, append, node, section, stat } from "./ui/html";
 
 export interface ViewerOptions {
   /** Where feed data comes from. Defaults to a REST source against `baseUrl`. */
   source?: ViewerSource;
+  /**
+   * Mount the Tour Studio rather than the viewer: tours are written and tried
+   * here, on the server's feed or a demo's, always locked to the tour. The
+   * application mounts it at `/studio`, opened in a tab of its own.
+   */
+  studio?: boolean;
   /** Base URL for the default REST source. Defaults to the current origin. */
   baseUrl?: string;
   /**
@@ -135,6 +155,17 @@ export interface ViewerOptions {
    * leaves its host's address bar alone.
    */
   history?: HistoryPort;
+  /**
+   * A gtfs-validator report to open with, as its parsed JSON or its text. A
+   * host that already has the report for the dataset it is showing passes it
+   * here; otherwise the Quality screen asks the reader for the file.
+   */
+  report?: unknown;
+  /**
+   * Handlers for `custom` actions in Quality guides, by name. The one place a
+   * guide can run code, and only code the host supplied.
+   */
+  qualityActions?: Record<string, CustomAction>;
 }
 
 /**
@@ -161,8 +192,55 @@ export interface MapPart {
   ): Promise<MapHandle>;
 }
 
+/** What `MapHandle.annotate` draws. */
+export interface MapAnnotation {
+  /** Lines and points. A `tone` property of "over" draws one in the warning colour. */
+  features: FeatureCollection;
+  labels: MapLabel[];
+  /** A marker that travels through timed positions, over and over, until the annotation goes. */
+  motion?: MapMotion;
+  /**
+   * Several markers on one clock: they start together, each moves at its own
+   * pace, and they start over together. A race between the trip as scheduled
+   * and a vehicle at a speed it could really keep.
+   */
+  motions?: MapMotion[];
+}
+
+/**
+ * Something moving on the map at the pace its times give.
+ *
+ * `path` is where the marker is, in order, and when: `time` in seconds on any
+ * clock. Two entries at one place make a pause there. The pace is kept but the
+ * clock is compressed, so one pass takes about `duration` milliseconds and a
+ * leg twice as long in time takes twice as long on screen. An entry's `text`
+ * rides with the marker from that entry to the next.
+ */
+export interface MapMotion {
+  path: { at: [number, number]; time: number; text: string; tone?: "over" }[];
+  duration?: number;
+  /** How long one pass lasts, rest included, when several motions must start over together. */
+  cycle?: number;
+  /** "ghost" draws the marker lighter: what the motion is measured against, not the subject. */
+  look?: "ghost";
+  /** Called with an entry's index as the marker reaches it, and with -1 when a pass starts over. */
+  onReach?(index: number): void;
+}
+
+export interface MapLabel {
+  at: [number, number];
+  text: string;
+  /**
+   * "over" for a figure that broke its limit, "leg" for one that did not,
+   * "sequence" for a numbered call, "marked" for one of note.
+   */
+  tone?: "over" | "leg" | "sequence" | "marked";
+}
+
 export interface MapHandle {
   restoreVisibility(): void;
+  /** Draw the network faintly while a tour is open, so only what its steps draw stands out. */
+  mute?(on: boolean): void;
   refresh(): Promise<void>;
   highlight(collection: FeatureCollection, options?: { point?: boolean }): Promise<void>;
   /**
@@ -191,6 +269,16 @@ export interface MapHandle {
   frameFocus(routeIds: string[], options?: { stopsOnly?: boolean }): Promise<void>;
   /** Centre on one stop and mark it. False when the feed gives it no position. */
   focusStop(stopId: string): Promise<boolean>;
+  /**
+   * Draw things the feed does not contain - a measured line, a matched point,
+   * numbered calls - over everything else, or pass null to remove them.
+   *
+   * `labels` are short texts pinned to a position, drawn as DOM markers so they
+   * need no font from the basemap. `frame` moves the view to include it all.
+   * A `motion` plays until the next call; a reader who asked the system for
+   * reduced motion gets the still annotation without it.
+   */
+  annotate(annotation: MapAnnotation | null, options?: { frame?: boolean }): Promise<void>;
   /**
    * Look at the pane again after its box changed.
    *
@@ -228,7 +316,13 @@ function canDrawShapes(source: ViewerSource): boolean {
 
 export async function mount(root: Element, options: ViewerOptions = {}): Promise<Viewer> {
   const parts: ViewerParts = { ...EMBEDDED, ...options.parts, map: Boolean(options.map) };
-  const source: ViewerSource = options.source ?? new RestSource(options.baseUrl);
+  const studio = options.studio === true;
+  // Read now: loading the first feed rewrites the address to its first view.
+  const studioLink = studio ? new URLSearchParams(window.location.search) : null;
+  const home: ViewerSource = options.source ?? new RestSource(options.baseUrl);
+  // The studio reads one feed at a time, the server's or a demo's, through one source.
+  const studioFeed = studio ? studioSource(home) : null;
+  const source: ViewerSource = studioFeed ?? home;
 
   buildViewer(root, parts);
   const dom = createDom(root);
@@ -273,9 +367,15 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
       return screenPane.show(view);
     }
     screenPane.hide();
-    filesMap?.follow(view.table, view.filters);
+    // A walkthrough step draws its own map; following the filters would draw
+    // over it, and in no particular order.
+    if (view.assist) filesMap?.leave();
+    else filesMap?.follow(view.table, view.filters);
     try {
-      tableView.render(await source.query(view.table, view.filters, view.page, state.pageSize));
+      // Line numbers for the toggle, and always during a walkthrough, whose
+      // steps are written in them.
+      const lines = state.showLines || Boolean(view.assist);
+      tableView.render(await source.query(view.table, view.filters, view.page, state.pageSize, { lines }));
     } catch (error) {
       tableView.showMessage(`Could not load ${view.table}: ${(error as Error).message}`);
     }
@@ -286,13 +386,150 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   // view is applied, by which point both exist.
   let filterBar: FilterBar | undefined;
 
+  // Built before the navigator, which needs it in its first callback; the
+  // assistant itself is built once the map and the table exist.
+  const qualityStore = new QualityStore();
+  let assistant: QualityAssistant | undefined;
+  // Tours saved from the editor, over the ones the catalog ships: in the
+  // workdir when there is a server, else in this browser.
+  const guideLibrary = new GuideLibrary(guideStoreFor(home));
+  let tourEditor: TourEditor | undefined;
+
+  // While a tour is written or played, the viewer is locked to it: one way
+  // out, in a bar in place of the header, and nothing else navigates. The
+  // studio is locked all the time.
+  const tourSession = new TourSession({
+    root: root as HTMLElement,
+    bar: dom.el("tour-bar"),
+    studio,
+    demo: () => (studioFeed?.reading ? demoTitles.get(studioFeed.reading) ?? studioFeed.reading : null),
+    leave: (session) => {
+      if (session.kind === "edit") {
+        tourEditor?.close();
+        return;
+      }
+      assistant?.exit(false);
+      // Ended already if the walkthrough was still showing; not if it never resolved.
+      if (tourSession.session) endSession();
+    },
+    changed: () => {
+      drawSidebar();
+      map?.mute?.(tourSession.locked);
+    },
+    closeStudio: () => {
+      // A tab the viewer opened can close itself; one typed in goes back to the viewer.
+      window.close();
+      window.location.href = "/";
+    },
+  });
+  /** May the reader navigate now? Not while a tour session holds the viewer, save between notices in Tours. */
+  const free = (screen?: string): boolean => tourSession.allows(screen);
+
+  /** End the session and go back to where it was started. */
+  const endSession = (): void => {
+    const ended = tourSession.end();
+    if (ended) navigator.go(ended.returnTo);
+  };
+
+  // ------------------------------------------------------------ the studio
+
+  /** Demo titles by id, for the bar. */
+  const demoTitles = new Map<string, string>();
+  /** The report the viewer tab handed over with "Edit tour", for its feed; see `handOver`. */
+  const handedOver = studio ? takeHandOver() : null;
+
+  /**
+   * Read `feed` in the studio - a demo, or the server's own (null) - with
+   * the report its samples come from, unless it is being read already.
+   */
+  const readFeed = async (feed: string | null): Promise<void> => {
+    if (!studioFeed) return;
+    if (studioFeed.reading === feed && state.tables.length) return;
+    studioFeed.use(feed);
+    const [data, report] = await Promise.all([
+      source.tables(),
+      feed ? source.demoReport!(feed) : Promise.resolve(handedOver?.report ?? null),
+    ]);
+    onFeedLoaded(data);
+    if (report) qualityStore.load(report, feed ? `${feed}.report.json` : handedOver?.name ?? "report.json");
+    tourSession.draw();
+  };
+
+  /** The editor, built the first time a tour is opened in the studio. */
+  const editTour = async (code: string, sample: number, prefer: "report" | "demo" = "demo"): Promise<void> => {
+    if (!tourEditor) {
+      const [{ TourEditor }, { Trials }] = await Promise.all([import("./quality/editor/editor"), import("./quality/editor/trials")]);
+      const ownTables = () => (studioFeed?.reading ? home.tables().then((data) => data.tables) : state.tables);
+      tourEditor ??= new TourEditor({
+        root: dom.el("tour-editor"),
+        library: guideLibrary,
+        trials: new Trials({
+          source: home,
+          // "This feed" in the studio is the feed the viewer tab is on, whose report it handed over.
+          report: () => (handedOver ? parseHandedOver(handedOver) : null),
+          tables: ownTables,
+          feedName: () => handedOver?.feed ?? "your feed",
+        }),
+        run: async (code, trial, sample, guide, step) => {
+          await readFeed(trial.kind === "demo" && trial.demoId ? trial.demoId : null);
+          assistant?.setDraft(code, guide);
+          await assistant?.start(code, sample, step);
+        },
+        release: (code) => assistant?.setDraft(code, null),
+        closed: () => endSession(),
+        // The panes beside the editor changed width; the map does not notice on its own.
+        layoutChanged: () => requestAnimationFrame(() => map?.resize()),
+      });
+    }
+    tourSession.begin("edit", code, tourSession.session?.returnTo ?? { table: "", filters: [], page: 1, screen: "tours" });
+    await tourEditor.open(code, sample, prefer);
+    // The editor stayed on another notice when its changes were not to be dropped.
+    if (!tourEditor.isOpen()) endSession();
+  };
+
+  /**
+   * The studio opens on the server's feed, with the report the viewer tab
+   * handed over, or on the first demo when the server has no feed; then on the
+   * notice the link names, or the list of every notice.
+   */
+  const startStudio = async (): Promise<void> => {
+    const demos = (await home.demos?.().catch(() => [])) ?? [];
+    for (const demo of demos) demoTitles.set(demo.id, demo.title);
+    if (!state.tables.length) {
+      const first = demos.find((demo) => demo.available);
+      if (first) await readFeed(first.id).catch(() => undefined);
+    } else if (handedOver?.report) {
+      qualityStore.load(handedOver.report, handedOver.name || "report.json");
+    }
+    tourSession.draw();
+    const params = studioLink ?? new URLSearchParams();
+    const code = params.get("notice");
+    if (code) await editTour(code, Number(params.get("sample")) || 0, params.get("from") === "report" ? "report" : "demo");
+    else navigator.showScreen("tours");
+  };
+
+  /** In the viewer, "Edit tour" opens the studio in a tab of its own, with this tab's report for the notice. */
+  const openStudio = (code: string, sample: number, prefer: "report" | "demo"): void => {
+    const report = qualityStore.report();
+    handOver({ feed: dom.el("source-label").textContent ?? "", name: qualityStore.fileName(), report: report ? JSON.stringify(report) : null });
+    const params = new URLSearchParams({ notice: code, sample: String(sample), from: prefer });
+    window.open(`/studio?${params}`, "gtfs-garage-studio");
+  };
+
   const navigator = new Navigator(dom, options.history ?? memoryHistory(), state, (view) => {
     state.mode = modeOf(view);
     drawModes();
     drawDateChip();
     drawSidebar();
     filterBar?.render();
-    void loadPage(view);
+    // What the table should point at has to be known before it draws; the map
+    // and the panel follow once the view has loaded.
+    assistant?.prepare(view);
+    // Only for the view still current: a slow screen loaded after the reader
+    // (or a tour) has moved on must not tell the assistant the step was left.
+    void loadPage(view).then(() => {
+      if (state.view === view) void assistant?.show(view);
+    });
   });
 
   /** The Explore/Files switch: present only when there is something to switch to. */
@@ -349,12 +586,14 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
     menu.hidden = menu.childElementCount === 0;
   };
 
+  // Locked to a tour, the sidebar is the feed's files, read-only, with the
+  // one a step opened lit: it says where the tour is, and nothing in it moves.
   const drawSidebar = (): void =>
     renderSidebar(
       dom,
-      state,
-      (table) => navigator.selectTable(table),
-      (screen) => navigator.showScreen(screen),
+      tourSession.locked ? { ...state, mode: "files" } : state,
+      (table) => free() && navigator.selectTable(table),
+      (screen) => free(screen) && navigator.showScreen(screen),
     );
 
   // Wired once, for every viewer: the chip itself stays hidden until a day is
@@ -386,7 +625,7 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
     // dropped the chosen day, so adding a filter in Files silently cleared the
     // date the Explore half was reading. Page 1, because row 240 of the old
     // result is not row 240 of the new one.
-    navigator.go({ ...navigator.current(), filters, page: 1 }),
+    free() && navigator.go({ ...navigator.current(), filters, page: 1 }),
   );
 
   /**
@@ -398,12 +637,15 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   const highlights = map
     ? (() => {
         const show = async (kind: "stops" | "shapes" | "locations", id: string, point = false) => {
+          if (!free()) return;
           await map.highlight(await source.geojson(kind, [id]), { point });
         };
         // Picked out the way a filter would pick them, rather than laid over
         // the whole network: the row's thing alone, the rest one checkbox away.
+        // Not during a tour: the map is showing the step, and a click on a
+        // table cell would draw over it.
         const pick = (selection: Partial<MapSelection>) =>
-          filesMap?.pick({ routeIds: [], shapeIds: [], stopIds: [], ...selection });
+          free() ? filesMap?.pick({ routeIds: [], shapeIds: [], stopIds: [], ...selection }) : undefined;
         return {
           onHighlightStop: (stopId: string) =>
             filesMap ? pick({ stopIds: [stopId] }) : void show("stops", stopId, true),
@@ -419,22 +661,36 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
       })()
     : {};
 
+  const qualityContext: QualityContext = {
+    report: () => qualityStore.report(),
+    fileName: () => qualityStore.fileName(),
+    load: (text, name) => void qualityStore.load(text, name),
+    clear: () => qualityStore.clear(),
+    explain: (code, sample) => {
+      tourSession.begin("play", code, navigator.current());
+      void assistant?.start(code, sample);
+    },
+    tables: () => state.tables,
+    origin: (code) => guideLibrary.origin(code),
+    edit: (code, sample, prefer) => (studio ? void editTour(code, sample, prefer ?? "demo") : openStudio(code, sample, prefer ?? "report")),
+  };
+
   const screenPane = new ScreenPane(
     dom,
     state,
     source,
     {
-    openTable: (table, filters) => navigator.selectTable(table, filters ?? []),
-    openScreen: (id, argument) => navigator.showScreen(id, argument),
+    openTable: (table, filters) => free() && navigator.selectTable(table, filters ?? []),
+    openScreen: (id, argument) => free(id) && navigator.showScreen(id, argument),
     source,
     get date() {
       return state.view.date ?? null;
     },
-    setDate: (date) => navigator.setDate(date),
+    setDate: (date) => free() && navigator.setDate(date),
     get params() {
       return state.view.params ?? {};
     },
-    setParams: (params) => navigator.setParams(params),
+    setParams: (params) => free() && navigator.setParams(params),
     // Only when there is a map *and* a source that can build GeoJSON for it: a
     // screen must offer no map action rather than one that does nothing. A
     // browser source reading Parquet answers tables and not geometry.
@@ -463,6 +719,7 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
         : undefined,
     focusStop:
       map && canDrawShapes(source) ? (stopId: string) => map.focusStop(stopId) : undefined,
+    quality: qualityContext,
     },
     // Nothing fires on a pure CSS reflow, so a map whose box just changed keeps
     // the old one until it is told to look again.
@@ -470,9 +727,70 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   );
 
   const tableView = new TableView(dom, state, {
-    onNavigate: (table, filters) => navigator.selectTable(table, filters),
-    onPage: (page) => navigator.go({ ...navigator.current(), page }),
+    onNavigate: (table, filters) => free() && navigator.selectTable(table, filters),
+    onPage: (page) => free() && navigator.go({ ...navigator.current(), page }),
     ...highlights,
+  });
+
+  assistant = new QualityAssistant({
+    dom,
+    state,
+    source,
+    store: qualityStore,
+    go: (view) => navigator.go(view),
+    // Only with a map that can draw the feed's geometry, for the same reason
+    // the screens get no map actions without one.
+    map: map && canDrawShapes(source) ? map : undefined,
+    pick: filesMap ? (selection) => filesMap.pick(selection) : undefined,
+    redrawTable: () => tableView.redraw(),
+    customActions: options.qualityActions,
+    library: guideLibrary,
+    // A tour ends where its session says: back in the editor's preview while
+    // writing one, back where it was started from when playing one.
+    onExit: () => {
+      const session = tourSession.session;
+      if (!session) return false;
+      if (session.kind === "play") endSession();
+      else navigator.go(session.returnTo);
+      return true;
+    },
+  });
+
+  // A report loaded or cleared changes what the Quality screen shows.
+  qualityStore.subscribe(() => {
+    if (state.view.screen === "quality") void screenPane.show(state.view);
+  });
+  // So does a tour saved, or the saved tours read for the first time; and
+  // Tours lists them all.
+  guideLibrary.subscribe(() => {
+    if (state.view.screen === "quality" || state.view.screen === "tours") void screenPane.show(state.view);
+  });
+
+  // Tours is reached from the options menu: a tool for writing tours, not a view of the feed.
+  if (parts.options) {
+    dom.el("tours-btn").addEventListener("click", () => {
+      dom.el("options-panel").classList.add("hidden");
+      navigator.showScreen("tours");
+    });
+    dom.el("studio-btn").addEventListener("click", () => {
+      dom.el("options-panel").classList.add("hidden");
+      window.open("/studio", "gtfs-garage-studio");
+    });
+  }
+  // Tours saved in this browser before the workdir kept them move there, once.
+  void moveBrowserTours(new LocalGuideStore(), guideLibrary.store)
+    .catch(() => [])
+    .then(async (moved) => {
+      await guideLibrary.ready();
+      if (moved.length) await guideLibrary.reload();
+    });
+
+  const lineNumbers = dom.el<HTMLInputElement>("line-numbers-input");
+  lineNumbers.addEventListener("change", () => {
+    state.showLines = lineNumbers.checked;
+    // Unlike raw values, the numbers are not on the page already: they are
+    // asked for, so the page is fetched again rather than redrawn.
+    if (!state.view.screen) void loadPage(state.view);
   });
 
   // A display preference, so it redraws the page in place rather than going
@@ -491,6 +809,16 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
   const onFeedLoaded = (data: TablesResponse, clientMs?: number, restoreFromUrl = false): void => {
     feedLoader?.close();
     dom.el("source-label").textContent = data.source;
+    // Before the first view: a link to a walkthrough step needs the report
+    // this session read for this feed.
+    qualityStore.useFeed(data.source);
+    if (options.report !== undefined && !qualityStore.report()) {
+      try {
+        qualityStore.load(options.report, "report.json");
+      } catch (error) {
+        console.error("The report passed to mount could not be read:", error);
+      }
+    }
     if (data.metrics) optionsMenu?.showMetrics(data.metrics, clientMs);
     state.tables = data.tables;
     // Narrowed per feed rather than per mount: the source is what decides, and
@@ -552,10 +880,12 @@ export async function mount(root: Element, options: ViewerOptions = {}): Promise
     if (feedLoader) feedLoader.open();
     else tableView.showMessage(`Could not load the feed: ${(error as Error).message}`);
   }
+  if (studio) await startStudio();
 
   return {
     destroy() {
       navigator.destroy();
+      assistant?.destroy();
       map?.destroy();
       root.replaceChildren();
       root.classList.remove("gtfs-viewer");

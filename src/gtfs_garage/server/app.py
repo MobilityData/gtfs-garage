@@ -16,7 +16,8 @@ from fastapi.staticfiles import StaticFiles
 from gtfs_garage import __version__
 from gtfs_garage_core.feed import GtfsLoadError
 from gtfs_garage_core.workspace import Workspace
-from gtfs_garage.server.routes import router
+from gtfs_garage.server.demo_feeds import DemoFeeds
+from gtfs_garage.server.routes import demo_router, router
 from gtfs_garage.server.state import FeedRegistry
 
 BUILD_COMMAND = "cd web && yarn install && yarn build"
@@ -143,18 +144,21 @@ def create_app(
         workdir_keep if workdir_keep is not None else _keep_from_env(),
     )
     registry = FeedRegistry(optimise=optimise, workspace=workspace)
+    demo_feeds = DemoFeeds(workspace, optimise=optimise)
     feed_path = feed_path or os.environ.get(FEED_ENV_VAR) or None
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
         registry.close()  # release the DuckDB connection and any uploaded files
+        demo_feeds.close()
 
     app = FastAPI(title="GTFS Garage", version=__version__, lifespan=lifespan)
     # GeoJSON is repetitive text and compresses roughly sevenfold, which is the
     # difference between a large feed's map arriving and the tab dying.
     app.add_middleware(GZipMiddleware, minimum_size=1024)
     app.state.feeds = registry
+    app.state.demo_feeds = demo_feeds
     app.state.workspace = workspace
     app.state.basemap = basemap or os.environ.get(BASEMAP_ENV_VAR) or DEFAULT_BASEMAP
 
@@ -173,6 +177,8 @@ def create_app(
         _open_startup_feed(registry, startup)
 
     app.include_router(router)
+    # Demo feeds answer the same reading API beside the server's own feed; see server/demo_feeds.py.
+    app.include_router(demo_router, prefix="/demos/{demo_id}", include_in_schema=False)
 
     static_root = web_root()
     if static_root.is_dir():
@@ -180,7 +186,9 @@ def create_app(
 
     # response_model=None: the return type is a union of Response subclasses,
     # which FastAPI would otherwise try to turn into a response model.
+    # The Tour Studio is the same page, which reads its path to know it is the studio.
     @app.get("/", include_in_schema=False, response_model=None)
+    @app.get("/studio", include_in_schema=False, response_model=None)
     def index() -> Response:
         if not frontend_is_built():
             return HTMLResponse(FRONTEND_MISSING_PAGE, status_code=503)

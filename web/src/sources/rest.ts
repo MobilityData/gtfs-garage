@@ -17,6 +17,10 @@ import type {
   Timetable,
   ValueCount,
   Workspace,
+  Demo,
+  DemoTable,
+  SavedGuideRecord,
+  QueryOptions,
 } from "./types";
 
 export class HttpError extends Error {
@@ -64,12 +68,14 @@ export class RestSource implements GtfsSource {
     filters: Filter[],
     page: number,
     pageSize: number,
+    options: QueryOptions = {},
   ): Promise<PageResponse> {
     const params = new URLSearchParams({
       page: String(page),
       page_size: String(pageSize),
       filters: JSON.stringify(filters),
     });
+    if (options.lines) params.set("lines", "true");
     return fetchJson<PageResponse>(
       `${this.baseUrl}/api/table/${encodeURIComponent(table)}?${params}`,
     );
@@ -151,6 +157,52 @@ export class RestSource implements GtfsSource {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ feed_id: id }),
     });
+  }
+
+  async demos(): Promise<Demo[]> {
+    return (await fetchJson<{ demos: Demo[] }>(`${this.baseUrl}/api/quality/demos`)).demos;
+  }
+
+  async demoReport(id: string): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/api/quality/demos/${encodeURIComponent(id)}/report`);
+    if (!response.ok) throw new Error(`Could not read the demo's report (${response.status}).`);
+    return response.text();
+  }
+
+  async demoTables(id: string): Promise<DemoTable[]> {
+    return (await fetchJson<{ tables: DemoTable[] }>(`${this.baseUrl}/api/quality/demos/${encodeURIComponent(id)}/tables`)).tables;
+  }
+
+  demoSource(id: string): RestSource {
+    return new RestSource(`${this.baseUrl}/demos/${encodeURIComponent(id)}`);
+  }
+
+  async savedGuides(): Promise<SavedGuideRecord[]> {
+    return (await fetchJson<{ guides: SavedGuideRecord[] }>(`${this.baseUrl}/api/quality/guides`)).guides;
+  }
+
+  saveGuide(code: string, yaml: string): Promise<SavedGuideRecord> {
+    return fetchJson<SavedGuideRecord>(`${this.baseUrl}/api/quality/guides/${encodeURIComponent(code)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ yaml }),
+    });
+  }
+
+  async removeSavedGuide(code: string): Promise<void> {
+    await fetchJson<unknown>(`${this.baseUrl}/api/quality/guides/${encodeURIComponent(code)}`, { method: "DELETE" });
+  }
+
+  addDemo(feedId: string, report: File, title?: string): Promise<Demo> {
+    const body = new FormData();
+    body.append("feed_id", feedId);
+    body.append("report", report);
+    if (title) body.append("title", title);
+    return fetchJson<Demo>(`${this.baseUrl}/api/quality/demos`, { method: "POST", body });
+  }
+
+  async removeDemo(id: string): Promise<Demo[]> {
+    return (await fetchJson<{ demos: Demo[] }>(`${this.baseUrl}/api/quality/demos/${encodeURIComponent(id)}`, { method: "DELETE" })).demos;
   }
 
   loadProgress(): Promise<LoadProgress> {

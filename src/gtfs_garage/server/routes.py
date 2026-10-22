@@ -10,10 +10,13 @@ from datetime import date
 from contextlib import contextmanager
 from typing import Any, Optional
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from gtfs_garage import __version__
+from gtfs_garage.quality import demos as demo_store
+from gtfs_garage.quality import saved_guides
+from gtfs_garage.quality.guides import GuideError
 from gtfs_garage_core import geojson as geojson_builders
 from gtfs_garage_core.feed import GtfsFeed, GtfsLoadError
 from gtfs_garage_core.network import (
@@ -35,7 +38,13 @@ from gtfs_garage_core.queries import (
 from gtfs_garage_core.service import NoCalendarError, calendar_summary
 from gtfs_garage_gen.models.calendar_response import CalendarResponse
 from gtfs_garage_gen.models.config_response import ConfigResponse
+from gtfs_garage_gen.models.demo import Demo
+from gtfs_garage_gen.models.demo_list_response import DemoListResponse
+from gtfs_garage_gen.models.demo_tables_response import DemoTablesResponse
 from gtfs_garage_gen.models.distinct_response import DistinctResponse
+from gtfs_garage_gen.models.save_guide_request import SaveGuideRequest
+from gtfs_garage_gen.models.saved_guide import SavedGuide
+from gtfs_garage_gen.models.saved_guide_list_response import SavedGuideListResponse
 from gtfs_garage_gen.models.load_progress import LoadProgress
 from gtfs_garage_gen.models.overview_response import OverviewResponse
 from gtfs_garage_gen.models.page_response import PageResponse
@@ -45,13 +54,30 @@ from gtfs_garage_gen.models.timetable_response import TimetableResponse
 from gtfs_garage_gen.models.startup_feed_request import StartupFeedRequest
 from gtfs_garage_gen.models.tables_response import TablesResponse
 from gtfs_garage_gen.models.workspace_response import WorkspaceResponse
+from gtfs_garage.server.demo_feeds import UnknownDemoError
 from gtfs_garage.server.state import FeedRecord, FeedRegistry, NoFeedLoadedError
 
 router = APIRouter(prefix="/api")
 
 
 def _registry(request: Request) -> FeedRegistry:
-    return request.app.state.feeds
+    """The registry this request reads: the server's own, or a demo's under /demos/{demo_id}/."""
+    # By the prefix, not the parameter: /api/quality/demos/{demo_id} names a
+    # demo too, and is about the demo, not served from its feed.
+    demo_id = request.path_params.get("demo_id") if request.url.path.startswith("/demos/") else None
+    if demo_id is None:
+        return request.app.state.feeds
+    try:
+        return request.app.state.demo_feeds.registry(demo_id)
+    except UnknownDemoError:
+        raise HTTPException(status_code=404, detail="No such demo.")
+    except GtfsLoadError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+def _held(request: Request) -> set[str]:
+    """Workdir slots open for the server's feed or a demo's, which must not be deleted."""
+    return _registry(request).held_slots() | request.app.state.demo_feeds.held_slots()
 
 
 def _feed(request: Request) -> GtfsFeed:
@@ -217,7 +243,7 @@ def remove_workspace_feed(request: Request, feed_id: str) -> dict[str, Any]:
     reads, and removing it would break the page rather than tidy it.
     """
     registry = _registry(request)
-    if feed_id in registry.held_slots():
+    if feed_id in _held(request):
         raise HTTPException(status_code=409, detail="That feed is open. Load another one first.")
     if registry.workspace.existing(feed_id) is None:
         raise HTTPException(status_code=404, detail="No such feed in the workdir.")
@@ -234,8 +260,119 @@ def clear_workspace(request: Request) -> dict[str, Any]:
     Load another feed first, then this removes it like any other.
     """
     registry = _registry(request)
-    registry.workspace.clear(registry.held_slots())
+    registry.workspace.clear(_held(request))
     return _workspace_payload(registry)
+
+
+def _demo_payload(registry: FeedRegistry, demo: demo_store.Demo) -> dict[str, Any]:
+    try:
+        notices = demo_store.notice_counts(demo_store.read_report(demo))
+    except (OSError, ValueError):
+        notices = {}
+    return {
+        "id": demo.id,
+        "title": demo.title,
+        "description": demo.description,
+        "builtin": demo.builtin,
+        "available": demo_store.available(registry.workspace, demo),
+        "feed_id": demo.feed_id,
+        "notices": notices,
+    }
+
+
+def _demos_payload(registry: FeedRegistry) -> dict[str, Any]:
+    return {"demos": [_demo_payload(registry, demo) for demo in demo_store.all_demos(registry.workspace)]}
+
+
+def _demo(request: Request, demo_id: str) -> demo_store.Demo:
+    demo = demo_store.find(_registry(request).workspace, demo_id)
+    if demo is None:
+        raise HTTPException(status_code=404, detail="No such demo.")
+    return demo
+
+
+@router.get("/quality/demos", response_model=DemoListResponse, tags=["quality"])
+def list_demos(request: Request) -> dict[str, Any]:
+    """The demo feeds, with how often each notice occurs in each."""
+    return _demos_payload(_registry(request))
+
+
+@router.post("/quality/demos", response_model=Demo, tags=["quality"])
+def add_demo(
+    request: Request,
+    feed_id: str = Form(...),
+    report: UploadFile = File(...),
+    title: str = Form(""),
+    description: str = Form(""),
+) -> dict[str, Any]:
+    """Keep a workdir feed and its validation report as a demo."""
+    registry = _registry(request)
+    try:
+        text = report.file.read().decode("utf-8-sig")
+        demo = demo_store.add_own(registry.workspace, feed_id, title.strip(), text, description.strip())
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="The report is not UTF-8 text.")
+    except demo_store.DemoError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return _demo_payload(registry, demo)
+
+
+@router.delete("/quality/demos/{demo_id}", response_model=DemoListResponse, tags=["quality"])
+def remove_demo(request: Request, demo_id: str) -> dict[str, Any]:
+    """Forget a demo of your own; its feed stays in the workdir."""
+    registry = _registry(request)
+    if not demo_store.remove_own(registry.workspace, demo_id):
+        raise HTTPException(status_code=404, detail="No such demo of your own.")
+    request.app.state.demo_feeds.forget(demo_id)
+    return _demos_payload(registry)
+
+
+@router.get("/quality/demos/{demo_id}/report", tags=["quality"])
+def get_demo_report(request: Request, demo_id: str) -> dict[str, Any]:
+    """The report gtfs-validator wrote for the demo's feed."""
+    try:
+        return demo_store.read_report(_demo(request, demo_id))
+    except (OSError, ValueError):
+        raise HTTPException(status_code=404, detail="The demo's report cannot be read.")
+
+
+@router.get("/quality/demos/{demo_id}/tables", response_model=DemoTablesResponse, tags=["quality"])
+def get_demo_tables(request: Request, demo_id: str) -> dict[str, Any]:
+    """The demo's files and their columns, without opening its feed."""
+    demo = _demo(request, demo_id)
+    return {"tables": demo_store.tables(_registry(request).workspace, demo)}
+
+
+@router.get("/quality/guides", response_model=SavedGuideListResponse, tags=["quality"])
+def list_saved_guides(request: Request) -> dict[str, Any]:
+    """Every tour saved in the workdir, which wins over the built-in one for its notice."""
+    return {"guides": saved_guides.list_saved(_registry(request).workspace)}
+
+
+@router.get("/quality/guides/{code}", response_model=SavedGuide, tags=["quality"])
+def get_saved_guide(request: Request, code: str) -> dict[str, Any]:
+    saved = saved_guides.get(_registry(request).workspace, code)
+    if saved is None:
+        raise HTTPException(status_code=404, detail="No tour is saved for that notice.")
+    return saved
+
+
+@router.put("/quality/guides/{code}", response_model=SavedGuide, tags=["quality"])
+def save_guide(request: Request, code: str, body: SaveGuideRequest) -> dict[str, Any]:
+    """Check a tour and keep it; refused, saving nothing, when the check fails."""
+    try:
+        return saved_guides.save(_registry(request).workspace, code, body.yaml)
+    except GuideError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.delete("/quality/guides/{code}", response_model=SavedGuideListResponse, tags=["quality"])
+def remove_saved_guide(request: Request, code: str) -> dict[str, Any]:
+    """Forget a saved tour, so the built-in one, or the automatic one, explains the notice again."""
+    workspace = _registry(request).workspace
+    if not saved_guides.remove(workspace, code):
+        raise HTTPException(status_code=404, detail="No tour is saved for that notice.")
+    return {"guides": saved_guides.list_saved(workspace)}
 
 
 @router.post("/load", response_model=TablesResponse)
@@ -314,6 +451,7 @@ def get_table(
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),
     filters: str = "[]",
+    lines: bool = False,
 ) -> dict[str, Any]:
     try:
         parsed_filters = json.loads(filters)
@@ -324,7 +462,7 @@ def get_table(
 
     try:
         with _reading(request) as feed:
-            return query_table(feed, table, parsed_filters, page, page_size)
+            return query_table(feed, table, parsed_filters, page, page_size, lines)
     except UnknownTableError:
         raise HTTPException(status_code=404, detail=f"Unknown table '{table}'")
 
@@ -504,3 +642,17 @@ def routes_geojson(request: Request):
         geojson_builders.iter_routes,
         geojson_builders.shape_step,
     )
+
+
+def _readable_by_a_demo(route: object) -> bool:
+    """A route a demo feed answers too: the reading ones, not loading, the workdir or Quality."""
+    path = getattr(route, "path", "")
+    methods = getattr(route, "methods", set()) or set()
+    return methods <= {"GET", "HEAD"} and not path.startswith(("/api/workspace", "/api/quality", "/api/load"))
+
+
+# The same reading API, for a demo feed, under /demos/{demo_id}: `_registry`
+# picks the demo's registry from the path. Not in the OpenAPI document, which
+# describes the paths once; these are those paths again, for another feed.
+demo_router = APIRouter()
+demo_router.routes.extend(route for route in router.routes if _readable_by_a_demo(route))

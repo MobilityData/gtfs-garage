@@ -27,6 +27,8 @@ dependencies = [
     "gtfs-garage-core==0.6.0",
     "fastapi~=0.141",
     "python-multipart~=0.0.32",
+    # Tours saved from the editor are YAML, checked and kept by the server.
+    "pyyaml~=6.0",
     "uvicorn~=0.52",
 ]
 

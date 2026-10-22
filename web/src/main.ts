@@ -18,10 +18,15 @@ import { browserHistory } from "./ui/history";
 const root = document.getElementById("gtfs-garage");
 if (!root) throw new Error("Missing #gtfs-garage to mount into");
 
+// The Tour Studio is the same application at /studio, opened in a tab of its
+// own: no feed to load and no menu, always locked to the tour being written.
+const studio = window.location.pathname.replace(/\/+$/, "").endsWith("/studio");
+
 void mount(root, {
   // The application always shows a map, so it takes the part unconditionally.
   // An embedded viewer imports it only if its host wants one.
   map: mapPart,
-  parts: { load: true, options: true },
+  parts: studio ? { load: false, options: false } : { load: true, options: true },
   history: browserHistory(),
+  studio,
 });

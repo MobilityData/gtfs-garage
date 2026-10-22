@@ -218,6 +218,7 @@ export class Navigator {
       argument: view.argument,
       date: view.date,
       params: view.params ? { ...view.params } : undefined,
+      assist: view.assist ? { ...view.assist } : undefined,
     };
     this.state.columnInfoByName = info
       ? Object.fromEntries(info.columns.map((c) => [c.name, c]))

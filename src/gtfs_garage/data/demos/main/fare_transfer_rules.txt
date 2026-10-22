@@ -1,0 +1,6 @@
+from_leg_group_id,to_leg_group_id,transfer_count,duration_limit,duration_limit_type,fare_transfer_type
+LG1,LG1,,5400,1,0
+LG1,LG2,1,5400,1,0
+LG2,LG2,0,5400,1,0
+LG2,LG1,,,1,0
+LG3,LG1,,3600,,0

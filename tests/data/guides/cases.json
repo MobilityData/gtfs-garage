@@ -1,0 +1,828 @@
+{
+ "comment": "Guides and the first problem each validator must report: gtfs_garage/quality/guides.py (tests/test_guides.py) and web/src/quality/validate.ts (validate.test.ts). null means the guide is good.",
+ "code": "x",
+ "fields": [
+  "stopId",
+  "csvRowNumber"
+ ],
+ "cases": [
+  {
+   "name": "a good guide",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": null
+  },
+  {
+   "name": "map and table actions in one step",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       },
+       {
+        "kind": "map_focus",
+        "stops": [
+         "{{stopId}}"
+        ]
+       },
+       {
+        "kind": "map_measure",
+        "from": {
+         "stop": "{{stopId}}"
+        },
+        "to": {
+         "stop": "{{stopId}}"
+        },
+        "threshold": 100
+       }
+      ]
+     }
+    ]
+   },
+   "error": null
+  },
+  {
+   "name": "not a mapping",
+   "guide": [
+    "x"
+   ],
+   "error": "x: a guide is a mapping"
+  },
+  {
+   "name": "the wrong code",
+   "guide": {
+    "code": "y",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x.yaml: `code` must be 'x', found 'y'"
+  },
+  {
+   "name": "an unknown key",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ],
+    "title": "t"
+   },
+   "error": "x: unknown keys ['title']"
+  },
+  {
+   "name": "locators as a list",
+   "guide": {
+    "code": "x",
+    "locators": [
+     "stop"
+    ],
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: `locators` must be a mapping"
+  },
+  {
+   "name": "a locator without a file",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: locator stop: needs a `file`"
+  },
+  {
+   "name": "a locator for a whole file",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops"
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": null
+  },
+  {
+   "name": "a locator with an unknown key",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "line": "{{csvRowNumber}}",
+      "row": 1
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: locator stop: unknown keys ['row']"
+  },
+  {
+   "name": "a locator using a field the notice lacks",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{routeId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: locator stop: {{routeId}} is not a field of this notice (csvRowNumber, stopId)"
+  },
+  {
+   "name": "no steps",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": []
+   },
+   "error": "x: needs at least one step"
+  },
+  {
+   "name": "a step without text",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "actions": []
+     }
+    ]
+   },
+   "error": "x: step 1: needs `text`"
+  },
+  {
+   "name": "a step with an unknown key",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "note": "n"
+     }
+    ]
+   },
+   "error": "x: step 1: unknown keys ['note']"
+  },
+  {
+   "name": "a card pointing at the sidebar",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "point": "sidebar"
+     }
+    ]
+   },
+   "error": "x: step 1: cannot point at 'sidebar' (only ['map', 'rows'])"
+  },
+  {
+   "name": "a field the notice does not have",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Route {{routeId}}"
+     }
+    ]
+   },
+   "error": "x: step 1: {{routeId}} is not a field of this notice (csvRowNumber, stopId)"
+  },
+  {
+   "name": "an unknown formatter",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "{{csvRowNumber|furlongs}}"
+     }
+    ]
+   },
+   "error": "x: step 1: unknown formatter '|furlongs' (known: coord, date, days, from1, km, kmh, m, min, round, words, yesno)"
+  },
+  {
+   "name": "clear as a word",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "clear": "map"
+     }
+    ]
+   },
+   "error": "x: step 1: `clear` must be a list"
+  },
+  {
+   "name": "clearing the sidebar",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "clear": [
+       "sidebar"
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: cannot clear 'sidebar' (only ['map', 'panel', 'rows'])"
+  },
+  {
+   "name": "actions as a mapping",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": {
+       "kind": "calendar"
+      }
+     }
+    ]
+   },
+   "error": "x: step 1: `actions` must be a list"
+  },
+  {
+   "name": "an unknown action",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "teleport"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: unknown action 'teleport' (known: calendar, chart, compare_records, custom, follow_link, map_focus, map_measure, map_play, map_race, map_sequence, open_rows, show_colors, show_columns, show_files, show_model, show_record, show_value, timeline, timetable)"
+  },
+  {
+   "name": "an action with no kind",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "at": "stop"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: unknown action None (known: calendar, chart, compare_records, custom, follow_link, map_focus, map_measure, map_play, map_race, map_sequence, open_rows, show_colors, show_columns, show_files, show_model, show_record, show_value, timeline, timetable)"
+  },
+  {
+   "name": "an argument an action does not take",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "map_focus",
+        "colour": "red"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: map_focus does not take ['colour']"
+  },
+  {
+   "name": "a custom action with arguments outside args",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "custom",
+        "handler": "h",
+        "colour": "red"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: custom does not take ['colour']"
+  },
+  {
+   "name": "an action without an argument it needs",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "map_measure",
+        "from": {
+         "stop": "{{stopId}}"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: map_measure needs to"
+  },
+  {
+   "name": "an empty required argument",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": ""
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: open_rows needs at"
+  },
+  {
+   "name": "an undeclared locator",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "elsewhere"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: open_rows.at names undeclared locator 'elsewhere'"
+  },
+  {
+   "name": "a locator argument that is a list",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": [
+         "stop"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: open_rows.at names undeclared locator ['stop']"
+  },
+  {
+   "name": "an action argument using a field the notice lacks",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "map_focus",
+        "stops": [
+         "{{routeId}}"
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1 map_focus: {{routeId}} is not a field of this notice (csvRowNumber, stopId)"
+  },
+  {
+   "name": "two content actions in one step",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "t",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       },
+       {
+        "kind": "calendar"
+       }
+      ]
+     }
+    ]
+   },
+   "error": "x: step 1: at most one action may change the table or screen; found 2"
+  },
+  {
+   "name": "fix as a sentence",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ],
+    "fix": "Fix it."
+   },
+   "error": "x: `fix` must be a list"
+  },
+  {
+   "name": "a fix line that is not text",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ],
+    "fix": [
+     3
+    ]
+   },
+   "error": "x: fix 1: needs to be a sentence"
+  },
+  {
+   "name": "a fix line using a field the notice lacks",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stopId}}",
+      "actions": [
+       {
+        "kind": "open_rows",
+        "at": "stop"
+       }
+      ]
+     }
+    ],
+    "fix": [
+     "Change {{routeId}}"
+    ]
+   },
+   "error": "x: fix 1: {{routeId}} is not a field of this notice (csvRowNumber, stopId)"
+  },
+  {
+   "name": "a placeholder that cannot be read",
+   "guide": {
+    "code": "x",
+    "locators": {
+     "stop": {
+      "file": "stops",
+      "key": {
+       "stop_id": "{{stopId}}"
+      }
+     }
+    },
+    "steps": [
+     {
+      "text": "Stop {{stop Id}}"
+     }
+    ]
+   },
+   "error": "x: step 1: {{stop Id}} is not a placeholder: write {{field}} or {{field|formatter}}"
+  },
+  {
+   "name": "a formatter with a digit in its name",
+   "guide": {
+    "code": "x",
+    "steps": [
+     {
+      "text": "Row {{csvRowNumber|from1}}"
+     }
+    ]
+   },
+   "error": null
+  }
+ ]
+}

@@ -18,6 +18,7 @@ const KIND_LABELS: Record<NonNullable<LoadMetrics["kind"]>, string> = {
   upload: "Upload",
   folder: "Folder upload",
   download: "Download",
+  demo: "Demo feed",
 };
 
 export function formatBytes(bytes: number): string {

@@ -1,0 +1,267 @@
+{
+  "type": "FeatureCollection",
+  "name": "Valley zones",
+  "features": [
+    {
+      "id": "LOC1",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "Valley west"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.72,
+              45.6
+            ],
+            [
+              -73.67999999999999,
+              45.6
+            ],
+            [
+              -73.67999999999999,
+              45.64
+            ],
+            [
+              -73.72,
+              45.64
+            ],
+            [
+              -73.72,
+              45.6
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC2",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "Valley east"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.7,
+              45.61
+            ],
+            [
+              -73.66,
+              45.61
+            ],
+            [
+              -73.66,
+              45.65
+            ],
+            [
+              -73.7,
+              45.65
+            ],
+            [
+              -73.7,
+              45.61
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC3",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "Valley north"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.72,
+              45.66
+            ],
+            [
+              -73.69,
+              45.66
+            ],
+            [
+              -73.69,
+              45.69
+            ],
+            [
+              -73.72,
+              45.69
+            ],
+            [
+              -73.72,
+              45.66
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC3",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "Valley north again"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.68,
+              45.66
+            ],
+            [
+              -73.65,
+              45.66
+            ],
+            [
+              -73.65,
+              45.69
+            ],
+            [
+              -73.68,
+              45.69
+            ],
+            [
+              -73.68,
+              45.66
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC4",
+      "type": "Feat",
+      "properties": {
+        "stop_name": "Misspelt feature type"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.64,
+              45.66
+            ],
+            [
+              -73.62,
+              45.66
+            ],
+            [
+              -73.62,
+              45.68
+            ],
+            [
+              -73.64,
+              45.68
+            ],
+            [
+              -73.64,
+              45.66
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC5",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "Line zone"
+      },
+      "style": "dashed",
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              -73.6,
+              45.7
+            ],
+            [
+              -73.58,
+              45.71
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC6",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "Null Island"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              0.1,
+              0.1
+            ],
+            [
+              0.11,
+              0.1
+            ],
+            [
+              0.11,
+              0.11
+            ],
+            [
+              0.1,
+              0.11
+            ],
+            [
+              0.1,
+              0.1
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "id": "LOC7",
+      "type": "Feature",
+      "properties": {
+        "stop_name": "North Pole"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -73.6,
+              89.5
+            ],
+            [
+              -73.58999999999999,
+              89.5
+            ],
+            [
+              -73.58999999999999,
+              89.51
+            ],
+            [
+              -73.6,
+              89.51
+            ],
+            [
+              -73.6,
+              89.5
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

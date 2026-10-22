@@ -1,0 +1,3 @@
+route_id,service_id,trip_id,trip_headsign,direction_id,shape_id
+R10,WKDY,T10-1,Guy,0,SH10
+R10,WKDY,T10-2,Guy,0,SH10

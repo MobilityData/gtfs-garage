@@ -1,0 +1,2 @@
+agency_id,agency_name,agency_url,agency_timezone,agency_lang
+RTA,Riverside Transit Authority,https://example.org/rta,America/Montreal,en

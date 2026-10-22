@@ -1,0 +1,28 @@
+code: stop_too_far_from_shape
+
+locators:
+  stop:      { file: stops,      key: { stop_id: "{{stopId}}" } }
+  trip:      { file: trips,      line: "{{tripCsvRowNumber}}",     key: { trip_id: "{{tripId}}" } }
+  stop_time: { file: stop_times, line: "{{stopTimeCsvRowNumber}}", key: { trip_id: "{{tripId}}", stop_id: "{{stopId}}" } }
+
+steps:
+  - text: "{{stopName}} is {{geoDistanceToShape|m}} from shape {{shapeId}}, the line trip {{tripId}} is drawn with. Stops should be within 100 m of it, or apps show the vehicle passing far from where riders wait."
+    point: map
+    actions:
+      - { kind: open_rows,   at: stop, highlight: [stop_lat, stop_lon] }
+      - { kind: map_focus,   shapes: ["{{shapeId}}"], stops: ["{{stopId}}"] }
+      - { kind: map_measure, from: { stop: "{{stopId}}" }, to: { point: "{{match}}" }, threshold: 100 }
+
+  - text: "{{stopName}} among the stops of trip {{tripId}} in `stop_times.txt`, the timetable: one row per stop each trip makes. The map numbers them in order."
+    actions:
+      - { kind: open_rows,    at: stop_time, highlight: [stop_id, stop_sequence] }
+      - { kind: map_sequence, trip: "{{tripId}}", mark: ["{{stopId}}"] }
+
+  - text: "In `trips.txt`, the list of trips, `shape_id` says which line the trip is drawn with. If it should follow another line, this is the value to change."
+    actions:
+      - { kind: open_rows, at: trip, highlight: [shape_id] }
+
+fix:
+  - "If the stop is in the wrong place, correct `stop_lat` and `stop_lon` for {{stopId}} in `stops.txt`."
+  - "If the line is wrong, redraw shape {{shapeId}} so it passes within 100 m of {{stopName}}, or give trip {{tripId}} a different `shape_id`."
+  - "If the vehicle really leaves the line to serve this stop, add the detour to shape {{shapeId}}."

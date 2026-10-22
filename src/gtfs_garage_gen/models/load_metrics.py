@@ -34,7 +34,7 @@ class LoadMetrics(BaseModel):
     What the feed cost to open.  Two mutually exclusive shapes. A server load reports `kind` and the timings below it. A source that performed no server load - a browser reading Parquet over range requests never downloads, unzips or converts - reports `phases` instead and omits the rest. A zero would say the work took no time rather than that it did not happen, which is why the fields are absent rather than zeroed. 
     """ # noqa: E501
     phases: Optional[List[LoadPhaseTiming]] = Field(default=None, description="Phases this source actually performed. Present only for a source that is not a server load.")
-    kind: Optional[StrictStr] = Field(default=None, description="How the feed reached the server. Absent for a non-server source.")
+    kind: Optional[StrictStr] = Field(default=None, description="How the feed reached the server; `demo` for a built-in demo feed. Absent for a non-server source.")
     acquire_ms: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Downloading or receiving the upload; null for a local path.")
     acquire_bytes: Optional[StrictInt] = None
     extract_ms: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Unzipping; null when the source was already-extracted files.")
@@ -53,8 +53,8 @@ class LoadMetrics(BaseModel):
         if value is None:
             return value
 
-        if value not in ('path', 'upload', 'folder', 'download'):
-            raise ValueError("must be one of enum values ('path', 'upload', 'folder', 'download')")
+        if value not in ('path', 'upload', 'folder', 'download', 'demo'):
+            raise ValueError("must be one of enum values ('path', 'upload', 'folder', 'download', 'demo')")
         return value
 
     model_config = {

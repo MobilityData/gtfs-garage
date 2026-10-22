@@ -1,0 +1,4 @@
+stop_id,stop_name,stop_lat,stop_lon,stop_notes
+S101,Riverside Terminal,45.500000,-73.600000,
+S102,Atwater,north,-73.590000,
+S103,Guy,95.000000,-73.580000,

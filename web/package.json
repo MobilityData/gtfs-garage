@@ -24,7 +24,8 @@
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "yaml": "^2.8.1"
   },
   "resolutions": {
     "vite": "^6.0.5"

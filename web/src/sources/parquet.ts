@@ -25,9 +25,11 @@ import type {
   Timetable,
   ViewerSource,
   PageResponse,
+  QueryOptions,
   TablesResponse,
   ValueCount,
 } from "./types";
+import { LINE_COLUMN } from "./types";
 import { columnInfo, missingFiles, schemaTables } from "../schema";
 import { createExplore, type Catalogue, type Explore } from "./explore";
 import { createMapGeometry, type MapGeometry } from "./explore/geojson";
@@ -46,6 +48,8 @@ interface Manifest {
     bytes?: number | null;
     compressed_bytes?: number | null;
     parquet_bytes?: number;
+    /** Whether line numbers were checked against the source file. See `core/src/gtfs_garage_core/lines.py`. */
+    lines?: "exact" | "approximate";
   }[];
 }
 
@@ -94,6 +98,17 @@ export function buildWhere(known: string[], filters: Filter[]): string {
     const column = `"${filter.column}"`;
     const value = filter.value ?? "";
 
+    // The line is an integer, compared as one, as `core/filters.py` does; a
+    // value that is not a number selects nothing rather than being inlined.
+    if (filter.column === LINE_COLUMN) {
+      const parts = value.split(",").map((v) => v.trim()).filter(Boolean);
+      if (!parts.length || !parts.every((part) => /^\d+$/.test(part)) || !["eq", "ne", "in"].includes(filter.op)) {
+        clauses.push("FALSE");
+      } else if (filter.op === "ne") clauses.push(`${column} != ${parts[0]}`);
+      else clauses.push(`${column} IN (${parts.join(", ")})`);
+      continue;
+    }
+
     let op: string = filter.op;
     if (op === "eq" && value === "") op = "is_empty";
     else if (op === "ne" && value === "") op = "is_not_empty";
@@ -136,6 +151,8 @@ export class ParquetSource implements ViewerSource {
   private reading: Promise<void> | null = null;
   private terminate: (() => Promise<void>) | null = null;
   private present: Record<string, string[]> = {};
+  /** Tables whose Parquet stores `_line`; the rest are numbered by position. */
+  private storedLines = new Set<string>();
   private startupMs = 0;
   private manifestMs: number | null = null;
   private firstQueryMs = 0;
@@ -311,9 +328,12 @@ export class ParquetSource implements ViewerSource {
             await connection.query(`DESCRIBE SELECT * FROM ${this.file(table)}`)
           ).toArray();
           const counted = await connection.query(`SELECT count(*) AS n FROM ${this.file(table)}`);
+          const all = described.map((row) => String(row.column_name));
           return {
             table,
-            columns: described.map((row) => String(row.column_name)),
+            // The stored line is not a GTFS field, so it is never a column.
+            columns: all.filter((column) => column !== LINE_COLUMN),
+            storesLines: all.includes(LINE_COLUMN),
             rowCount: Number(counted.toArray()[0].n),
           };
         } catch (error) {
@@ -326,6 +346,7 @@ export class ParquetSource implements ViewerSource {
     );
 
     const summaries = probed.filter((entry) => entry !== null);
+    this.storedLines = new Set(summaries.filter((entry) => entry.storesLines).map((entry) => entry.table));
     for (const entry of summaries) this.present[entry.table] = entry.columns;
 
     if (!summaries.length) {
@@ -374,18 +395,43 @@ export class ParquetSource implements ViewerSource {
         row_count: rowCount,
         columns: columns.map((column) => columnInfo(table, column, this.present)),
         forbidden: null,
+        // A dataset that recorded no verdict is numbered by position all the
+        // same, but not vouched for. Zones are a GeoJSON document, not lines.
+        lines: table === "locations" ? null : (described.get(table)?.lines ?? "approximate"),
       })),
       missing: missingFiles(this.present),
     };
   }
 
-  async query(table: string, filters: Filter[], page: number, pageSize: number): Promise<PageResponse> {
+  /**
+   * The table with `_line` added, as `GtfsFeed.line_source` builds it.
+   *
+   * A stored column where the conversion had to write one, the position plus
+   * two otherwise: DuckDB keeps a CSV's record order through the conversion.
+   */
+  private lineSource(table: string): string {
+    if (this.storedLines.has(table)) return this.file(table);
+    return `(SELECT * EXCLUDE (file_row_number), file_row_number + 2 AS "${LINE_COLUMN}"
+             FROM read_parquet(${this.file(table)}, file_row_number = true))`;
+  }
+
+  async query(
+    table: string,
+    filters: Filter[],
+    page: number,
+    pageSize: number,
+    options: QueryOptions = {},
+  ): Promise<PageResponse> {
     const columns = this.present[table] ?? [];
-    const where = buildWhere(columns, filters);
-    const counted = await this.rows(`SELECT count(*) AS n FROM ${this.file(table)} ${where}`);
+    const byLine =
+      table !== "locations" && (Boolean(options.lines) || filters.some((filter) => filter.column === LINE_COLUMN));
+    const relation = byLine ? this.lineSource(table) : this.file(table);
+    const where = buildWhere(byLine ? [...columns, LINE_COLUMN] : columns, filters);
+    const counted = await this.rows(`SELECT count(*) AS n FROM ${relation} ${where}`);
     const list = columns.map((c) => `"${c}"`).join(", ");
     const rows = await this.rows(
-      `SELECT ${list} FROM ${this.file(table)} ${where} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+      `SELECT ${list}${byLine ? `, "${LINE_COLUMN}"` : ""} FROM ${relation} ${where}
+       ${byLine ? `ORDER BY "${LINE_COLUMN}"` : ""} LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
     );
 
     return {
@@ -396,6 +442,7 @@ export class ParquetSource implements ViewerSource {
       total: Number(counted[0].n),
       page,
       page_size: pageSize,
+      lines: byLine && options.lines ? rows.map((row) => Number(row[LINE_COLUMN])) : null,
     };
   }
 

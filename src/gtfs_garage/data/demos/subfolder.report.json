@@ -1,0 +1,82 @@
+{
+  "summary": {
+    "validatorVersion": "8.0.1",
+    "validatedAt": "2026-10-15T00:00:00Z",
+    "gtfsInput": "subfolder.zip",
+    "threads": 1,
+    "outputDirectory": "",
+    "systemErrorsReportName": "system_errors.json",
+    "validationReportName": "report.json",
+    "htmlReportName": "report.html",
+    "countryCode": "CA",
+    "dateForValidation": "2026-10-15",
+    "feedInfo": {
+      "publisherName": "",
+      "publisherUrl": "",
+      "feedLanguage": "",
+      "feedEmail": ""
+    },
+    "agencies": [],
+    "files": [],
+    "validationTimeSeconds": 0,
+    "counts": {
+      "Shapes": 0,
+      "Stops": 0,
+      "Routes": 0,
+      "Trips": 0,
+      "Agencies": 0,
+      "Blocks": 0
+    },
+    "gtfsFeatures": []
+  },
+  "notices": [
+    {
+      "code": "invalid_input_files_in_subfolder",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {}
+      ]
+    },
+    {
+      "code": "missing_calendar_and_calendar_date_files",
+      "severity": "ERROR",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {}
+      ]
+    },
+    {
+      "code": "missing_recommended_file",
+      "severity": "WARNING",
+      "totalNotices": 1,
+      "sampleNotices": [
+        {
+          "filename": "feed_info.txt"
+        }
+      ]
+    },
+    {
+      "code": "missing_required_file",
+      "severity": "ERROR",
+      "totalNotices": 5,
+      "sampleNotices": [
+        {
+          "filename": "stop_times.txt"
+        },
+        {
+          "filename": "agency.txt"
+        },
+        {
+          "filename": "routes.txt"
+        },
+        {
+          "filename": "trips.txt"
+        },
+        {
+          "filename": "stops.txt"
+        }
+      ]
+    }
+  ]
+}

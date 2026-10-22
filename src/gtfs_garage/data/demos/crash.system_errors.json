@@ -1,0 +1,21 @@
+{
+  "notices": [
+    {
+      "code": "runtime_exception_in_validator_error",
+      "severity": "ERROR",
+      "totalNotices": 2,
+      "sampleNotices": [
+        {
+          "validator": "org.mobilitydata.gtfsvalidator.validator.FeedServiceWindowValidator",
+          "exception": "java.lang.IllegalArgumentException",
+          "message": "serviceStart (2026-12-31) must be before or equal to serviceEnd (2026-01-01)"
+        },
+        {
+          "validator": "org.mobilitydata.gtfsvalidator.validator.ServiceSpreadValidator",
+          "exception": "java.lang.IllegalArgumentException",
+          "message": "serviceStart (2026-12-31) must be before or equal to serviceEnd (2026-01-01)"
+        }
+      ]
+    }
+  ]
+}

@@ -53,6 +53,11 @@ DUCKDB_DIR = "duckdb"
 RECORD = "feed.json"
 STARTUP = "startup.json"
 
+# The kind of a slot holding a built-in demo feed (see gtfs_garage/quality/demos.py). Tiny,
+# and opened to try a Quality tour rather than to work on, so retention neither
+# counts nor evicts them: trying tours must not push someone's feeds out.
+DEMO_KIND = "demo"
+
 # How many feeds a workspace keeps. 1 means the previous feed goes as soon as a
 # new one lands; 0 means nothing is ever evicted.
 DEFAULT_KEEP = 3
@@ -329,7 +334,8 @@ class Workspace:
 
         `protected` names the slots of feeds that are still open. Deleting a
         Parquet file out from under a running query is the one thing this must
-        not do, so they are never candidates however the dates sort.
+        not do, so they are never candidates however the dates sort. Demo
+        slots are left out altogether: not counted, and not evicted.
         """
         if self.keep <= 0:
             return []
@@ -337,6 +343,8 @@ class Workspace:
         survivors = 0
         removed = []
         for entry in self.entries():
+            if entry.kind == DEMO_KIND:
+                continue
             survivors += 1
             if survivors > self.keep and entry.id not in held:
                 self.remove(entry.id)
