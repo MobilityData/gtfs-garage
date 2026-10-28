@@ -44,7 +44,7 @@ perf = ["playwright~=1.49"]
 schema = ["linkml~=1.9", "mkdocs~=1.6", "mkdocs-material~=9.5"]
 # Only needed to query a feed from Python; the server extra adds the web UI.
 dev = [
-    "black==26.3.1",
+    "black==26.10.1",
     "coverage~=7.6",
     "flake8==6.0.0",
     "httpx~=0.28",

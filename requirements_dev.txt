@@ -1,5 +1,5 @@
 # Matches the tooling and pins used across MobilityData Python components.
-black==26.3.1
+black==26.10.1
 coverage~=7.6
 flake8==6.0.0
 httpx~=0.28
