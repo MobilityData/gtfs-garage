@@ -8,7 +8,7 @@ on:
 
 env:
   python_version: "3.11"
-  node_version: "22"
+  node_version: "24"
 
 jobs:
   python:
