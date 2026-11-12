@@ -95,7 +95,7 @@ import step and only the rows on screen are ever materialised.
 ## Requirements
 
 Python 3.11 or newer. Released packages ship with the interface already built,
-so installing does not require Node. Node 22 or newer is needed only to work
+so installing does not require Node. Node 24.22.3 or newer is needed only to work
 from a source checkout, where the frontend has to be built once.
 
 ## Installation & Usage
